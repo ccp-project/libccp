@@ -1,6 +1,5 @@
 #include "serialize.h"
 #include "send_machine.h"
-#include "measurement_machine.h"
 #include "ccp.h"
 
 // ugh

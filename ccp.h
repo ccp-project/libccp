@@ -10,6 +10,7 @@
 #ifndef CCP_H
 #define CCP_H
 
+#include "common_headers.h"
 #include "serialize.h"
 #include "send_machine.h"
 #include "measurement_machine.h"
@@ -22,13 +23,6 @@ typedef uint64_t u64;
 
 #define MAX_INSTRUCTIONS 20
 
-struct ccp_primitives {
-    u64 ack;
-    u64 rtt;
-    u64 loss;
-    u64 rin;
-    u64 rout;
-};
 
 // CCP connection lookup
 struct ccp_connection {
@@ -60,10 +54,8 @@ struct ccp_connection {
     // number of instructions
     int num_instructions;
     // array of instructions
-    struct Instruction64 fold_instructions[MAX_INSTRUCTIONS];
-    // state registers
-    u64 state_registers[MAX_STATE_REG];
-    // tmp registers
+    struct Instruction64 fold_instructions[MAX_FOLD_INSTRUCTIONS];
+    u64 state_registers[MAX_PERM_REG];
     u64 tmp_registers[MAX_TMP_REG];
 
     // 88 bytes of datapath-specific state
@@ -81,13 +73,14 @@ int ccp_init_connection_map(void);
  */
 void ccp_free_connection_map(void);
 
+void load_dummy_instruction(struct ccp_connection *ccp);
 /* Upon a new flow starting,
  * put a new connection into the active connections list
  *
  * returns the index at which the connection was placed; this index shall be used as the CCP socket id
  * return 0 on error
  */
-struct ccp_connection *ccp_connection_start(struct ccp_connection *sk);
+struct ccp_connection *ccp_connection_start(struct ccp_connection *dp);
 
 /* Upon a connection ending,
  * free its slot in the connection map.
@@ -115,7 +108,7 @@ inline int ccp_set_impl(
  * Must look up ccp_connction from socket_id.
  * buf: the received message, of size bufsize.
  */
-void ccp_read_msg(
+int ccp_read_msg(
     char *buf
 );
 
@@ -129,6 +122,9 @@ int send_drop_notif(struct ccp_connection *dp, enum drop_type dtype);
  */
 int ccp_invoke(struct ccp_connection *dp);
 
+// loads dummy instructions into this map for me to test with
+// eventually -> will parse real instructions from the userspace thing
+// this function is terrible - will eventually not be there
 //int ccp_init_fold_map(void);
 //void ccp_free_fold_map(void);
 //struct ccp_instruction_list *ccp_instruction_list_lookup(u16 sid);

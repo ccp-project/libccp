@@ -27,26 +27,60 @@ void ccp_free_connection_map(void) {
     ccp_active_connections = NULL;
 }
 
+void load_dummy_instr(struct ccp_connection *ccp) {
+    int i;
+    // space for the array should already be allocated
+    struct Register ack_state = { .type = PERM_REG, .index = ACK, .value = 0 };
+    struct Register rtt_state = { .type = PERM_REG, .index = RTT, .value = 0 };
+    struct Register loss_state = { .type = PERM_REG, .index = LOSS, .value = 0 };
+    struct Register rin_state = { .type = PERM_REG, .index = RIN, .value = 0 };
+    struct Register rout_state = { .type = PERM_REG, .index = ROUT, .value = 0 };
+
+    // primitive state
+    struct Register ack_prim = { .type = CONST_REG, .index = ACK, .value = 0 };
+    struct Register rtt_prim = { .type = CONST_REG, .index = RTT, .value = 0 };
+    struct Register loss_prim = { .type = CONST_REG, .index = LOSS, .value = 0 };
+    struct Register rin_prim = { .type = CONST_REG, .index = RIN, .value = 0 };
+    struct Register rout_prim = { .type = CONST_REG, .index = ROUT, .value = 0 };
+
+    // extra instructions for ewma constant
+    struct Register ewma_constant = { .type = CONST_REG, .index = 0, .value = 60 };
+
+    // instruction structs
+    struct Instruction64 ack_instr = { .op = MAX64, .rLeft = ack_state, .rRight = ack_prim, .rRet = ack_state };
+    struct Instruction64 rtt_instr = { .op = EWMA64, .rLeft = ewma_constant, .rRight = rtt_prim, .rRet = rtt_state }; // * special - rLeft is actually rtt State reg
+    struct Instruction64 loss_instr = { .op = ADD64, .rLeft = loss_state, .rRight = loss_prim, .rRet = loss_state };
+    struct Instruction64 rin_instr = { .op = EWMA64, .rLeft = ewma_constant, .rRight = rin_prim, .rRet = rin_state };
+    struct Instruction64 rout_instr = { .op = EWMA64, .rLeft = ewma_constant, .rRight = rout_prim, .rRet = rout_state };
+
+    // load the instructions
+    ccp->fold_instructions[0] = ack_instr;
+    ccp->fold_instructions[1] = rtt_instr;
+    ccp->fold_instructions[2] = loss_instr;
+    ccp->fold_instructions[3] = rin_instr;
+    ccp->fold_instructions[4] = rout_instr;
+    ccp->num_instructions =5;
+    for ( i = 0; i < MAX_PERM_REG; i++ ) {
+        ccp->state_registers[i] = 0;
+    }
+    //printk("In load dummy instructions function\n");
+}
 struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
+    int ok;
     u16 sid;
     u32 first_ack;
     struct ccp_connection *conn;
-    struct ccp_instruction_list *instructions;
     printk(KERN_INFO "Entering %s\n", __FUNCTION__);
 
     // linear search to find empty place
     // index = 0 means free/unused
     for (sid = 0; sid < MAX_NUM_CONNECTIONS; sid++) {
         conn = &ccp_active_connections[sid];
-        instructions = &ccp_instruction_map[sid];
         if (conn->index == 0) {
             printk(KERN_INFO "Initializing a flow, found a free slot");
             // found a free slot
             conn->index = sid + 1;
-            conn->sk = sk;
-            instructions->index = sid + 1;
-            instructions->num_instructions = 0;
-            load_dummy_instr(instructions);
+            load_dummy_instr(conn);
             sid = sid + 1;
             break;
         }
@@ -57,7 +91,7 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     }
 
     // initialize send_machine state in dp
-    dp->next_event_time = tcp_time_stamp; // don't use tcp_time_stamp, get time from datapath
+    dp->next_event_time = dp->now(); // don't use tcp_time_stamp, get time from datapath
     dp->curr_pattern_state = 0;
     dp->num_pattern_states = 0;
 
@@ -66,7 +100,7 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     // send to CCP:
     // index of pointer back to this sock for IPC callback
     // first ack to expect
-    first_ack = dp->get_ccp_primitives()->ack;
+    first_ack = dp->get_ccp_primitives(dp)->ack;
     ok = send_conn_create(dp, first_ack);
     if (ok < 0) {
         pr_info("failed to send create message: %d", ok);
@@ -84,9 +118,11 @@ inline int ccp_set_impl(struct ccp_connection *dp, void *impl, int impl_size) {
     return 0;
 }
 
+// TODO: make this return an int for error purposes
 int ccp_invoke(struct ccp_connection *dp) {
     measurement_machine(dp);
     send_machine(dp);
+    return 0; // NOT OKAY
 }
 
 // lookup existing connection by its ccp socket id
@@ -106,14 +142,13 @@ struct ccp_connection *ccp_connection_lookup(u16 sid) {
         return NULL;
     }
 
-    return conn->sk;
+    return conn;
 }
 
 // after connection ends, free its slot in the ccp table
 // also free slot in ccp instruction table
 void ccp_connection_free(u16 sid) {
     struct ccp_connection *conn;
-    struct ccp_instruction_list *instr;
     printk(KERN_INFO "Entering %s\n", __FUNCTION__);
     // bounds check
     if (sid == 0 || sid > MAX_NUM_CONNECTIONS) {
@@ -122,15 +157,12 @@ void ccp_connection_free(u16 sid) {
     }
 
     conn = &ccp_active_connections[sid-1];
-    instr = &ccp_instruction_map[sid-1];
     if (conn->index != sid) {
         printk(KERN_INFO "index mismatch: sid %d, index %d", sid, conn->index);
         return;
     }
 
     conn->index = 0;
-    conn->sk = NULL;
-    instr->index = 0;
     // TODO: figure out if you need to free the array? unclear
 
     return;
@@ -152,7 +184,7 @@ int ccp_read_msg(
     }
 
     ccp = ccp_connection_lookup(hdr.SocketId);
-    if (sk == NULL) {
+    if (ccp == NULL) {
         return -1;
     }
 
@@ -181,12 +213,13 @@ int ccp_read_msg(
 
         memset(ccp->fold_instructions, 0, MAX_INSTRUCTIONS * sizeof(struct Instruction64));
         for (i = 0; i < imsg.num_instrs; i++) {
-            ok = read_instruction(&(ccp->fold_instructions[i]), imsg.instrs[i]);
+            ok = read_instruction(&(ccp->fold_instructions[i]), &(imsg.instrs[i]));
             if (ok < 0) {
                 return ok;
             }
         }
     }
+    return ok;
 }
 
 // send create msg
@@ -198,13 +231,16 @@ int send_conn_create(
     int ok;
     int msg_size;
     
+    struct CreateMsg cr = {
+        .startSeq = startSeq,
+        .congAlg = "reno"
+    };
     if (dp->index < 1) {
         return -1;
     }
 
     printk(KERN_INFO "sending create: id=%u, startSeq=%u\n", dp->index, startSeq);
-
-    msg_size = write_create_msg(msg, BIGGEST_MSG_SIZE, dp->index, startSeq, "reno");
+    msg_size = write_create_msg(msg, BIGGEST_MSG_SIZE, dp->index, cr);
     ok = dp->send_msg(msg, msg_size);
     if (ok < 0) {
         printk(KERN_INFO "create notif failed: id=%u, err=%d\n", dp->index, ok);
@@ -215,26 +251,22 @@ int send_conn_create(
 
 // send datapath measurements
 // acks, rtt, rin, rout
-void send_measurement(
+int send_measurement(
     struct ccp_connection *dp,
-    struct ccp_measurement mmt
+    u64 *fields,
+    u8 num_fields
 ) {
-    char msg[BIGGEST_MSG_SIZE];
     int ok;
-    int msg_size;
-    
+    // TODO: finish this based on what gets done within the do report function 
     if (dp->index < 1) {
-        return;
+        ok = -1;
+        return ok;
     }
-        
-    printk(KERN_INFO "sending measurement notif: id=%u, cumAck=%u, rtt=%u, loss=%u, rin=%llu, rout=%llu\n", dp->index, mmt.ack, mmt.rtt, mmt.loss, mmt.rin, mmt.rout);
-    msg_size = write_measure_msg(msg, BIGGEST_MSG_SIZE, dp->index, mmt.ack, mmt.rtt, mmt.loss, mmt.rin, mmt.rout);
-    // it's ok if this send fails
-    // will auto-retry on the next ack
-    ok = dp->send_msg(msg, msg_size);
-    if (ok < 0) {
-        printk(KERN_INFO "mmt notif failed: id=%u, cumAck=%u, rtt=%u, loss=%u, rin=%llu, rout=%llu\n", dp->index, mmt.ack, mmt.rtt, mmt.loss, mmt.rin, mmt.rout);
+    if ( num_fields > 0 ) {
+    printk(KERN_INFO "num ields: %u, first field: %llu\n", num_fields, *fields);
     }
+    ok = 0;
+    return ok;
 }
 
 int send_drop_notif(
@@ -244,6 +276,7 @@ int send_drop_notif(
     char msg[BIGGEST_MSG_SIZE];
     int ok;
     int msg_size;
+    struct DropMsg dr;
     
     if (dp->index < 1) {
         pr_info("ccp_index malformed: %d\n", dp->index);
@@ -254,13 +287,16 @@ int send_drop_notif(
 
     switch (dtype) {
         case DROP_TIMEOUT:
-            msg_size = write_drop_msg(msg, BIGGEST_MSG_SIZE, dp->index, "timeout");
+            strcpy(dr.type, "timeout");
+            msg_size = write_drop_msg(msg, BIGGEST_MSG_SIZE, dp->index, dr);
             break;
         case DROP_DUPACK:
-            msg_size = write_drop_msg(msg, BIGGEST_MSG_SIZE, dp->index, "dupack");
+            strcpy(dr.type, "dupack");
+            msg_size = write_drop_msg(msg, BIGGEST_MSG_SIZE, dp->index, dr);
             break;
         case DROP_ECN:
-            msg_size = write_drop_msg(msg, BIGGEST_MSG_SIZE, dp->index, "ecn");
+            strcpy(dr.type, "ecn");
+            msg_size = write_drop_msg(msg, BIGGEST_MSG_SIZE, dp->index, dr);
             break;
         default:
             printk(KERN_INFO "sending drop: unknown event? id=%u, ev=%d != {%d, %d, %d}\n", dp->index, dtype, DROP_TIMEOUT, DROP_DUPACK, DROP_ECN);
@@ -274,3 +310,5 @@ int send_drop_notif(
 
     return ok;
 }
+
+

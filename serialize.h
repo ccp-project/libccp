@@ -5,9 +5,8 @@
  */
 #ifndef CCP_SERIALIZE_H
 #define CCP_SERIALIZE_H
-
+#include "common_headers.h"
 #include <linux/types.h>
-typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
@@ -74,12 +73,12 @@ int write_create_msg(
 /* MEASURE
  * 1 u32: number of returned fields
  * bytes: the return registers of the installed fold function ([]uint64).
- *        there will be at most MAX_STATE_REG returned registers
- *        TODO include MAX_STATE_REG header from whereever
+ *        there will be at most MAX_PERM_REG returned registers
+ *        TODO include MAX_PERM_REG header from whereever
  */
 struct __attribute__((packed, aligned(4))) MeasureMsg {
     u32 num_fields;
-    u64 fields[MAX_STATE_REG];
+    u64 fields[MAX_PERM_REG];
 };
 
 /* Write ms: MeasureMsg into buf with socketid sid.
@@ -93,14 +92,6 @@ int write_measure_msg(
 );
 
 
-/* Convenience type which DropMsg will map to drop event strings
- */
-enum drop_type {
-    NO_DROP,
-    DROP_TIMEOUT,
-    DROP_DUPACK,
-    DROP_ECN
-};
 
 /* DROP
  * str: the type of drop observed
@@ -155,7 +146,7 @@ struct __attribute__((packed, aligned(4))) InstructionMsg {
  */
 struct __attribute__((packed, aligned(4))) InstallFoldMsg {
     u32 num_instrs;
-    struct InstructionMsg instrs[MAX_INSTRUCTIONS];
+    struct InstructionMsg instrs[MAX_FOLD_INSTRUCTIONS];
 };
 
 /* return: size of msg
