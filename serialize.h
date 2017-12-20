@@ -5,7 +5,7 @@
  */
 #ifndef CCP_SERIALIZE_H
 #define CCP_SERIALIZE_H
-#include "common_headers.h"
+
 #include <linux/types.h>
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -51,6 +51,11 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
 #define BIGGEST_MSG_SIZE 256
 #define MAX_STRING_SIZE 250
 
+// Some messages contain serialized fold instructions.
+#define MAX_INSTRUCTIONS 20
+#define MAX_PERM_REG 6
+#define MAX_TMP_REG 10
+
 /* CREATE
  * 1 u32: the socket id
  * str: the datapath's requested congestion control algorithm (could be overridden)
@@ -74,7 +79,6 @@ int write_create_msg(
  * 1 u32: number of returned fields
  * bytes: the return registers of the installed fold function ([]uint64).
  *        there will be at most MAX_PERM_REG returned registers
- *        TODO include MAX_PERM_REG header from whereever
  */
 struct __attribute__((packed, aligned(4))) MeasureMsg {
     u32 num_fields;
@@ -89,28 +93,6 @@ int write_measure_msg(
     int bufsize,
     u32 sid,
     struct MeasureMsg ms
-);
-
-
-
-/* DROP
- * str: the type of drop observed
- *      TODO remove the drop message, replace it with a returned register
- *      TODO and an urgent register
- */
-struct __attribute__((packed, aligned(4))) DropMsg {
-    char type[MAX_STRING_SIZE];
-};
-
-/* Write dr: DropMsg into buf with socketid sid.
- * buf should be preallocated, and bufsize should be its size.
- * TODO replace the existence of dropMsg with an implicit ("urgent") register
- */
-int write_drop_msg(
-    char *buf,
-    int bufsize, 
-    u32 sid,
-    struct DropMsg dr
 );
 
 /* PATTERN
@@ -146,7 +128,7 @@ struct __attribute__((packed, aligned(4))) InstructionMsg {
  */
 struct __attribute__((packed, aligned(4))) InstallFoldMsg {
     u32 num_instrs;
-    struct InstructionMsg instrs[MAX_FOLD_INSTRUCTIONS];
+    struct InstructionMsg instrs[MAX_INSTRUCTIONS];
 };
 
 /* return: size of msg

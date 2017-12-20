@@ -1,5 +1,6 @@
 #include "ccp.h"
 #include "serialize.h"
+#include "ccp_priv.h"
 
 // ugh
 #include <linux/types.h>
@@ -7,6 +8,11 @@
 #include <linux/slab.h> // kmalloc
 
 #define MAX_NUM_CONNECTIONS 100
+
+int send_conn_create(
+    struct ccp_connection *dp,
+    u32 startSeq
+);
 
 // array of active connections
 struct ccp_connection* ccp_active_connections;
@@ -53,31 +59,45 @@ void load_dummy_instr(struct ccp_connection *ccp) {
     struct Instruction64 rin_instr = { .op = EWMA64, .rLeft = ewma_constant, .rRight = rin_prim, .rRet = rin_state };
     struct Instruction64 rout_instr = { .op = EWMA64, .rLeft = ewma_constant, .rRight = rout_prim, .rRet = rout_state };
 
+    struct ccp_priv_state *state = get_ccp_priv_state(ccp);
+
     // load the instructions
-    ccp->fold_instructions[0] = ack_instr;
-    ccp->fold_instructions[1] = rtt_instr;
-    ccp->fold_instructions[2] = loss_instr;
-    ccp->fold_instructions[3] = rin_instr;
-    ccp->fold_instructions[4] = rout_instr;
-    ccp->num_instructions =5;
+    state->fold_instructions[0] = ack_instr;
+    state->fold_instructions[1] = rtt_instr;
+    state->fold_instructions[2] = loss_instr;
+    state->fold_instructions[3] = rin_instr;
+    state->fold_instructions[4] = rout_instr;
+    state->num_instructions =5;
     for ( i = 0; i < MAX_PERM_REG; i++ ) {
-        ccp->state_registers[i] = 0;
+        state->state_registers[i] = 0;
     }
     //printk("In load dummy instructions function\n");
 }
+
 struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     int ok;
     u16 sid;
     u32 first_ack;
     struct ccp_connection *conn;
-    printk(KERN_INFO "Entering %s\n", __FUNCTION__);
 
-    // linear search to find empty place
+    // check that dp is properly filled in.
+    if (dp->set_cwnd == NULL ||
+        dp->set_rate_abs == NULL ||
+        dp->set_rate_rel == NULL ||
+        dp->get_ccp_primitives == NULL ||
+        dp->send_msg == NULL ||
+        dp->now == NULL ||
+        dp->after_usecs == NULL
+    ) {
+        return NULL;
+    }
+
+    // scan to find empty place
     // index = 0 means free/unused
     for (sid = 0; sid < MAX_NUM_CONNECTIONS; sid++) {
         conn = &ccp_active_connections[sid];
         if (conn->index == 0) {
-            printk(KERN_INFO "Initializing a flow, found a free slot");
+            pr_info("Initializing a flow, found a free slot");
             // found a free slot
             conn->index = sid + 1;
             load_dummy_instr(conn);
@@ -87,26 +107,37 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     }
     
     if (sid >= MAX_NUM_CONNECTIONS) {
-        return 0;
+        return NULL;
     }
 
-    // initialize send_machine state in dp
-    dp->next_event_time = dp->now(); // don't use tcp_time_stamp, get time from datapath
-    dp->curr_pattern_state = 0;
-    dp->num_pattern_states = 0;
+    // copy function pointers from dp into conn
+    conn->set_cwnd           =  dp->set_cwnd;
+    conn->set_rate_abs       =  dp->set_rate_abs;
+    conn->set_rate_rel       =  dp->set_rate_rel;
+    conn->get_ccp_primitives =  dp->get_ccp_primitives;
+    conn->send_msg           =  dp->send_msg;
+    conn->now                =  dp->now;
+    conn->after_usecs        =  dp->after_usecs;
 
-    // TODO initialize measurement_machine state in dp
+    init_ccp_priv_state(conn);
+
+    // copy private datapath state
+    memcpy(conn->impl, dp->impl, sizeof(dp->impl));
 
     // send to CCP:
     // index of pointer back to this sock for IPC callback
     // first ack to expect
-    first_ack = dp->get_ccp_primitives(dp)->ack;
-    ok = send_conn_create(dp, first_ack);
+    first_ack = conn->get_ccp_primitives(conn)->ack;
+    ok = send_conn_create(conn, first_ack);
     if (ok < 0) {
         pr_info("failed to send create message: %d", ok);
     }
 
     return conn;
+}
+
+inline void *ccp_get_impl(struct ccp_connection *dp) {
+    return (void*) &dp->impl;
 }
 
 inline int ccp_set_impl(struct ccp_connection *dp, void *impl, int impl_size) {
@@ -169,11 +200,13 @@ void ccp_connection_free(u16 sid) {
 }
 
 int ccp_read_msg(
-    char *buf
+    char *buf,
+    int bufsize
 ) {
     int ok;
     size_t i;
     struct ccp_connection *ccp;
+    struct ccp_priv_state *state;
     struct CcpMsgHeader hdr;
     struct InstallFoldMsg imsg;
     struct PatternMsg pmsg;
@@ -183,10 +216,16 @@ int ccp_read_msg(
         return ok;
     }
 
+    if (hdr.Len > bufsize) {
+        return -1;
+    }
+
     ccp = ccp_connection_lookup(hdr.SocketId);
     if (ccp == NULL) {
         return -1;
     }
+
+    state = get_ccp_priv_state(ccp);
 
     if (hdr.Type == PATTERN) {
         ok = read_pattern_msg(&hdr, &pmsg, buf);
@@ -194,15 +233,15 @@ int ccp_read_msg(
             return ok;
         }
 
-        memset(ccp->pattern, 0, MAX_INSTRUCTIONS * sizeof(struct PatternState));
-        ok = read_pattern(ccp->pattern, pmsg.pattern, pmsg.numStates);
+        memset(state->pattern, 0, MAX_INSTRUCTIONS * sizeof(struct PatternState));
+        ok = read_pattern(state->pattern, pmsg.pattern, pmsg.numStates);
         if (ok < 0) {
             return ok;
         }
     
-        ccp->num_pattern_states = pmsg.numStates;
-        ccp->curr_pattern_state = pmsg.numStates - 1;
-        ccp->next_event_time = ccp->now();
+        state->num_pattern_states = pmsg.numStates;
+        state->curr_pattern_state = pmsg.numStates - 1;
+        state->next_event_time = ccp->now();
 
         send_machine(ccp);
     } else if (hdr.Type == INSTALL_FOLD) {
@@ -211,9 +250,9 @@ int ccp_read_msg(
             return ok;
         }
 
-        memset(ccp->fold_instructions, 0, MAX_INSTRUCTIONS * sizeof(struct Instruction64));
+        memset(state->fold_instructions, 0, MAX_INSTRUCTIONS * sizeof(struct Instruction64));
         for (i = 0; i < imsg.num_instrs; i++) {
-            ok = read_instruction(&(ccp->fold_instructions[i]), &(imsg.instrs[i]));
+            ok = read_instruction(&(state->fold_instructions[i]), &(imsg.instrs[i]));
             if (ok < 0) {
                 return ok;
             }
@@ -262,53 +301,11 @@ int send_measurement(
         ok = -1;
         return ok;
     }
-    if ( num_fields > 0 ) {
-    printk(KERN_INFO "num ields: %u, first field: %llu\n", num_fields, *fields);
+
+    if (num_fields > 0) {
+        printk(KERN_INFO "num ields: %u, first field: %llu\n", num_fields, *fields);
     }
+
     ok = 0;
     return ok;
 }
-
-int send_drop_notif(
-    struct ccp_connection *dp,
-    enum drop_type dtype
-) {
-    char msg[BIGGEST_MSG_SIZE];
-    int ok;
-    int msg_size;
-    struct DropMsg dr;
-    
-    if (dp->index < 1) {
-        pr_info("ccp_index malformed: %d\n", dp->index);
-        return -1;
-    }
-
-    printk(KERN_INFO "sending drop: id=%u, ev=%d\n", dp->index, dtype);
-
-    switch (dtype) {
-        case DROP_TIMEOUT:
-            strcpy(dr.type, "timeout");
-            msg_size = write_drop_msg(msg, BIGGEST_MSG_SIZE, dp->index, dr);
-            break;
-        case DROP_DUPACK:
-            strcpy(dr.type, "dupack");
-            msg_size = write_drop_msg(msg, BIGGEST_MSG_SIZE, dp->index, dr);
-            break;
-        case DROP_ECN:
-            strcpy(dr.type, "ecn");
-            msg_size = write_drop_msg(msg, BIGGEST_MSG_SIZE, dp->index, dr);
-            break;
-        default:
-            printk(KERN_INFO "sending drop: unknown event? id=%u, ev=%d != {%d, %d, %d}\n", dp->index, dtype, DROP_TIMEOUT, DROP_DUPACK, DROP_ECN);
-            return -2;
-    }
-        
-    ok = dp->send_msg(msg, msg_size);
-    if (ok < 0) {
-        printk(KERN_INFO "drop notif failed: id=%u, ev=%d, err=%d\n", dp->index, dtype, ok);
-    }
-
-    return ok;
-}
-
-

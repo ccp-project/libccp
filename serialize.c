@@ -1,6 +1,4 @@
 #include "serialize.h"
-#include "send_machine.h"
-#include "ccp.h"
 
 // ugh
 #include <linux/types.h>
@@ -82,39 +80,6 @@ int write_measure_msg(
         .Len = 10 + msg.num_fields * sizeof(u64),
         .SocketId = sid,
     };
-
-    ok = serialize_header(buf, bufsize, &hdr);
-    if (ok < 0) {
-        return ok;
-    }
-
-    buf += ok;
-    ret = ok;
-    if (bufsize < sizeof(msg)) {
-        return -2;
-    }
-
-    memcpy(buf, &msg, sizeof(msg));
-    return ret + sizeof(msg);
-}
-
-int write_drop_msg(
-    char *buf, 
-    int bufsize,
-    u32 sid, 
-    struct DropMsg msg
-) {
-    int ret, ok;
-    int dropMsgLen = strlen(msg.type) + 1;
-    struct CcpMsgHeader hdr = {
-        .Type = DROP, 
-        .Len = 6 + dropMsgLen, 
-        .SocketId = sid,
-    };
-
-    if (bufsize < sizeof(struct CcpMsgHeader) + dropMsgLen) {
-        return -1;
-    }
 
     ok = serialize_header(buf, bufsize, &hdr);
     if (ok < 0) {

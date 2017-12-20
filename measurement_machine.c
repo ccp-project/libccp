@@ -1,8 +1,9 @@
-#include "measurement_machine.h"
+#include "ccp_priv.h"
 
 #define CCP_FRAC_DENOM 100
 #define CCP_EWMA_RECENCY 60
 
+// TODO: more than u64 functions
 // for bind, ifcnt and ifnotcnt, operations are directly inline
 u64 myadd64(u64 a, u64 b) {
     return a + b;
@@ -154,6 +155,11 @@ int read_instruction(
     return ok;
 }
 
+void measurement_machine(struct ccp_connection *ccp) {
+    struct ccp_priv_state *state = get_ccp_priv_state(ccp);
+    // TODO implement
+
+}
 
 // TODO move?
 // read values given a register

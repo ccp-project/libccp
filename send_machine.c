@@ -1,5 +1,4 @@
-#include "ccp.h"
-#include "send_machine.h"
+#include "ccp_priv.h"
 
 #include <linux/string.h>
 
@@ -27,19 +26,26 @@ int read_pattern(
     return 0;
 }
 
+extern int send_measurement(
+    struct ccp_connection *dp,
+    u64 *fields,
+    u8 num_fields
+);
+
 static inline void do_report(
     struct ccp_connection *ccp
 ) {
     // TODO get measurement outputs from fold machine state
-    //nl_send_measurement(cpl->ccp_index, mmt);
+    // send_measurement(ccp, ...);
 }
 
 static inline void do_wait_abs(
     struct ccp_connection *ccp,
     u32 wait_us
 ) {
+    struct ccp_priv_state *state = get_ccp_priv_state(ccp);
     //pr_info("waiting %u us\n", wait_us);
-    ccp->next_event_time = ccp->after_usecs(wait_us);
+    state->next_event_time = ccp->after_usecs(wait_us);
 }
 
 static inline void do_wait_rel(
@@ -54,11 +60,17 @@ static inline void do_wait_rel(
     do_wait_abs(ccp, wait_us);
 }
 
+extern int send_conn_create(
+    struct ccp_connection *dp,
+    u32 startSeq
+);
+
 void send_machine(struct ccp_connection *ccp) {
     int ok;
     u32 first_ack;
     struct PatternState ev;
-    if (ccp->num_pattern_states == 0) {
+    struct ccp_priv_state *state = get_ccp_priv_state(ccp);
+    if (state->num_pattern_states == 0) {
         // try contacting the CCP again
         // index of pointer back to this sock for IPC callback
         // first ack to expect
@@ -71,14 +83,14 @@ void send_machine(struct ccp_connection *ccp) {
         return;
     }
 
-    if (ccp->now() > ccp->next_event_time) { // TODO handle wraparound
-        ccp->curr_pattern_state = (ccp->curr_pattern_state + 1) % ccp->num_pattern_states;
+    if (ccp->now() > state->next_event_time) { // TODO handle wraparound
+        state->curr_pattern_state = (state->curr_pattern_state + 1) % state->num_pattern_states;
         //pr_info("curr pattern event: %d\n", ccp->currPatternEvent);
     } else {
         return;
     }
 
-    ev = ccp->pattern[ccp->curr_pattern_state];
+    ev = state->pattern[state->curr_pattern_state];
     switch (ev.type) {
     case SETRATEABS:
         ccp->set_rate_abs(ccp, ev.val);
