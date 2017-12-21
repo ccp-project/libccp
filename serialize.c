@@ -52,6 +52,10 @@ int write_create_msg(
         .SocketId = sid,
     };
     
+    if (bufsize < hdr.Len) {
+        return -2;
+    }
+    
     ok = serialize_header(buf, bufsize, &hdr);
     if (ok < 0) {
         return ok;
@@ -59,27 +63,27 @@ int write_create_msg(
 
     buf += ok;
     ret = ok;
-    if (bufsize < sizeof(cr)) {
-        return -2;
-    }
-
-    memcpy(buf, &cr, sizeof(cr));
-    return ret + sizeof(cr);
+    memcpy(buf, &cr, hdr.Len - 6);
+    return hdr.Len;
 }
 
 int write_measure_msg(
     char *buf,
     int bufsize,
     u32 sid, 
-    struct MeasureMsg msg
+    struct MeasureMsg ms
 ) {
     int ok;
     size_t ret;
     struct CcpMsgHeader hdr = {
         .Type = MEASURE, 
-        .Len = 10 + msg.num_fields * sizeof(u64),
+        .Len = 10 + ms.num_fields * sizeof(u64),
         .SocketId = sid,
     };
+
+    if (bufsize < hdr.Len) {
+        return -2;
+    }
 
     ok = serialize_header(buf, bufsize, &hdr);
     if (ok < 0) {
@@ -88,12 +92,8 @@ int write_measure_msg(
 
     buf += ok;
     ret = ok;
-    if (bufsize < sizeof(msg)) {
-        return -2;
-    }
-
-    memcpy(buf, &msg, sizeof(msg));
-    return ret + sizeof(msg);
+    memcpy(buf, &ms, hdr.Len - 6);
+    return hdr.Len;
 }
 
 int read_pattern_msg(

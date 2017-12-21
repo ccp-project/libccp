@@ -1,5 +1,7 @@
 #include "ccp_priv.h"
 
+#include <linux/module.h>
+
 #define CCP_FRAC_DENOM 100
 #define CCP_EWMA_RECENCY 60
 
@@ -163,9 +165,11 @@ int read_instruction(
 void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
     switch (reg.type) {
         case PERM_REG:
+            printk("ccp: write_reg: perm#%u -> %llu", reg.index, value);
             state->state_registers[reg.index] = value;
             break;
         case TMP_REG:
+            printk("ccp: write_reg: tmp#%u -> %llu", reg.index, value);
             state->tmp_registers[reg.index] = value;
             break;
         default:

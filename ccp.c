@@ -101,7 +101,6 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     for (sid = 0; sid < MAX_NUM_CONNECTIONS; sid++) {
         conn = &ccp_active_connections[sid];
         if (conn->index == 0) {
-            pr_info("ccp: Initializing a flow, found a free slot");
             // found a free slot
             conn->index = sid + 1;
             //load_dummy_instr(conn);
@@ -134,17 +133,15 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     if (prims != NULL) {
         first_ack = prims->ack;
     } else {
-        pr_info("ccp: get_ccp_primitives stiffed us");
         first_ack = 0;
     }
     
-    //ok = send_conn_create(conn, first_ack);
-    //if (ok < 0) {
-    //    pr_info("failed to send create message: %d", ok);
-    //}
+    ok = send_conn_create(conn, first_ack);
+    if (ok < 0) {
+        pr_info("failed to send create message: %d", ok);
+    }
 
-    //return conn;
-    return NULL;
+    return conn;
 }
 
 inline void *ccp_get_impl(struct ccp_connection *dp) {
@@ -264,8 +261,8 @@ int ccp_read_msg(
                 return ok;
             }
         }
-        state->num_instructions = imsg.num_instrs;
 
+        state->num_instructions = imsg.num_instrs;
         reset_state(state);
     }
 
@@ -284,6 +281,7 @@ int send_conn_create(
         .startSeq = startSeq,
         .congAlg = "reno"
     };
+
     if (dp->index < 1) {
         return -1;
     }
