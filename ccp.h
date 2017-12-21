@@ -127,11 +127,4 @@ int ccp_read_msg(
  */
 int ccp_invoke(struct ccp_connection *dp);
 
-// loads dummy instructions into this map for me to test with
-// eventually -> will parse real instructions from the userspace thing
-// this function is terrible - will eventually not be there
-//int ccp_init_fold_map(void);
-//void ccp_free_fold_map(void);
-//struct ccp_instruction_list *ccp_instruction_list_lookup(u16 sid);
-
 #endif

@@ -35,8 +35,8 @@ extern int send_measurement(
 static inline void do_report(
     struct ccp_connection *ccp
 ) {
-    // TODO get measurement outputs from fold machine state
-    // send_measurement(ccp, ...);
+    struct ccp_priv_state *state = get_ccp_priv_state(ccp);
+    send_measurement(ccp, state->state_registers, state->num_to_return);
 }
 
 static inline void do_wait_abs(

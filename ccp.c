@@ -266,10 +266,9 @@ int send_conn_create(
     struct ccp_connection *dp,
     u32 startSeq
 ) {
-    char msg[BIGGEST_MSG_SIZE];
     int ok;
+    char msg[BIGGEST_MSG_SIZE];
     int msg_size;
-    
     struct CreateMsg cr = {
         .startSeq = startSeq,
         .congAlg = "reno"
@@ -278,13 +277,8 @@ int send_conn_create(
         return -1;
     }
 
-    printk(KERN_INFO "sending create: id=%u, startSeq=%u\n", dp->index, startSeq);
     msg_size = write_create_msg(msg, BIGGEST_MSG_SIZE, dp->index, cr);
     ok = dp->send_msg(msg, msg_size);
-    if (ok < 0) {
-        printk(KERN_INFO "create notif failed: id=%u, err=%d\n", dp->index, ok);
-    }
-
     return ok;
 }
 
@@ -296,16 +290,20 @@ int send_measurement(
     u8 num_fields
 ) {
     int ok;
-    // TODO: finish this based on what gets done within the do report function 
+    char msg[BIGGEST_MSG_SIZE];
+    int msg_size;
+    struct MeasureMsg ms = {
+        .num_fields = num_fields,
+    };
+
+    memcpy(ms.fields, fields, sizeof(ms.fields));
+
     if (dp->index < 1) {
         ok = -1;
         return ok;
     }
 
-    if (num_fields > 0) {
-        printk(KERN_INFO "num ields: %u, first field: %llu\n", num_fields, *fields);
-    }
-
-    ok = 0;
+    msg_size = write_measure_msg(msg, BIGGEST_MSG_SIZE, dp->index, ms);
+    ok = dp->send_msg(msg, msg_size);
     return ok;
 }

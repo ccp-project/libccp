@@ -148,6 +148,7 @@ struct ccp_priv_state {
     // measure machine state
     u8 num_instructions; // number of instructions
     struct Instruction64 fold_instructions[MAX_INSTRUCTIONS]; // array of instructions
+    u8 num_to_return; // how many state_registers are used?
     u64 state_registers[MAX_PERM_REG];
     u64 tmp_registers[MAX_TMP_REG];
 };
