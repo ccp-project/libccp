@@ -67,8 +67,8 @@ struct ccp_connection {
     // private libccp state for the send machine and measurement machine
     void *state;
 
-    // 88 bytes of datapath-specific state
-    u8 impl[88];
+    // datapath-specific state
+    void *impl;
 };
 
 /* Allocate a map for ccp connections upon module load.
@@ -107,8 +107,7 @@ inline void *ccp_get_impl(struct ccp_connection *dp);
 
 inline int ccp_set_impl(
     struct ccp_connection *dp, 
-    void *impl, 
-    int impl_size
+    void *ptr
 );
 
 /* Callback to pass to IPC for incoming messages.

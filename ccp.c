@@ -115,19 +115,18 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     }
 
     // copy function pointers from dp into conn
-    conn->set_cwnd           =  dp->set_cwnd;
-    conn->set_rate_abs       =  dp->set_rate_abs;
-    conn->set_rate_rel       =  dp->set_rate_rel;
-    conn->get_ccp_primitives =  dp->get_ccp_primitives;
-    conn->send_msg           =  dp->send_msg;
-    conn->now                =  dp->now;
-    conn->after_usecs        =  dp->after_usecs;
+    conn->set_cwnd           = dp->set_cwnd;
+    conn->set_rate_abs       = dp->set_rate_abs;
+    conn->set_rate_rel       = dp->set_rate_rel;
+    conn->get_ccp_primitives = dp->get_ccp_primitives;
+    conn->send_msg           = dp->send_msg;
+    conn->now                = dp->now;
+    conn->after_usecs        = dp->after_usecs;
+    conn->impl               = dp->impl;
 
     init_ccp_priv_state(conn);
 
     // copy private datapath state
-    memcpy(conn->impl, dp->impl, sizeof(dp->impl));
-
     // send to CCP:
     // index of pointer back to this sock for IPC callback
     // first ack to expect
@@ -149,15 +148,11 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
 }
 
 inline void *ccp_get_impl(struct ccp_connection *dp) {
-    return (void*) &dp->impl;
+    return dp->impl;
 }
 
-inline int ccp_set_impl(struct ccp_connection *dp, void *impl, int impl_size) {
-    if (impl_size > 88) {
-        return -1;
-    }
-
-    memcpy((void*) &dp->impl, impl, impl_size);
+inline int ccp_set_impl(struct ccp_connection *dp, void *ptr) {
+    dp->impl = ptr;
     return 0;
 }
 
