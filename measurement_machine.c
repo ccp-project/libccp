@@ -109,18 +109,23 @@ int read_op(enum FoldOp *op, u8 opcode) {
 }
 
 int deserialize_reg(struct Register *ret, u8 reg) {
+    u8 num = (reg & 0x3f); // unclear: is this correct
     switch (reg >> 6) {
-        case 0: // immediate
-            // TODO 
+        case 0: // immediate - other 6 bits
+            ret->type = IMM_REG;
+            ret->value = (u64)num;
             return 0;
         case 1: // primitive
-            // TODO
+            ret->type = CONST_REG;
+            ret->index = (int)num;
             return 0;
         case 2: // tmp
-            // TODO
+            ret->type = TMP_REG;
+            ret->index = (int)num;
             return 0;
         case 3: // output/permanent
-            // TODO
+            ret->type = PERM_REG;
+            ret->index = (int)num;
             return 0;
         default:
             return -1;
