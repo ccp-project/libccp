@@ -35,12 +35,12 @@ void ccp_free_connection_map(void) {
 
 void load_dummy_instr(struct ccp_connection *ccp) {
     int i;
-    // space for the array should already be allocated
     struct Register ack_state = { .type = PERM_REG, .index = ACK, .value = 0 };
     struct Register rtt_state = { .type = PERM_REG, .index = RTT, .value = 0 };
     struct Register loss_state = { .type = PERM_REG, .index = LOSS, .value = 0 };
     struct Register rin_state = { .type = PERM_REG, .index = RIN, .value = 0 };
     struct Register rout_state = { .type = PERM_REG, .index = ROUT, .value = 0 };
+    struct Register cwnd_state = { .type = PERM_REG, .index = CWND, .value = 0 };
 
     // primitive state
     struct Register ack_prim = { .type = CONST_REG, .index = ACK, .value = 0 };
@@ -48,6 +48,7 @@ void load_dummy_instr(struct ccp_connection *ccp) {
     struct Register loss_prim = { .type = CONST_REG, .index = LOSS, .value = 0 };
     struct Register rin_prim = { .type = CONST_REG, .index = RIN, .value = 0 };
     struct Register rout_prim = { .type = CONST_REG, .index = ROUT, .value = 0 };
+    struct Register cwnd_prim = { .type = CONST_REG, .index = CWND, .value = 0 };
 
     // extra instructions for ewma constant
     struct Register ewma_constant = { .type = CONST_REG, .index = 0, .value = 60 };
@@ -58,6 +59,7 @@ void load_dummy_instr(struct ccp_connection *ccp) {
     struct Instruction64 loss_instr = { .op = ADD64, .rLeft = loss_state, .rRight = loss_prim, .rRet = loss_state };
     struct Instruction64 rin_instr = { .op = EWMA64, .rLeft = ewma_constant, .rRight = rin_prim, .rRet = rin_state };
     struct Instruction64 rout_instr = { .op = EWMA64, .rLeft = ewma_constant, .rRight = rout_prim, .rRet = rout_state };
+    struct Instruction64 bind_instr = { .op = BIND64, .rLeft = cwnd_prim, .rRight = cwnd_prim, .rRet = cwnd_state };
 
     struct ccp_priv_state *state = get_ccp_priv_state(ccp);
 
@@ -67,11 +69,11 @@ void load_dummy_instr(struct ccp_connection *ccp) {
     state->fold_instructions[2] = loss_instr;
     state->fold_instructions[3] = rin_instr;
     state->fold_instructions[4] = rout_instr;
-    state->num_instructions =5;
+    state->fold_instructions[5] = bind_instr;
+    state->num_instructions =6;
     for ( i = 0; i < MAX_PERM_REG; i++ ) {
         state->state_registers[i] = 0;
     }
-    //printk("In load dummy instructions function\n");
 }
 
 struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
