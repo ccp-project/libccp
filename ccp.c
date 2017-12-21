@@ -259,7 +259,10 @@ int ccp_read_msg(
                 return ok;
             }
         }
+
+        reset_state(state);
     }
+
     return ok;
 }
 

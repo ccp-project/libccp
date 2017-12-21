@@ -173,6 +173,25 @@ void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
     }
 }
 
+void reset_state(struct ccp_priv_state *state) {
+    u8 i;
+    struct Instruction64 current_instruction;
+    for (i = 0; i < state->num_instructions; i++) {
+        current_instruction = state->fold_instructions[i];
+        switch (current_instruction.op) {
+            case DEF64:
+                // set the default value of the state register
+                write_reg(state, current_instruction.rRight.value, current_instruction.rLeft);
+                break;
+            default:
+                // DEF instructions are only at the beginnning
+                // Once we see a non-DEF, can stop.
+                state->num_to_return = i;
+                return; 
+        }
+    }
+}
+
 u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, struct Register reg) {
     switch (reg.type) {
         case PERM_REG:
@@ -205,7 +224,7 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
 void measurement_machine(struct ccp_connection *ccp) {
     struct ccp_priv_state *state = get_ccp_priv_state(ccp);
     struct ccp_primitives* primitives = ccp->get_ccp_primitives(ccp);
-    int i;
+    u8 i;
     u64 arg0; // extra arg for ewma, if, not if
     u64 arg1;
     u64 arg2;
@@ -260,10 +279,6 @@ void measurement_machine(struct ccp_connection *ccp) {
                 write_reg(state, arg1, current_instruction.rRet);
             default:
                 break;
-
         }
     };
-
-
 }
-

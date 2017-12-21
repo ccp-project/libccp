@@ -121,15 +121,6 @@ int read_instruction(
     struct InstructionMsg *msg
 );
 
-/* Instructions serialized in the string in InstructionMsg
- * if no val in instructions, set to 0
- */
-int install_fold(
-    struct ccp_connection *ccp,
-    char *buf,
-    int num_instrs
-);
-
 void measurement_machine(
     struct ccp_connection *ccp
 );
@@ -152,6 +143,11 @@ struct ccp_priv_state {
     u64 state_registers[MAX_PERM_REG];
     u64 tmp_registers[MAX_TMP_REG];
 };
+
+/* Reset the output state registers to their default values
+ * according to the DEF instruction preamble.
+ */
+void reset_state(struct ccp_priv_state *state);
 
 /* Initialize send machine and measurement machine state in ccp_connection.
  * Called from ccp_connection_start()
