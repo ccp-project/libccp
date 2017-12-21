@@ -160,137 +160,110 @@ int read_instruction(
     return ok;
 }
 
-void measurement_machine(struct ccp_connection *ccp) {
-    struct ccp_priv_state *state = get_ccp_priv_state(ccp);
-    // TODO implement
-
-}
-
-// TODO move?
-// read values given a register
-/*u64 read_reg(struct Register reg, struct ccp *ca, struct ccp_connection* ccp) {
+void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
     switch (reg.type) {
         case PERM_REG:
-            return ccp->state_registers[reg.index];
+            state->state_registers[reg.index] = value;
+            break;
         case TMP_REG:
-            return ccp->tmp_registers[reg.index];
+            state->tmp_registers[reg.index] = value;
+            break;
+        default:
+            break;
+    }
+}
+
+u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, struct Register reg) {
+    switch (reg.type) {
+        case PERM_REG:
+            return state->state_registers[reg.index];
+        case TMP_REG:
+            return state->tmp_registers[reg.index];
         case CONST_REG:
             switch (reg.index) {
                 case ACK:
-                    return ca->mmt.ack;
+                    return primitives->ack;
                 case RTT:
-                    return ca->mmt.rtt;
+                    return primitives->rtt;
                 case LOSS:
-                    return ca->mmt.loss;
+                    return primitives->loss;
                 case RIN:
-                    return ca->mmt.rin;
+                    return primitives->rin;
                 case ROUT:
-                    return ca->mmt.rout;
+                    return primitives->rout;
+                case CWND:
+                    return primitives->cwnd;
                 default:
                     return 0;
             }
             break;
-        case CONST_REG:
-            return reg.value;
         default:
             return 0;
     }
-    return 0;
-}*/
+} 
 
-// TODO move?
-// write values given a register and a value
-/*void write_reg(struct Register reg, u64 value, struct ccp_connection *ccp) {
-    switch (reg.type) {
-        case PERM_REG:
-            pr_info("valu: %llu, index: %d\n", value, reg.index);
-            ccp->state_registers[reg.index] = value;
-            break;
-        case TMP_REG:
-            ccp->tmp_registers[reg.index] = value;
-            break;
-        default:
-            pr_info("Trying to write into register with type %d\n", reg.type);
-            break;
-    }
-
-}*/
-
-// TODO move?
-/*void update_state_registers(struct ccp *ca) {
-    // updates dates all the state registers
-    // first grab the relevant instruction set
-    struct ccp_connection *ccp;
-    // for now - just RTT - at state index 0
+void measurement_machine(struct ccp_connection *ccp) {
+    struct ccp_priv_state *state = get_ccp_priv_state(ccp);
+    struct ccp_primitives* primitives = ccp->get_ccp_primitives(ccp);
     int i;
+    u64 arg0; // extra arg for ewma, if, not if
     u64 arg1;
     u64 arg2;
-    u64 arg0; // for ewma and if and not if
-    int num_instructions;
     struct Instruction64 current_instruction;
-    pr_info("about to try to dereference the instr_list for ccp index %d\n", ca->ccp_index);
-    instr = ccp_connection_lookup(ca->ccp_index);
-    pr_info("deferenced the instr_list for ccp index %d\n", ca->ccp_index);
-
-    num_instructions = ccp->num_instructions;
-    pr_info("Num instr is %d\n", num_instructions);
-    for ( i = 0; i < num_instructions; i++ ) {
-        current_instruction = ccp->fold_instructions[i];
-        pr_info("Trying to read registers");
-        arg1 = read_reg(current_instruction.rLeft, ca, instr);
-        arg2 = read_reg(current_instruction.rRight, ca, instr);
-        pr_info("Op: %d, arg1: %llu, arg2: %llu\n", current_instruction.op, arg1, arg2);
+    for ( i = 0; i < state->num_instructions; i++ ) {
+        current_instruction = state->fold_instructions[i];
+        arg1 = read_reg(state, primitives, current_instruction.rLeft);
+        arg2 = read_reg(state, primitives, current_instruction.rRight);
         switch (current_instruction.op) {
             case ADD64:
-                pr_info("Reg 1 type: %d, Reg 1 index: %d\n", current_instruction.rLeft.type, current_instruction.rLeft.index);
-                pr_info("Arg1: %llu, Arg2: %llu\n", arg1, arg2);
-                write_reg(current_instruction.rRet, myadd64(arg1, arg2), ccp);
+                write_reg(state, myadd64(arg1, arg2), current_instruction.rRet);
                 break;
             case DIV64:
-                write_reg(current_instruction.rRet, mydiv64(arg1, arg2), ccp);
+                write_reg(state, mydiv64(arg1, arg2), current_instruction.rRet);
                 break;
             case EQUIV64:
-                write_reg(current_instruction.rRet, myequiv64(arg1, arg2), ccp);
+                write_reg(state, myequiv64(arg1, arg2), current_instruction.rRet);
                 break;
-            case EWMA64:
-                arg0 = read_reg(current_instruction.rRet, ca, instr);
-                write_reg(current_instruction.rRet, myewma64(arg1, arg0, arg2), ccp);
+            case EWMA64: // arg0 = current, arg2 = new, arg1 = constant
+                arg0 = read_reg(state, primitives, current_instruction.rRet); // current state
+                write_reg(state, myewma64(arg1, arg0, arg2), current_instruction.rRet);
                 break;
             case GT64:
-                write_reg(current_instruction.rRet, mygt64(arg1, arg2), ccp);
+                write_reg(state, mygt64(arg1, arg2), current_instruction.rRet);
                 break;
             case LT64:
-                write_reg(current_instruction.rRet, mylt64(arg1, arg2), ccp);
+                write_reg(state, mylt64(arg1, arg2), current_instruction.rRet);
                 break;
             case MAX64:
-                write_reg(current_instruction.rRet, mymax64(arg1, arg2), ccp);
+                write_reg(state, mymax64(arg1, arg2), current_instruction.rRet);
                 break;
             case MIN64:
-                write_reg(current_instruction.rRet, mymin64(arg1, arg2), ccp);
+                write_reg(state, mymin64(arg1, arg2), current_instruction.rRet);
                 break;
             case MUL64:
-                write_reg(current_instruction.rRet, mymul64(arg1, arg2), ccp);
+                write_reg(state, mymul64(arg1, arg2), current_instruction.rRet);
                 break;
             case SUB64:
-                write_reg(current_instruction.rRet, mysub64(arg1, arg2), ccp);
+                write_reg(state, mysub64(arg1, arg2), current_instruction.rRet);
                 break;
-            case IFCNT64: // if arg1, adds 1 to register in rRet
+            case IFCNT64: // if arg1, adds 1 to register in rRight and stores it in rRet
                 if (arg1 == 1) {
-                    write_reg(current_instruction.rRet, myadd64(1, arg2), ccp);                 
+                    write_reg(state, myadd64(1, arg2), current_instruction.rRet);
                 }
                 break;
             case IFNOTCNT64:
                 if (arg1 == 0) {
-                    write_reg(current_instruction.rRet, myadd64(1, arg2), ccp);
+                    write_reg(state, myadd64(1, arg2), current_instruction.rRet);
                 }
                 break;
             case BIND64: // take arg1, and put it in rRet
-                pr_info("Arg 1 we're gonna write in is %llu\n", arg1);
-                write_reg(current_instruction.rRet, arg1, ccp);
+                write_reg(state, arg1, current_instruction.rRet);
             default:
                 break;
-            
-        }
 
-    }
-}*/
+        }
+    };
+
+
+}
+
