@@ -1,5 +1,4 @@
 #include "ccp_priv.h"
-
 #define CCP_FRAC_DENOM 100
 #define CCP_EWMA_RECENCY 60
 
@@ -34,6 +33,38 @@ u64 mygt64(u64 a, u64 b) {
 
 u64 mylt64(u64 a, u64 b) {
     return ( a < b );
+}
+
+
+// raw difference from left -> right, provided you're walking in direction left -> right
+u32 dif32(u32 left, u32 right) {
+    u32 max32 = ((u32)~0U);
+    if ( right > left ) {
+        return ( right - left );
+    }
+    // left -> max -> right
+    return (max32 - left) + right;
+}
+
+/* must handle integer wraparound*/
+u64 mymax64_wrap(u64 a, u64 b) {
+    u32 a32 = (u32)a;
+    u32 b32 = (u32)b;
+    u32 left_to_right = dif32(a32, b32);
+    u32 right_to_left = dif32(b32, a32);
+    // 0 case
+    if ( a == 0 ) {
+        return b;
+    }
+    if ( b == 0 ) {
+        return a;
+    }
+    // difference from b -> a is shorter than difference from a -> b: so order is (b,a)
+    if ( right_to_left < left_to_right ) {
+        return (u64)a32;
+    }
+    // else difference from a -> b is sorter than difference from b -> a: so order is (a,b)
+    return (u64)b32;
 }
 
 u64 mymax64(u64 a, u64 b) {
@@ -102,6 +133,9 @@ int read_op(enum FoldOp *op, u8 opcode) {
             return 0;
         case 13:
             *op = SUB64;
+            return 0;
+        case 15:
+            *op = MAX64WRAP;
             return 0;
         default:
             return -1;
@@ -264,6 +298,9 @@ void measurement_machine(struct ccp_connection *ccp) {
                 break;
             case SUB64:
                 write_reg(state, mysub64(arg1, arg2), current_instruction.rRet);
+                break;
+            case MAX64WRAP:
+                write_reg(state, mymax64_wrap(arg1, arg2), current_instruction.rRet);
                 break;
             case IFCNT64: // if arg1, adds 1 to register in rRight and stores it in rRet
                 if (arg1 == 1) {

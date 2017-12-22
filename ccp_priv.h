@@ -97,6 +97,7 @@ enum FoldOp {
     MIN64, // (min a b) return min(a,b)
     MUL64, // (mul a b) return a * b
     SUB64, // (sub a b) return a - b
+    MAX64WRAP, // (max a b) return max(a,b) with MAX_U32 wraparound
 };
 
 struct Register {
