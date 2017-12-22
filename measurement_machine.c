@@ -1,7 +1,5 @@
 #include "ccp_priv.h"
 
-#include <linux/module.h>
-
 #define CCP_FRAC_DENOM 100
 #define CCP_EWMA_RECENCY 60
 
@@ -165,11 +163,9 @@ int read_instruction(
 void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
     switch (reg.type) {
         case PERM_REG:
-            printk("ccp: write_reg: perm#%u -> %llu", reg.index, value);
             state->state_registers[reg.index] = value;
             break;
         case TMP_REG:
-            printk("ccp: write_reg: tmp#%u -> %llu", reg.index, value);
             state->tmp_registers[reg.index] = value;
             break;
         default:
@@ -279,8 +275,8 @@ void measurement_machine(struct ccp_connection *ccp) {
                     write_reg(state, myadd64(1, arg2), current_instruction.rRet);
                 }
                 break;
-            case BIND64: // take arg1, and put it in rRet
-                write_reg(state, arg1, current_instruction.rRet);
+            case BIND64: // take arg2, and put it in rRet
+                write_reg(state, arg2, current_instruction.rRet);
             default:
                 break;
         }
