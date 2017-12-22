@@ -41,11 +41,10 @@ static inline void do_report(
 
 static inline void do_wait_abs(
     struct ccp_connection *ccp,
-    u32 wait_us
+    u32 wait_ns
 ) {
     struct ccp_priv_state *state = get_ccp_priv_state(ccp);
-    //pr_info("waiting %u us\n", wait_us);
-    state->next_event_time = ccp->after_usecs(wait_us);
+    state->next_event_time = ccp->after_usecs(wait_ns / 1000);
 }
 
 static inline void do_wait_rel(
