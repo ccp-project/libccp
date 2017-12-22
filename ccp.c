@@ -81,9 +81,11 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     u16 sid;
     u32 first_ack;
     struct ccp_connection *conn;
+    struct ccp_primitives *prims;
 
     // check that dp is properly filled in.
-    if (dp->set_cwnd == NULL ||
+    if (dp == NULL ||
+        dp->set_cwnd == NULL ||
         dp->set_rate_abs == NULL ||
         dp->set_rate_rel == NULL ||
         dp->get_ccp_primitives == NULL ||
@@ -99,10 +101,10 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     for (sid = 0; sid < MAX_NUM_CONNECTIONS; sid++) {
         conn = &ccp_active_connections[sid];
         if (conn->index == 0) {
-            pr_info("Initializing a flow, found a free slot");
+            pr_info("ccp: Initializing a flow, found a free slot");
             // found a free slot
             conn->index = sid + 1;
-            load_dummy_instr(conn);
+            //load_dummy_instr(conn);
             sid = sid + 1;
             break;
         }
@@ -129,13 +131,21 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     // send to CCP:
     // index of pointer back to this sock for IPC callback
     // first ack to expect
-    first_ack = conn->get_ccp_primitives(conn)->ack;
-    ok = send_conn_create(conn, first_ack);
-    if (ok < 0) {
-        pr_info("failed to send create message: %d", ok);
+    prims = conn->get_ccp_primitives(conn);
+    if (prims != NULL) {
+        first_ack = prims->ack;
+    } else {
+        pr_info("ccp: get_ccp_primitives stiffed us");
+        first_ack = 0;
     }
+    
+    //ok = send_conn_create(conn, first_ack);
+    //if (ok < 0) {
+    //    pr_info("failed to send create message: %d", ok);
+    //}
 
-    return conn;
+    //return conn;
+    return NULL;
 }
 
 inline void *ccp_get_impl(struct ccp_connection *dp) {
@@ -259,6 +269,7 @@ int ccp_read_msg(
                 return ok;
             }
         }
+        state->num_instructions = imsg.num_instrs;
 
         reset_state(state);
     }
