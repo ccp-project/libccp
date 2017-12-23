@@ -18,13 +18,12 @@ int read_header(struct CcpMsgHeader *hdr, char *buf) {
     }
 }
 
-/* We only write Create, Measure, and Drop messages.
+/* We only write Create, and Measure messages.
  */
 int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr) {
     switch (hdr->Type) {
     case CREATE:
     case MEASURE:
-    case DROP:
         break;
     default:
         return -1;

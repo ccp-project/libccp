@@ -33,7 +33,7 @@ int read_header(struct CcpMsgHeader *hdr, char *buf);
 int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
 
 /* There are 5 message types (Type field in header)
- * CREATE, MEASURE, and DROP are written from datapath to CCP
+ * CREATE and MEASURE are written from datapath to CCP
  * PATTERN and INSTALL_FOLD are received in datapath from CCP
  * 
  * Messages start with the header, then 
@@ -43,7 +43,6 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
  */
 #define CREATE  0
 #define MEASURE 1
-#define DROP    2
 #define PATTERN 3
 #define INSTALL_FOLD 4
 

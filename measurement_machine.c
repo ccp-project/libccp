@@ -1,4 +1,5 @@
 #include "ccp_priv.h"
+
 #define CCP_FRAC_DENOM 100
 #define CCP_EWMA_RECENCY 60
 
@@ -210,6 +211,10 @@ void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
 void reset_state(struct ccp_priv_state *state) {
     u8 i;
     struct Instruction64 current_instruction;
+
+    // reset the implicit registers
+    state->state_registers[0] = 0; // isUrgent
+
     for (i = 0; i < state->num_instructions; i++) {
         current_instruction = state->fold_instructions[i];
         switch (current_instruction.op) {
@@ -220,7 +225,8 @@ void reset_state(struct ccp_priv_state *state) {
             default:
                 // DEF instructions are only at the beginnning
                 // Once we see a non-DEF, can stop.
-                state->num_to_return = i;
+                // Add 1 for the implicit isUrgent return register
+                state->num_to_return = i + 1;
                 return; 
         }
     }
@@ -257,6 +263,12 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
     }
 } 
 
+extern int send_measurement(
+    struct ccp_connection *dp,
+    u64 *fields,
+    u8 num_fields
+);
+
 void measurement_machine(struct ccp_connection *ccp) {
     struct ccp_priv_state *state = get_ccp_priv_state(ccp);
     struct ccp_primitives* primitives = ccp->get_ccp_primitives(ccp);
@@ -265,7 +277,7 @@ void measurement_machine(struct ccp_connection *ccp) {
     u64 arg1;
     u64 arg2;
     struct Instruction64 current_instruction;
-    for ( i = 0; i < state->num_instructions; i++ ) {
+    for (i = 0; i < state->num_instructions; i++) {
         current_instruction = state->fold_instructions[i];
         arg1 = read_reg(state, primitives, current_instruction.rLeft);
         arg2 = read_reg(state, primitives, current_instruction.rRight);
@@ -320,4 +332,12 @@ void measurement_machine(struct ccp_connection *ccp) {
                 break;
         }
     };
+
+    if (state->state_registers[0] == 1) { // isUrgent register set
+        // immediately send measurement state to CCP, bypassing send pattern
+        struct ccp_priv_state *state = get_ccp_priv_state(ccp);
+        send_measurement(ccp, state->state_registers, state->num_to_return);
+        // reset isUrgent register to 0
+        state->state_registers[0] = 0;
+    }
 }

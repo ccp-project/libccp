@@ -305,7 +305,7 @@ int send_measurement(
         .num_fields = num_fields,
     };
 
-    memcpy(ms.fields, fields, sizeof(ms.fields));
+    memcpy(ms.fields, fields, ms.num_fields * sizeof(u64));
 
     if (dp->index < 1) {
         ok = -1;

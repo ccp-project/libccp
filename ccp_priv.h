@@ -160,12 +160,13 @@ int init_ccp_priv_state(struct ccp_connection *ccp);
 inline struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *ccp);
 
 // rate sample primitives
-#define ACK 0
-#define RTT 1
-#define LOSS 2
-#define RIN 3
-#define ROUT 4
-#define CWND 5
-#define ECN 6
+// must be the same order as in userspace CCP!
+#define  ACK   0
+#define  ECN   1
+#define  LOSS  2
+#define  ROUT  3
+#define  RTT   4
+#define  CWND  5
+#define  RIN   6
 
 #endif
