@@ -246,6 +246,8 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
                     return primitives->rout;
                 case CWND:
                     return primitives->cwnd;
+                case ECN:
+                    return (u64)primitives->ecn;
                 default:
                     return 0;
             }

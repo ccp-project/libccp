@@ -166,5 +166,6 @@ inline struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *ccp);
 #define RIN 3
 #define ROUT 4
 #define CWND 5
+#define ECN 6
 
 #endif

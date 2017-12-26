@@ -25,6 +25,7 @@ struct ccp_primitives {
     u64 rin;
     u64 rout;
     u64 cwnd;
+    bool ecn;
 };
 
 /* The CCP state for each connection.
