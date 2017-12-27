@@ -20,12 +20,12 @@ typedef uint64_t u64;
  */
 struct ccp_primitives {
     u64 ack;
-    u64 rtt;
-    u64 loss;
-    u64 rin;
-    u64 rout;
-    u64 cwnd;
     bool ecn;
+    u64 loss;
+    u64 rcvrate;
+    u64 rtt;
+    u64 sndcwnd;
+    u64 sndrate;
 };
 
 /* The CCP state for each connection.

@@ -242,18 +242,18 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
             switch (reg.index) {
                 case ACK:
                     return primitives->ack;
-                case RTT:
-                    return primitives->rtt;
-                case LOSS:
-                    return primitives->loss;
-                case RIN:
-                    return primitives->rin;
-                case ROUT:
-                    return primitives->rout;
-                case CWND:
-                    return primitives->cwnd;
                 case ECN:
                     return (u64)primitives->ecn;
+                case LOSS:
+                    return primitives->loss;
+                case RCVRATE:
+                    return primitives->rcvrate;
+                case RTT:
+                    return primitives->rtt;
+                case SNDCWND:
+                    return primitives->sndcwnd;
+                case SNDRATE:
+                    return primitives->sndrate;
                 default:
                     return 0;
             }
