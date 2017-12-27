@@ -247,7 +247,7 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
                 case ACK:
                     return primitives->ack;
                 case ECN:
-                    return (u64)primitives->ecn;
+                    return primitives->ecn;
                 case LOSS:
                     return primitives->loss;
                 case MSS:

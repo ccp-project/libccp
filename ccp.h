@@ -20,7 +20,7 @@ typedef uint64_t u64;
  */
 struct ccp_primitives {
     u64 ack; // bytes
-    bool ecn;
+    u64 ecn; // bytes
     u64 loss; // packets
     u64 mss; // bytes
     u64 rcvrate; // bytes / s 
