@@ -33,49 +33,6 @@ void ccp_free_connection_map(void) {
     ccp_active_connections = NULL;
 }
 
-void load_dummy_instr(struct ccp_connection *ccp) {
-    int i;
-    struct Register ack_state = { .type = PERM_REG, .index = ACK, .value = 0 };
-    struct Register rtt_state = { .type = PERM_REG, .index = RTT, .value = 0 };
-    struct Register loss_state = { .type = PERM_REG, .index = LOSS, .value = 0 };
-    struct Register rin_state = { .type = PERM_REG, .index = RIN, .value = 0 };
-    struct Register rout_state = { .type = PERM_REG, .index = ROUT, .value = 0 };
-    struct Register cwnd_state = { .type = PERM_REG, .index = CWND, .value = 0 };
-
-    // primitive state
-    struct Register ack_prim = { .type = CONST_REG, .index = ACK, .value = 0 };
-    struct Register rtt_prim = { .type = CONST_REG, .index = RTT, .value = 0 };
-    struct Register loss_prim = { .type = CONST_REG, .index = LOSS, .value = 0 };
-    struct Register rin_prim = { .type = CONST_REG, .index = RIN, .value = 0 };
-    struct Register rout_prim = { .type = CONST_REG, .index = ROUT, .value = 0 };
-    struct Register cwnd_prim = { .type = CONST_REG, .index = CWND, .value = 0 };
-
-    // extra instructions for ewma constant
-    struct Register ewma_constant = { .type = CONST_REG, .index = 0, .value = 60 };
-
-    // instruction structs
-    struct Instruction64 ack_instr = { .op = MAX64, .rLeft = ack_state, .rRight = ack_prim, .rRet = ack_state };
-    struct Instruction64 rtt_instr = { .op = EWMA64, .rLeft = ewma_constant, .rRight = rtt_prim, .rRet = rtt_state }; // * special - rLeft is actually rtt State reg
-    struct Instruction64 loss_instr = { .op = ADD64, .rLeft = loss_state, .rRight = loss_prim, .rRet = loss_state };
-    struct Instruction64 rin_instr = { .op = EWMA64, .rLeft = ewma_constant, .rRight = rin_prim, .rRet = rin_state };
-    struct Instruction64 rout_instr = { .op = EWMA64, .rLeft = ewma_constant, .rRight = rout_prim, .rRet = rout_state };
-    struct Instruction64 bind_instr = { .op = BIND64, .rLeft = cwnd_prim, .rRight = cwnd_prim, .rRet = cwnd_state };
-
-    struct ccp_priv_state *state = get_ccp_priv_state(ccp);
-
-    // load the instructions
-    state->fold_instructions[0] = ack_instr;
-    state->fold_instructions[1] = rtt_instr;
-    state->fold_instructions[2] = loss_instr;
-    state->fold_instructions[3] = rin_instr;
-    state->fold_instructions[4] = rout_instr;
-    state->fold_instructions[5] = bind_instr;
-    state->num_instructions =6;
-    for ( i = 0; i < MAX_PERM_REG; i++ ) {
-        state->state_registers[i] = 0;
-    }
-}
-
 struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     int ok;
     u16 sid;
