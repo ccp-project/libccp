@@ -208,6 +208,11 @@ void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
     }
 }
 
+// Implicit return registers:
+// isUrgent
+// Cwnd
+#define NUM_IMPLICIT_REGISTERS 2
+
 void reset_state(struct ccp_priv_state *state) {
     u8 i;
     struct Instruction64 current_instruction;
@@ -225,8 +230,7 @@ void reset_state(struct ccp_priv_state *state) {
             default:
                 // DEF instructions are only at the beginnning
                 // Once we see a non-DEF, can stop.
-                // Add 1 for the implicit isUrgent return register
-                state->num_to_return = i + 1;
+                state->num_to_return = i + NUM_IMPLICIT_REGISTERS;
                 return; 
         }
     }
@@ -252,8 +256,6 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
                     return primitives->rcvrate;
                 case RTT:
                     return primitives->rtt;
-                case SNDCWND:
-                    return primitives->sndcwnd;
                 case SNDRATE:
                     return primitives->sndrate;
                 default:
@@ -279,6 +281,9 @@ void measurement_machine(struct ccp_connection *ccp) {
     u64 arg1;
     u64 arg2;
     struct Instruction64 current_instruction;
+
+    state->state_registers[1] = primitives->sndcwnd;
+
     for (i = 0; i < state->num_instructions; i++) {
         current_instruction = state->fold_instructions[i];
         arg1 = read_reg(state, primitives, current_instruction.rLeft);
@@ -342,4 +347,6 @@ void measurement_machine(struct ccp_connection *ccp) {
         // reset isUrgent register to 0
         state->state_registers[0] = 0;
     }
+
+    ccp->set_cwnd(ccp, state->state_registers[1] * primitives->mss);
 }
