@@ -22,6 +22,7 @@ struct ccp_primitives {
     u64 ack;
     bool ecn;
     u64 loss;
+    u64 mss;
     u64 rcvrate;
     u64 rtt;
     u64 sndcwnd;

@@ -164,9 +164,10 @@ inline struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *ccp);
 #define  ACK      0
 #define  ECN      1
 #define  LOSS     2
-#define  RCVRATE  3
-#define  RTT      4
-#define  SNDCWND  5
-#define  SNDRATE  6
+#define  MSS      3
+#define  RCVRATE  4
+#define  RTT      5
+#define  SNDCWND  6
+#define  SNDRATE  7
 
 #endif

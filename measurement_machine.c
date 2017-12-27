@@ -246,6 +246,8 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
                     return (u64)primitives->ecn;
                 case LOSS:
                     return primitives->loss;
+                case MSS:
+                    return primitives->mss;
                 case RCVRATE:
                     return primitives->rcvrate;
                 case RTT:
