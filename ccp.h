@@ -19,14 +19,14 @@ typedef uint64_t u64;
 /* Datapaths must support these measurement primitives.
  */
 struct ccp_primitives {
-    u64 ack;
+    u64 ack; // bytes
     bool ecn;
-    u64 loss;
-    u64 mss;
-    u64 rcvrate;
-    u64 rtt;
-    u64 sndcwnd;
-    u64 sndrate;
+    u64 loss; // packets
+    u64 mss; // bytes
+    u64 rcvrate; // bytes / s 
+    u64 rtt; // microseconds
+    u64 sndcwnd; // packets
+    u64 sndrate; // bytes / s 
 };
 
 /* The CCP state for each connection.
@@ -52,7 +52,7 @@ struct ccp_connection {
     u16 index;
 
     // control primitives
-    void (*set_cwnd)(struct ccp_connection *ccp, u32 cwnd);
+    void (*set_cwnd)(struct ccp_connection *ccp, u32 cwnd); // TODO(eventually): consider setting cwnd in packets, not bytes
     void (*set_rate_abs)(struct ccp_connection *ccp, u32 rate);
     void (*set_rate_rel)(struct ccp_connection *ccp, u32 rate);
 
