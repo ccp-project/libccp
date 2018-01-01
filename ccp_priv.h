@@ -13,22 +13,24 @@
  * We implement these patterns on the ACK clock.
  *
  * There are 6 states (type field in PatternState)
- * SetRateAbs, SetCwndAbs: set the value of the Rate and Cwnd, respectively.
- *                         Importantly, setting a Rate does not change the Cwnd, and vice versa;
- *                         this way, CCP algorithms can express a window with a maximum rate, or
- *                         a rate with a maximum number of packets in flight.
+ * SetRateAbs, SetRateAbsWithCwnd, SetCwndAbs: 
+ *   Set the value of the Rate and Cwnd, respectively.
+ *   Importantly, setting a Rate does not change the Cwnd, and vice versa;
+ *   this way, CCP algorithms can express a window with a maximum rate, or
+ *   a rate with a maximum number of packets in flight.
  *
  * SetRateRel: Change the rate by the given relative multiplicative factor.
  * WaitAbs: Maintain the current Rate and Cwnd until the given duration of time, modulo the ACK clock, has passed.
  * WaitRel: Same as WaitAbs, but the duration given is a multiplicative factor of the current RTT.
  * Report: Send the current measurement state to userspace CCP now.
  */
-#define SETRATEABS 0 
-#define SETCWNDABS 1 
-#define SETRATEREL 2 
-#define WAITABS    3
-#define WAITREL    4
-#define REPORT     5
+#define  SETRATEABS          0
+#define  SETCWNDABS          1
+#define  SETRATEREL          2
+#define  WAITABS             3
+#define  WAITREL             4
+#define  REPORT              5
+#define  SETRATEABSWITHCWND  6
 
 struct __attribute__((packed, aligned(2))) PatternState {
     u8 type;

@@ -59,6 +59,21 @@ static inline void do_wait_rel(
     do_wait_abs(ccp, wait_us);
 }
 
+static inline void set_rate_with_cwnd_abs(
+    struct ccp_connection *ccp,
+    u32 rate
+) {
+    struct ccp_primitives *prims;
+    u32 cwnd, rtt_us;
+
+    prims = ccp->get_ccp_primitives(ccp);
+    ccp->set_rate_abs(ccp, rate);
+    rtt_us = prims->rtt;
+    cwnd = rate * rtt_us + 3 * prims->mss;
+    ccp->set_cwnd(ccp, cwnd);
+    return;
+}
+
 extern int send_conn_create(
     struct ccp_connection *dp,
     u32 startSeq
@@ -93,6 +108,9 @@ void send_machine(struct ccp_connection *ccp) {
     switch (ev.type) {
     case SETRATEABS:
         ccp->set_rate_abs(ccp, ev.val);
+        break;
+    case SETRATEABSWITHCWND:
+        set_rate_with_cwnd_abs(ccp, ev.val);
         break;
     case SETCWNDABS:
         ccp->set_cwnd(ccp, ev.val);
