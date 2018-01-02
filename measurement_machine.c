@@ -260,7 +260,11 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
                 case RCVRATE:
                     return primitives->rcvrate;
                 case RTT:
-                    return primitives->rtt;
+                    if (primitives->rtt == 0) {
+                        return ((u64)~0U);
+                    } else {
+                        return primitives->rtt;
+                    }
                 case SNDRATE:
                     return primitives->sndrate;
                 default:
