@@ -52,11 +52,10 @@ static inline void do_wait_rel(
     u32 rtt_factor
 ) {
     u64 rtt_us = ccp->get_ccp_primitives(ccp)->rtt;
-    u64 wait_us = rtt_factor * rtt_us;
-    wait_us /= 100;
-    //do_div(wait_us, 100);
-    //pr_info("waiting %llu us (%u/100 rtts) (rtt = %llu us)\n", wait_us, rtt_factor, rtt_us);
-    do_wait_abs(ccp, wait_us);
+    // rtt_factor is * 1000 in serialization on the userspace side
+    // so rtt_factor * (us) has units nanoseconds
+    u64 wait_ns = rtt_factor * rtt_us;
+    do_wait_abs(ccp, wait_ns);
 }
 
 static inline void set_rate_with_cwnd_abs(
