@@ -225,7 +225,12 @@ void reset_state(struct ccp_priv_state *state) {
         switch (current_instruction.op) {
             case DEF64:
                 // set the default value of the state register
-                write_reg(state, current_instruction.rRight.value, current_instruction.rLeft);
+                // check for infinity
+                if (current_instruction.rRight.value == (0x3f)) {
+                    write_reg(state, ((u64)~0U), current_instruction.rLeft);
+                } else {
+                    write_reg(state, current_instruction.rRight.value, current_instruction.rLeft);
+                }
                 break;
             default:
                 // DEF instructions are only at the beginnning
