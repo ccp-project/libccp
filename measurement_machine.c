@@ -1,7 +1,6 @@
 #include "ccp_priv.h"
 
-#define CCP_FRAC_DENOM 100
-#define CCP_EWMA_RECENCY 60
+#define CCP_FRAC_DENOM 10
 
 // TODO: more than u64 functions
 // for bind, ifcnt and ifnotcnt, operations are directly inline
