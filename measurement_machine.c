@@ -248,24 +248,38 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
             return state->tmp_registers[reg.index];
         case CONST_REG:
             switch (reg.index) {
-                case ACK:
-                    return primitives->ack;
-                case ECN:
-                    return primitives->ecn;
-                case LOSS:
-                    return primitives->loss;
-                case MSS:
-                    return primitives->mss;
-                case RCVRATE:
-                    return primitives->rcvrate;
-                case RTT:
-                    if (primitives->rtt == 0) {
+                case BYTES_ACKED:
+                    return primitives->bytes_acked;
+                case PACKETS_ACKED:
+                    return primitives->packets_acked;
+                case BYTES_MISORDERED:
+                    return primitives->bytes_misordered;
+                case PACKETS_MISORDERED:
+                    return primitives->packets_misordered;
+                case ECN_BYTES:
+                    return primitives->ecn_bytes;
+                case ECN_PACKETS:
+                    return primitives->ecn_packets;
+                case LOST_PKTS_SAMPLE:
+                    return primitives->lost_pkts_sample;
+                case WAS_TIMEOUT:
+                    return primitives->was_timeout;
+                case RTT_SAMPLE_US:
+                    if (primitives->rtt_sample_us == 0) {
                         return ((u64)~0U);
                     } else {
-                        return primitives->rtt;
+                        return primitives->rtt_sample_us;
                     }
-                case SNDRATE:
-                    return primitives->sndrate;
+                case RATE_OUTGOING:
+                    return primitives->rate_outgoing;
+                case RATE_INCOMING:
+                    return primitives->rate_incoming;
+                case BYTES_IN_FLIGHT:
+                    return primitives->bytes_in_flight;
+                case PACKETS_IN_FLIGHT:
+                    return primitives->packets_in_flight;
+                case SND_CWND:
+                    return primitives->snd_cwnd;
                 default:
                     return 0;
             }
@@ -290,7 +304,7 @@ void measurement_machine(struct ccp_connection *ccp) {
     u64 arg2;
     struct Instruction64 current_instruction;
 
-    state->state_registers[1] = primitives->sndcwnd;
+    state->state_registers[1] = primitives->snd_cwnd;
 
     for (i = 0; i < state->num_instructions; i++) {
         current_instruction = state->fold_instructions[i];
@@ -356,5 +370,5 @@ void measurement_machine(struct ccp_connection *ccp) {
         state->state_registers[0] = 0;
     }
 
-    ccp->set_cwnd(ccp, state->state_registers[1] * primitives->mss);
+    ccp->set_cwnd(ccp, state->state_registers[1]);
 }

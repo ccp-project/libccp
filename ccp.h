@@ -17,16 +17,42 @@ typedef uint32_t u32;
 typedef uint64_t u64;
 
 /* Datapaths must support these measurement primitives.
+ * Each value is reported *per invocation*. 
+ *
+ * n.b. Ideally, an invocation is every packet, but datapaths might choose to call
+ * ccp_invoke() less often.
  */
 struct ccp_primitives {
-    u64 ack; // bytes
-    u64 ecn; // bytes
-    u64 loss; // packets
-    u64 mss; // bytes
-    u64 rcvrate; // bytes / s 
-    u64 rtt; // microseconds
-    u64 sndcwnd; // packets
-    u64 sndrate; // bytes / s 
+    // newly acked, in-order bytes
+    u32 bytes_acked;
+    // newly acked, in-order packets
+    u32 packets_acked;
+    // out-of-order bytes
+    u32 bytes_misordered;
+    // out-of-order packets
+    u32 packets_misordered;
+    // bytes corresponding to ecn-marked packets
+    u32 ecn_bytes;
+    // ecn-marked packets
+    u32 ecn_packets;
+
+    // an estimate of the number of packets lost
+    u32 lost_pkts_sample;
+    // whether a timeout was observed
+    bool was_timeout;
+
+    // a recent sample of the round-trip time
+    u64 rtt_sample_us;
+    // sample of the sending rate, bytes / s
+    u64 rate_outgoing;
+    // sample of the receiving rate, bytes / s
+    u64 rate_incoming;
+    // the number of actual bytes in flight
+    u32 bytes_in_flight;
+    // the number of actual packets in flight
+    u32 packets_in_flight;
+    // the target congestion window to maintain, in bytes
+    u32 snd_cwnd;
 };
 
 /* The CCP state for each connection.

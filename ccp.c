@@ -10,8 +10,7 @@
 #define MAX_NUM_CONNECTIONS 100
 
 int send_conn_create(
-    struct ccp_connection *dp,
-    u32 startSeq
+    struct ccp_connection *dp
 );
 
 // array of active connections
@@ -36,9 +35,7 @@ void ccp_free_connection_map(void) {
 struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     int ok;
     u16 sid;
-    u32 first_ack;
     struct ccp_connection *conn;
-    struct ccp_primitives *prims;
 
     // check that dp is properly filled in.
     if (dp == NULL ||
@@ -82,18 +79,9 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
 
     init_ccp_priv_state(conn);
 
-    // copy private datapath state
     // send to CCP:
     // index of pointer back to this sock for IPC callback
-    // first ack to expect
-    prims = conn->get_ccp_primitives(conn);
-    if (prims != NULL) {
-        first_ack = prims->ack;
-    } else {
-        first_ack = 0;
-    }
-    
-    ok = send_conn_create(conn, first_ack);
+    ok = send_conn_create(conn);
     if (ok < 0) {
         pr_info("failed to send create message: %d", ok);
     }
@@ -228,14 +216,12 @@ int ccp_read_msg(
 
 // send create msg
 int send_conn_create(
-    struct ccp_connection *dp,
-    u32 startSeq
+    struct ccp_connection *dp
 ) {
     int ok;
     char msg[BIGGEST_MSG_SIZE];
     int msg_size;
     struct CreateMsg cr = {
-        .startSeq = startSeq,
         .congAlg = "reno"
     };
 

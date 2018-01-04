@@ -62,19 +62,19 @@ void send_machine(
  *
  * Userspace CCP algorithms specify the measurements they are interested in with a fold function, e.g.:
  *
- * (def (min_rtt 99999999))
- * (= Flow.min_rtt (min Flow.min_rtt Pkt.rtt))
+ * (def (min_rtt +infinity))
+ * (= Flow.min_rtt (min Flow.min_rtt Pkt.rtt_sample_us))
  *
  * This is compiled into an []Instruction, e.g.:
  *
- * TODO make this example correct
  * [
- *   Instruction{_, init, Flow.min_rtt, 99999999},
- *   Instruction{tmp0, min, Flow.min_rtt, Pkt.rtt},
+ *   Instruction{_, init, Flow.min_rtt, 0x3f},
+ *   Instruction{tmp0, min, Flow.min_rtt, Pkt.rtt_sample_us},
  *   Instruction{Flow.min_rtt, bind, tmp0},
  * ]
  *
  * This []Instruction is serialized into an InstallFold message.
+ * Once received here, the []Instruction is run through upon every ccp_invoke()
  */
 
 enum RegType64 {
@@ -163,12 +163,19 @@ inline struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *ccp);
 
 // rate sample primitives
 // must be the same order as in userspace CCP!
-#define  ACK      0
-#define  ECN      1
-#define  LOSS     2
-#define  MSS      3
-#define  RCVRATE  4
-#define  RTT      5
-#define  SNDRATE  6
+#define  BYTES_ACKED         0
+#define  PACKETS_ACKED       1
+#define  BYTES_MISORDERED    2
+#define  PACKETS_MISORDERED  3
+#define  ECN_BYTES           4
+#define  ECN_PACKETS         5
+#define  LOST_PKTS_SAMPLE    6
+#define  WAS_TIMEOUT         7
+#define  RTT_SAMPLE_US       8
+#define  RATE_OUTGOING       9
+#define  RATE_INCOMING       10
+#define  BYTES_IN_FLIGHT     11
+#define  PACKETS_IN_FLIGHT   12
+#define  SND_CWND            13
 
 #endif

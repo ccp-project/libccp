@@ -32,7 +32,7 @@ int read_header(struct CcpMsgHeader *hdr, char *buf);
  */
 int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
 
-/* There are 5 message types (Type field in header)
+/* There are 4 message types (Type field in header)
  * CREATE and MEASURE are written from datapath to CCP
  * PATTERN and INSTALL_FOLD are received in datapath from CCP
  * 
@@ -41,26 +41,25 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
  * 2. fixed number of u64
  * 3. bytes blob, flexible length
  */
-#define CREATE  0
-#define MEASURE 1
-#define PATTERN 3
-#define INSTALL_FOLD 4
+#define  CREATE        0
+#define  MEASURE       1
+#define  PATTERN       3
+#define  INSTALL_FOLD  4
 
 // Some messages contain strings.
-#define BIGGEST_MSG_SIZE 256
-#define MAX_STRING_SIZE 250
+#define  BIGGEST_MSG_SIZE  256
+#define  MAX_STRING_SIZE   250
 
 // Some messages contain serialized fold instructions.
-#define MAX_INSTRUCTIONS 20
-#define MAX_PERM_REG 6
-#define MAX_TMP_REG 10
+#define  MAX_INSTRUCTIONS  20
+#define  MAX_PERM_REG      6
+#define  MAX_TMP_REG       10
 
 /* CREATE
- * 1 u32: the socket id
  * str: the datapath's requested congestion control algorithm (could be overridden)
+ * TODO(eventually): convey relevant sockopts to CCP
  */
 struct __attribute__((packed, aligned(4))) CreateMsg {
-    u32 startSeq;
     char congAlg[MAX_STRING_SIZE];
 };
 
