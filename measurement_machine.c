@@ -345,14 +345,14 @@ void measurement_machine(struct ccp_connection *ccp) {
             case MAX64WRAP:
                 write_reg(state, mymax64_wrap(arg1, arg2), current_instruction.rRet);
                 break;
-            case IFCNT64: // if arg1, adds 1 to register in rRight and stores it in rRet
+            case IFCNT64: // if arg1 (rLeft), stores rRight in rRet
                 if (arg1 == 1) {
-                    write_reg(state, myadd64(1, arg2), current_instruction.rRet);
+                    write_reg(state, arg2, current_instruction.rRet);
                 }
                 break;
             case IFNOTCNT64:
                 if (arg1 == 0) {
-                    write_reg(state, myadd64(1, arg2), current_instruction.rRet);
+                    write_reg(state, arg2, current_instruction.rRet);
                 }
                 break;
             case BIND64: // take arg2, and put it in rRet
