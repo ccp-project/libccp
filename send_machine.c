@@ -37,6 +37,7 @@ static inline void do_report(
 ) {
     struct ccp_priv_state *state = get_ccp_priv_state(ccp);
     send_measurement(ccp, state->state_registers, state->num_to_return);
+    reset_state(state);
 }
 
 static inline void do_wait_abs(
@@ -68,7 +69,12 @@ static inline void set_rate_with_cwnd_abs(
     prims = &ccp->prims;
     ccp->set_rate_abs(ccp, rate);
     rtt_us = prims->rtt_sample_us;
-    cwnd = rate * rtt_us + 3 * (prims->bytes_in_flight / prims->packets_in_flight); 
+    if (prims->packets_in_flight > 0) {
+        cwnd = rate * rtt_us + 3 * (prims->bytes_in_flight / prims->packets_in_flight);
+    } else {
+        cwnd = rate * rtt_us;
+    }
+
     ccp->set_cwnd(ccp, cwnd);
     return;
 }

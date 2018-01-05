@@ -52,8 +52,8 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
 
 // Some messages contain serialized fold instructions.
 #define  MAX_INSTRUCTIONS  20
-#define  MAX_PERM_REG      6
-#define  MAX_TMP_REG       10
+#define  MAX_PERM_REG      16
+#define  MAX_TMP_REG       8
 
 /* CREATE
  * str: the datapath's requested congestion control algorithm (could be overridden)

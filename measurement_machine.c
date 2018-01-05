@@ -366,8 +366,7 @@ void measurement_machine(struct ccp_connection *ccp) {
         // immediately send measurement state to CCP, bypassing send pattern
         struct ccp_priv_state *state = get_ccp_priv_state(ccp);
         send_measurement(ccp, state->state_registers, state->num_to_return);
-        // reset isUrgent register to 0
-        state->state_registers[0] = 0;
+        reset_state(state);
     }
 
     ccp->set_cwnd(ccp, state->state_registers[1]);
