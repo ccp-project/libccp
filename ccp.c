@@ -42,7 +42,6 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
         dp->set_cwnd == NULL ||
         dp->set_rate_abs == NULL ||
         dp->set_rate_rel == NULL ||
-        dp->get_ccp_primitives == NULL ||
         dp->send_msg == NULL ||
         dp->now == NULL ||
         dp->after_usecs == NULL
@@ -71,7 +70,6 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     conn->set_cwnd           = dp->set_cwnd;
     conn->set_rate_abs       = dp->set_rate_abs;
     conn->set_rate_rel       = dp->set_rate_rel;
-    conn->get_ccp_primitives = dp->get_ccp_primitives;
     conn->send_msg           = dp->send_msg;
     conn->now                = dp->now;
     conn->after_usecs        = dp->after_usecs;

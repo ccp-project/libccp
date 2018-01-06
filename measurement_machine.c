@@ -297,7 +297,7 @@ extern int send_measurement(
 
 void measurement_machine(struct ccp_connection *ccp) {
     struct ccp_priv_state *state = get_ccp_priv_state(ccp);
-    struct ccp_primitives* primitives = ccp->get_ccp_primitives(ccp);
+    struct ccp_primitives* primitives = &ccp->prims;
     u8 i;
     u64 arg0; // extra arg for ewma, if, not if
     u64 arg1;

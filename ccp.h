@@ -77,13 +77,15 @@ struct ccp_connection {
     // the index of this array element
     u16 index;
 
+    // struct ccp_primitives is large; as a result, we store it inside ccp_connection to avoid
+    // potential limitations in the datapath
+    // datapath should update this before calling ccp_invoke()
+    struct ccp_primitives prims;
+
     // control primitives
     void (*set_cwnd)(struct ccp_connection *ccp, u32 cwnd); // TODO(eventually): consider setting cwnd in packets, not bytes
     void (*set_rate_abs)(struct ccp_connection *ccp, u32 rate);
     void (*set_rate_rel)(struct ccp_connection *ccp, u32 rate);
-
-    // measurement primitives
-    struct ccp_primitives* (*get_ccp_primitives)(struct ccp_connection *ccp);
 
     // IPC communication
     int (*send_msg)(char *msg, int msg_size);
