@@ -88,7 +88,7 @@ struct ccp_connection {
     void (*set_rate_rel)(struct ccp_connection *ccp, u32 rate);
 
     // IPC communication
-    int (*send_msg)(char *msg, int msg_size);
+    int (*send_msg)(struct ccp_connection *ccp, char *msg, int msg_size);
 
     // time management functions
     u32 (*now)(void); // the current time in datapath time units

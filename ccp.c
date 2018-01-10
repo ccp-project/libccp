@@ -228,7 +228,7 @@ int send_conn_create(
     }
 
     msg_size = write_create_msg(msg, BIGGEST_MSG_SIZE, dp->index, cr);
-    ok = dp->send_msg(msg, msg_size);
+    ok = dp->send_msg(dp, msg, msg_size);
     return ok;
 }
 
@@ -254,6 +254,6 @@ int send_measurement(
     }
 
     msg_size = write_measure_msg(msg, BIGGEST_MSG_SIZE, dp->index, ms);
-    ok = dp->send_msg(msg, msg_size);
+    ok = dp->send_msg(dp, msg, msg_size);
     return ok;
 }
