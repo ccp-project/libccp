@@ -2,10 +2,15 @@
 #include "serialize.h"
 #include "ccp_priv.h"
 
-// ugh
+#ifdef __USRLIB__
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#else
 #include <linux/types.h>
 #include <linux/string.h> // memcpy
 #include <linux/slab.h> // kmalloc
+#endif
 
 #define MAX_NUM_CONNECTIONS 100
 
@@ -17,7 +22,11 @@ int send_conn_create(
 struct ccp_connection* ccp_active_connections;
 
 int ccp_init_connection_map(void) {
+#ifdef __USRLIB__
+    ccp_active_connections = malloc(MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
+#else
     ccp_active_connections = kmalloc(MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection), GFP_KERNEL);
+#endif
     if (!ccp_active_connections) {
         return -1;
     }
@@ -28,7 +37,11 @@ int ccp_init_connection_map(void) {
 }
 
 void ccp_free_connection_map(void) {
+#ifdef __USRLIB__
+    free(ccp_active_connections);
+#else
     kfree(ccp_active_connections);
+#endif
     ccp_active_connections = NULL;
 }
 
@@ -81,7 +94,7 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     // index of pointer back to this sock for IPC callback
     ok = send_conn_create(conn);
     if (ok < 0) {
-        pr_info("failed to send create message: %d", ok);
+        PRINT("failed to send create message: %d", ok);
     }
 
     return conn;
@@ -107,16 +120,15 @@ int ccp_invoke(struct ccp_connection *dp) {
 // return NULL on error
 struct ccp_connection *ccp_connection_lookup(u16 sid) {
     struct ccp_connection *conn;
-    //printk(KERN_INFO "Entering %s\n", __FUNCTION__);
     // bounds check
     if (sid == 0 || sid > MAX_NUM_CONNECTIONS) {
-        printk(KERN_INFO "index out of bounds: %d", sid);
+        PRINT("index out of bounds: %d", sid);
         return NULL;
     }
 
     conn = &ccp_active_connections[sid-1];
     if (conn->index != sid) {
-        printk(KERN_INFO "index mismatch: sid %d, index %d", sid, conn->index);
+        PRINT("index mismatch: sid %d, index %d", sid, conn->index);
         return NULL;
     }
 
@@ -127,16 +139,16 @@ struct ccp_connection *ccp_connection_lookup(u16 sid) {
 // also free slot in ccp instruction table
 void ccp_connection_free(u16 sid) {
     struct ccp_connection *conn;
-    printk(KERN_INFO "Entering %s\n", __FUNCTION__);
+    PRINT("Entering %s\n", __FUNCTION__);
     // bounds check
     if (sid == 0 || sid > MAX_NUM_CONNECTIONS) {
-        printk(KERN_INFO "index out of bounds: %d", sid);
+        PRINT("index out of bounds: %d", sid);
         return;
     }
 
     conn = &ccp_active_connections[sid-1];
     if (conn->index != sid) {
-        printk(KERN_INFO "index mismatch: sid %d, index %d", sid, conn->index);
+        PRINT("index mismatch: sid %d, index %d", sid, conn->index);
         return;
     }
 

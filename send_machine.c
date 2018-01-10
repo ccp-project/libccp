@@ -1,6 +1,10 @@
 #include "ccp_priv.h"
 
+#ifdef __USRLIB__
+#include <string.h>
+#else
 #include <linux/string.h>
+#endif
 
 int read_pattern(
     struct PatternState *seq,

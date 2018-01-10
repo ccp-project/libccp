@@ -159,7 +159,7 @@ int init_ccp_priv_state(struct ccp_connection *ccp);
 
 /* Retrieve the private state from ccp_connection.
  */
-inline struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *ccp);
+__INLINE__ struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *ccp);
 
 // rate sample primitives
 // must be the same order as in userspace CCP!

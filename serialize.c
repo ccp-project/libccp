@@ -1,9 +1,15 @@
 #include "serialize.h"
 
-// ugh
+#ifdef __USRLIB__
+#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#else
 #include <linux/types.h>
 #include <linux/string.h> // memcpy
 #include <linux/slab.h> // kmalloc
+#endif
 
 /* We only read Pattern and InstallFold messages.
  */
@@ -29,7 +35,7 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr) {
         return -1;
     }
 
-    if (bufsize < sizeof(struct CcpMsgHeader)) {
+    if (bufsize < ((int)sizeof(struct CcpMsgHeader))) {
         return -2;
     }
 
@@ -43,7 +49,7 @@ int write_create_msg(
     u32 sid, 
     struct CreateMsg cr
 ) {
-    int ret, ok;
+    int ok;
     int congAlgLen = strlen(cr.congAlg) + 1;
     struct CcpMsgHeader hdr = {
         .Type = CREATE, 
@@ -61,7 +67,6 @@ int write_create_msg(
     }
 
     buf += ok;
-    ret = ok;
     memcpy(buf, &cr, hdr.Len - 6);
     return hdr.Len;
 }
@@ -73,7 +78,6 @@ int write_measure_msg(
     struct MeasureMsg ms
 ) {
     int ok;
-    size_t ret;
     struct CcpMsgHeader hdr = {
         .Type = MEASURE, 
         .Len = 10 + ms.num_fields * sizeof(u64),
@@ -90,7 +94,6 @@ int write_measure_msg(
     }
 
     buf += ok;
-    ret = ok;
     memcpy(buf, &ms, hdr.Len - 6);
     return hdr.Len;
 }

@@ -10,7 +10,20 @@
 #ifndef CCP_H
 #define CCP_H
 
+#ifdef __USRLIB__
+	#define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
+  #define __INLINE__
+#else
+	#define PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
+  #define __INLINE__ inline
+#endif
+
+#ifdef __USRLIB__
+#include <stdint.h>
+#include <stdbool.h>
+#else
 #include <linux/types.h>
+#endif
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -133,9 +146,9 @@ struct ccp_connection *ccp_connection_lookup(u16 sid);
 
 /* Get the implementation-specific state of the ccp_connection.
  */
-inline void *ccp_get_impl(struct ccp_connection *dp);
+__INLINE__ void *ccp_get_impl(struct ccp_connection *dp);
 
-inline int ccp_set_impl(
+__INLINE__ int ccp_set_impl(
     struct ccp_connection *dp, 
     void *ptr
 );
