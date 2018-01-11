@@ -96,12 +96,12 @@ struct ccp_connection {
     struct ccp_primitives prims;
 
     // control primitives
-    void (*set_cwnd)(struct ccp_connection *ccp, u32 cwnd); // TODO(eventually): consider setting cwnd in packets, not bytes
-    void (*set_rate_abs)(struct ccp_connection *ccp, u32 rate);
-    void (*set_rate_rel)(struct ccp_connection *ccp, u32 rate);
+    void (*set_cwnd)(struct ccp_connection *conn, u32 cwnd); // TODO(eventually): consider setting cwnd in packets, not bytes
+    void (*set_rate_abs)(struct ccp_connection *conn, u32 rate);
+    void (*set_rate_rel)(struct ccp_connection *conn, u32 rate);
 
     // IPC communication
-    int (*send_msg)(struct ccp_connection *ccp, char *msg, int msg_size);
+    int (*send_msg)(struct ccp_connection *conn, char *msg, int msg_size);
 
     // time management functions
     u32 (*now)(void); // the current time in datapath time units
@@ -131,7 +131,7 @@ void ccp_free_connection_map(void);
  * returns the index at which the connection was placed; this index shall be used as the CCP socket id
  * return 0 on error
  */
-struct ccp_connection *ccp_connection_start(struct ccp_connection *dp);
+struct ccp_connection *ccp_connection_start(struct ccp_connection *conn_dp);
 
 /* Upon a connection ending,
  * free its slot in the connection map.
@@ -144,10 +144,10 @@ struct ccp_connection *ccp_connection_lookup(u16 sid);
 
 /* Get the implementation-specific state of the ccp_connection.
  */
-__INLINE__ void *ccp_get_impl(struct ccp_connection *dp);
+__INLINE__ void *ccp_get_impl(struct ccp_connection *conn);
 
 __INLINE__ int ccp_set_impl(
-    struct ccp_connection *dp, 
+    struct ccp_connection *conn, 
     void *ptr
 );
 
@@ -165,6 +165,6 @@ int ccp_read_msg(
  *
  * Will invoke the send and measurement machines.
  */
-int ccp_invoke(struct ccp_connection *dp);
+int ccp_invoke(struct ccp_connection *conn);
 
 #endif

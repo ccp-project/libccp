@@ -15,7 +15,7 @@
 #define MAX_NUM_CONNECTIONS 100
 
 int send_conn_create(
-    struct ccp_connection *dp
+    struct ccp_connection *conn
 );
 
 // array of active connections
@@ -45,19 +45,19 @@ void ccp_free_connection_map(void) {
     ccp_active_connections = NULL;
 }
 
-struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
+struct ccp_connection *ccp_connection_start(struct ccp_connection *conn_dp) {
     int ok;
     u16 sid;
     struct ccp_connection *conn;
 
-    // check that dp is properly filled in.
-    if (dp == NULL ||
-        dp->set_cwnd == NULL ||
-        dp->set_rate_abs == NULL ||
-        dp->set_rate_rel == NULL ||
-        dp->send_msg == NULL ||
-        dp->now == NULL ||
-        dp->after_usecs == NULL
+    // check that conn_dp is properly filled in.
+    if (conn_dp == NULL ||
+        conn_dp->set_cwnd == NULL ||
+        conn_dp->set_rate_abs == NULL ||
+        conn_dp->set_rate_rel == NULL ||
+        conn_dp->send_msg == NULL ||
+        conn_dp->now == NULL ||
+        conn_dp->after_usecs == NULL
     ) {
         return NULL;
     }
@@ -78,14 +78,14 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
         return NULL;
     }
 
-    // copy function pointers from dp into conn
-    conn->set_cwnd           = dp->set_cwnd;
-    conn->set_rate_abs       = dp->set_rate_abs;
-    conn->set_rate_rel       = dp->set_rate_rel;
-    conn->send_msg           = dp->send_msg;
-    conn->now                = dp->now;
-    conn->after_usecs        = dp->after_usecs;
-    conn->impl               = dp->impl;
+    // copy function pointers from conn_dp into conn
+    conn->set_cwnd           = conn_dp->set_cwnd;
+    conn->set_rate_abs       = conn_dp->set_rate_abs;
+    conn->set_rate_rel       = conn_dp->set_rate_rel;
+    conn->send_msg           = conn_dp->send_msg;
+    conn->now                = conn_dp->now;
+    conn->after_usecs        = conn_dp->after_usecs;
+    conn->impl               = conn_dp->impl;
 
     init_ccp_priv_state(conn);
 
@@ -99,19 +99,19 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
     return conn;
 }
 
-inline void *ccp_get_impl(struct ccp_connection *dp) {
-    return dp->impl;
+inline void *ccp_get_impl(struct ccp_connection *conn) {
+    return conn->impl;
 }
 
-inline int ccp_set_impl(struct ccp_connection *dp, void *ptr) {
-    dp->impl = ptr;
+inline int ccp_set_impl(struct ccp_connection *conn, void *ptr) {
+    conn->impl = ptr;
     return 0;
 }
 
 // TODO: make this return an int for error purposes
-int ccp_invoke(struct ccp_connection *dp) {
-    measurement_machine(dp);
-    send_machine(dp);
+int ccp_invoke(struct ccp_connection *conn) {
+    measurement_machine(conn);
+    send_machine(conn);
     return 0; // NOT OKAY
 }
 
@@ -163,7 +163,7 @@ int ccp_read_msg(
 ) {
     int ok;
     size_t i;
-    struct ccp_connection *ccp;
+    struct ccp_connection *conn;
     struct ccp_priv_state *state;
     struct CcpMsgHeader hdr;
     struct InstallFoldMsg imsg;
@@ -178,12 +178,12 @@ int ccp_read_msg(
         return -1;
     }
 
-    ccp = ccp_connection_lookup(hdr.SocketId);
-    if (ccp == NULL) {
+    conn = ccp_connection_lookup(hdr.SocketId);
+    if (conn == NULL) {
         return -1;
     }
 
-    state = get_ccp_priv_state(ccp);
+    state = get_ccp_priv_state(conn);
 
     if (hdr.Type == PATTERN) {
         ok = read_pattern_msg(&hdr, &pmsg, buf);
@@ -199,9 +199,9 @@ int ccp_read_msg(
     
         state->num_pattern_states = pmsg.numStates;
         state->curr_pattern_state = pmsg.numStates - 1;
-        state->next_event_time = ccp->now();
+        state->next_event_time = conn->now();
 
-        send_machine(ccp);
+        send_machine(conn);
     } else if (hdr.Type == INSTALL_FOLD) {
         ok = read_install_fold_msg(&hdr, &imsg, buf);
         if (ok < 0) {
@@ -225,7 +225,7 @@ int ccp_read_msg(
 
 // send create msg
 int send_conn_create(
-    struct ccp_connection *dp
+    struct ccp_connection *conn
 ) {
     int ok;
     char msg[BIGGEST_MSG_SIZE];
@@ -234,19 +234,19 @@ int send_conn_create(
         .congAlg = "reno"
     };
 
-    if (dp->index < 1) {
+    if (conn->index < 1) {
         return -1;
     }
 
-    msg_size = write_create_msg(msg, BIGGEST_MSG_SIZE, dp->index, cr);
-    ok = dp->send_msg(dp, msg, msg_size);
+    msg_size = write_create_msg(msg, BIGGEST_MSG_SIZE, conn->index, cr);
+    ok = conn->send_msg(conn, msg, msg_size);
     return ok;
 }
 
 // send datapath measurements
 // acks, rtt, rin, rout
 int send_measurement(
-    struct ccp_connection *dp,
+    struct ccp_connection *conn,
     u64 *fields,
     u8 num_fields
 ) {
@@ -259,12 +259,12 @@ int send_measurement(
 
     memcpy(ms.fields, fields, ms.num_fields * sizeof(u64));
 
-    if (dp->index < 1) {
+    if (conn->index < 1) {
         ok = -1;
         return ok;
     }
 
-    msg_size = write_measure_msg(msg, BIGGEST_MSG_SIZE, dp->index, ms);
-    ok = dp->send_msg(dp, msg, msg_size);
+    msg_size = write_measure_msg(msg, BIGGEST_MSG_SIZE, conn->index, ms);
+    ok = conn->send_msg(conn, msg, msg_size);
     return ok;
 }

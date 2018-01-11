@@ -290,14 +290,14 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
 } 
 
 extern int send_measurement(
-    struct ccp_connection *dp,
+    struct ccp_connection *conn,
     u64 *fields,
     u8 num_fields
 );
 
-void measurement_machine(struct ccp_connection *ccp) {
-    struct ccp_priv_state *state = get_ccp_priv_state(ccp);
-    struct ccp_primitives* primitives = &ccp->prims;
+void measurement_machine(struct ccp_connection *conn) {
+    struct ccp_priv_state *state = get_ccp_priv_state(conn);
+    struct ccp_primitives* primitives = &conn->prims;
     u8 i;
     u64 arg0; // extra arg for ewma, if, not if
     u64 arg1;
@@ -364,10 +364,10 @@ void measurement_machine(struct ccp_connection *ccp) {
 
     if (state->state_registers[0] == 1) { // isUrgent register set
         // immediately send measurement state to CCP, bypassing send pattern
-        struct ccp_priv_state *state = get_ccp_priv_state(ccp);
-        send_measurement(ccp, state->state_registers, state->num_to_return);
+        struct ccp_priv_state *state = get_ccp_priv_state(conn);
+        send_measurement(conn, state->state_registers, state->num_to_return);
         reset_state(state);
     }
 
-    ccp->set_cwnd(ccp, state->state_registers[1]);
+    conn->set_cwnd(conn, state->state_registers[1]);
 }

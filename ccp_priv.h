@@ -54,7 +54,7 @@ int read_pattern(
  * Should be called on each tick of the ACK clock; i.e. every packet.
  */
 void send_machine(
-    struct ccp_connection *ccp
+    struct ccp_connection *conn
 );
 
 /*
@@ -125,7 +125,7 @@ int read_instruction(
 );
 
 void measurement_machine(
-    struct ccp_connection *ccp
+    struct ccp_connection *conn
 );
 
 /* libccp Private State
@@ -155,11 +155,11 @@ void reset_state(struct ccp_priv_state *state);
 /* Initialize send machine and measurement machine state in ccp_connection.
  * Called from ccp_connection_start()
  */
-int init_ccp_priv_state(struct ccp_connection *ccp);
+int init_ccp_priv_state(struct ccp_connection *conn);
 
 /* Retrieve the private state from ccp_connection.
  */
-__INLINE__ struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *ccp);
+__INLINE__ struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *conn);
 
 // rate sample primitives
 // must be the same order as in userspace CCP!
