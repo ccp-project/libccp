@@ -11,10 +11,10 @@
 #define CCP_H
 
 #ifdef __USRLIB__
-	#define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
+  #define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
   #define __INLINE__
 #else
-	#define PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
+  #define PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
   #define __INLINE__ inline
 #endif
 
@@ -82,23 +82,9 @@ struct ccp_datapath_info {
     char congAlg[MAX_STRING_SIZE];
 };
 
-/* The CCP state for each connection.
- * The datapath is reponsible for supplying congestion control functions:
- * 1. the congestion window
- * 2. the rate
- * 3. a multiplicative modifier to the rate
- * as well as measurement primitives, with
- * 4. get_ccp_primitives()
- *
- * The datapath is also resonsible for providing utility functions to libccp,
- * so libccp can communicate with userspace CCP and have a notion of the ACK clock.
- * 5. send_msg(): send a message from datapath -> userspace CCP.
- * 6. now(): return a notion of time the send machine can use.
- * 7. after_usecs(u32 usecs): return a time <usecs> microseconds in the future.
- *
- * This struct also contains state for the send machine and measurement machine, and
- * impl: 88 bytes the datapath can use for storing state.
- * For example, the linux kernel datapath uses this space to store a pointer to struct sock*.
+/* 
+ * CCP state per connection. 
+ * impl is datapath-specific, the rest are internal to libccp
  */
 struct ccp_connection {
     // the index of this array element
@@ -112,6 +98,28 @@ struct ccp_connection {
     // constant flow-level information
     struct ccp_datapath_info flow_info;
 
+    // private libccp state for the send machine and measurement machine
+    void *state;
+
+    // datapath-specific per-connection state
+    void *impl;
+};
+
+
+/*
+ * Global CCP state provided by the datapath
+ *
+ * Callbacks:
+ * 1. set the congestion window
+ * 2. set the rate
+ * 3. set a multiplicative modifier to the rate
+ *
+ * Utility functions 
+ * 4. send_msg(): send a message from datapath -> userspace CCP.
+ * 5. now(): return a notion of time the send machine can use.
+ * 6. after_usecs(u32 usecs): return a time <usecs> microseconds in the future.
+ */
+struct ccp_datapath {
     // control primitives
     void (*set_cwnd)(struct ccp_connection *conn, u32 cwnd); // TODO(eventually): consider setting cwnd in packets, not bytes
     void (*set_rate_abs)(struct ccp_connection *conn, u32 rate);
@@ -124,23 +132,20 @@ struct ccp_connection {
     u32 (*now)(void); // the current time in datapath time units
     u32 (*after_usecs)(u32 usecs); // <usecs> microseconds from now in datapath time units
 
-    // private libccp state for the send machine and measurement machine
-    void *state;
-
-    // datapath-specific state
+    // datapath-specific global state
     void *impl;
 };
 
-/* Allocate a map for ccp connections upon module load.
+/* 
+ * Initialize gloal state and allocate a map for ccp connections upon module load.
  *
- * initialize the ccp active connections list
  * return -1 on allocation failure, should abort loading module
  */
-int ccp_init_connection_map(void);
+int ccp_init(struct ccp_datapath *dp);
 
-/* Free the map for ccp connections upon module unload.
+/* Free the global struct and map for ccp connections upon module unload.
  */
-void ccp_free_connection_map(void);
+void ccp_free(void);
 
 /* Upon a new flow starting,
  * put a new connection into the active connections list
@@ -148,7 +153,7 @@ void ccp_free_connection_map(void);
  * returns the index at which the connection was placed; this index shall be used as the CCP socket id
  * return 0 on error
  */
-struct ccp_connection *ccp_connection_start(struct ccp_connection *conn_dp);
+struct ccp_connection *ccp_connection_start(void *impl);
 
 /* Upon a connection ending,
  * free its slot in the connection map.
@@ -158,6 +163,14 @@ void ccp_connection_free(u16 sid);
 /* While a flow is active, look up its CCP connection information.
  */
 struct ccp_connection *ccp_connection_lookup(u16 sid);
+
+/* Get the implementation-specific global ccp state
+ */
+__INLINE__ void *ccp_get_global_impl(void);
+
+__INLINE__ int ccp_set_global_impl(
+    void *ptr
+);
 
 /* Get the implementation-specific state of the ccp_connection.
  */

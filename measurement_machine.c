@@ -2,6 +2,8 @@
 
 #define CCP_FRAC_DENOM 10
 
+extern struct ccp_datapath *datapath;
+
 // TODO: more than u64 functions
 // for bind, ifcnt and ifnotcnt, operations are directly inline
 u64 myadd64(u64 a, u64 b) {
@@ -369,5 +371,5 @@ void measurement_machine(struct ccp_connection *conn) {
         reset_state(state);
     }
 
-    conn->set_cwnd(conn, state->state_registers[1]);
+    datapath->set_cwnd(conn, state->state_registers[1]);
 }

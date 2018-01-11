@@ -6,6 +6,8 @@
 #include <linux/string.h>
 #endif
 
+extern struct ccp_datapath *datapath;
+
 int read_pattern(
     struct PatternState *seq,
     char *pattern,
@@ -49,7 +51,7 @@ static inline void do_wait_abs(
     u32 wait_ns
 ) {
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
-    state->next_event_time = conn->after_usecs(wait_ns / 1000);
+    state->next_event_time = datapath->after_usecs(wait_ns / 1000);
 }
 
 static inline void do_wait_rel(
@@ -71,7 +73,7 @@ static inline void set_rate_with_cwnd_abs(
     u32 cwnd, rtt_us;
 
     prims = &conn->prims;
-    conn->set_rate_abs(conn, rate);
+    datapath->set_rate_abs(conn, rate);
     rtt_us = prims->rtt_sample_us;
     if (prims->packets_in_flight > 0) {
         cwnd = rate * rtt_us + 3 * (prims->bytes_in_flight / prims->packets_in_flight);
@@ -79,14 +81,14 @@ static inline void set_rate_with_cwnd_abs(
         cwnd = rate * rtt_us;
     }
 
-    conn->set_cwnd(conn, cwnd);
+    datapath->set_cwnd(conn, cwnd);
     return;
 }
 
 void send_machine(struct ccp_connection *conn) {
     struct PatternState ev;
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
-    if (conn->now() > state->next_event_time) { // TODO handle wraparound
+    if (datapath->now() > state->next_event_time) { // TODO handle wraparound
         state->curr_pattern_state = (state->curr_pattern_state + 1) % state->num_pattern_states;
         //pr_info("curr pattern event: %d\n", conn->currPatternEvent);
     } else {
@@ -96,16 +98,16 @@ void send_machine(struct ccp_connection *conn) {
     ev = state->pattern[state->curr_pattern_state];
     switch (ev.type) {
     case SETRATEABS:
-        conn->set_rate_abs(conn, ev.val);
+        datapath->set_rate_abs(conn, ev.val);
         break;
     case SETRATEABSWITHCWND:
         set_rate_with_cwnd_abs(conn, ev.val);
         break;
     case SETCWNDABS:
-        conn->set_cwnd(conn, ev.val);
+        datapath->set_cwnd(conn, ev.val);
         break;
     case SETRATEREL:
-        conn->set_rate_rel(conn, ev.val);
+        datapath->set_rate_rel(conn, ev.val);
         break;
     case WAITREL:
         do_wait_rel(conn, ev.val);

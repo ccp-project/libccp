@@ -15,19 +15,56 @@
 #define MAX_NUM_CONNECTIONS 100
 
 int send_conn_create(
+    struct ccp_datapath *datapath,
     struct ccp_connection *conn
 );
 
 // array of active connections
 struct ccp_connection* ccp_active_connections;
+struct ccp_datapath* datapath;
 
-int ccp_init_connection_map(void) {
+int ccp_init(struct ccp_datapath *dp) {
+    // check that dp is properly filled in.
+    if (dp == NULL ||
+        dp->set_cwnd == NULL ||
+        dp->set_rate_abs == NULL ||
+        dp->set_rate_rel == NULL ||
+        dp->send_msg == NULL ||
+        dp->now == NULL ||
+        dp->after_usecs == NULL
+    ) {
+        return -1;
+    }
+
+#ifdef __USRLIB__
+    datapath = malloc(sizeof(struct ccp_datapath));
+#else
+    datapath = kmalloc(sizeof(struct ccp_datapath), GFP_KERNEL);
+#endif
+    if (!datapath) {
+        return -1;
+    }
+
+    // copy function pointers into datapath
+    datapath->set_cwnd           = dp->set_cwnd;
+    datapath->set_rate_abs       = dp->set_rate_abs;
+    datapath->set_rate_rel       = dp->set_rate_rel;
+    datapath->send_msg           = dp->send_msg;
+    datapath->now                = dp->now;
+    datapath->after_usecs        = dp->after_usecs;
+    datapath->impl               = dp->impl;
+
 #ifdef __USRLIB__
     ccp_active_connections = malloc(MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
 #else
     ccp_active_connections = kmalloc(MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection), GFP_KERNEL);
 #endif
     if (!ccp_active_connections) {
+#ifdef __USRLIB__
+        free(datapath);
+#else
+        kfree(datapath);
+#endif
         return -1;
     }
 
@@ -39,28 +76,19 @@ int ccp_init_connection_map(void) {
 void ccp_free_connection_map(void) {
 #ifdef __USRLIB__
     free(ccp_active_connections);
+    free(datapath);
 #else
     kfree(ccp_active_connections);
+    kfree(datapath);
 #endif
     ccp_active_connections = NULL;
+    datapath = NULL;
 }
 
-struct ccp_connection *ccp_connection_start(struct ccp_connection *conn_dp) {
+struct ccp_connection *ccp_connection_start(void *impl) {
     int ok;
     u16 sid;
     struct ccp_connection *conn;
-
-    // check that conn_dp is properly filled in.
-    if (conn_dp == NULL ||
-        conn_dp->set_cwnd == NULL ||
-        conn_dp->set_rate_abs == NULL ||
-        conn_dp->set_rate_rel == NULL ||
-        conn_dp->send_msg == NULL ||
-        conn_dp->now == NULL ||
-        conn_dp->after_usecs == NULL
-    ) {
-        return NULL;
-    }
 
     // scan to find empty place
     // index = 0 means free/unused
@@ -78,20 +106,13 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *conn_dp) {
         return NULL;
     }
 
-    // copy function pointers from conn_dp into conn
-    conn->set_cwnd           = conn_dp->set_cwnd;
-    conn->set_rate_abs       = conn_dp->set_rate_abs;
-    conn->set_rate_rel       = conn_dp->set_rate_rel;
-    conn->send_msg           = conn_dp->send_msg;
-    conn->now                = conn_dp->now;
-    conn->after_usecs        = conn_dp->after_usecs;
-    conn->impl               = conn_dp->impl;
+    conn->impl = impl;
 
     init_ccp_priv_state(conn);
 
     // send to CCP:
     // index of pointer back to this sock for IPC callback
-    ok = send_conn_create(conn);
+    ok = send_conn_create(datapath, conn);
     if (ok < 0) {
         PRINT("failed to send create message: %d", ok);
     }
@@ -99,11 +120,20 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *conn_dp) {
     return conn;
 }
 
-inline void *ccp_get_impl(struct ccp_connection *conn) {
+__INLINE__ void *ccp_get_global_impl(void) {
+  return datapath->impl;
+}
+
+__INLINE__ int ccp_set_global_impl(void *ptr) {
+  datapath->impl = ptr;
+  return 0;
+}
+
+__INLINE__ void *ccp_get_impl(struct ccp_connection *conn) {
     return conn->impl;
 }
 
-inline int ccp_set_impl(struct ccp_connection *conn, void *ptr) {
+__INLINE__ int ccp_set_impl(struct ccp_connection *conn, void *ptr) {
     conn->impl = ptr;
     return 0;
 }
@@ -213,7 +243,7 @@ int ccp_read_msg(
     
         state->num_pattern_states = pmsg.numStates;
         state->curr_pattern_state = pmsg.numStates - 1;
-        state->next_event_time = conn->now();
+        state->next_event_time = datapath->now();
 
         send_machine(conn);
     } else if (hdr.Type == INSTALL_FOLD) {
@@ -239,6 +269,7 @@ int ccp_read_msg(
 
 // send create msg
 int send_conn_create(
+    struct ccp_datapath *datapath,
     struct ccp_connection *conn
 ) {
     int ok;
@@ -258,7 +289,7 @@ int send_conn_create(
     }
 
     msg_size = write_create_msg(msg, BIGGEST_MSG_SIZE, conn->index, cr);
-    ok = conn->send_msg(conn, msg, msg_size);
+    ok = datapath->send_msg(conn, msg, msg_size);
     return ok;
 }
 
@@ -284,6 +315,6 @@ int send_measurement(
     }
 
     msg_size = write_measure_msg(msg, BIGGEST_MSG_SIZE, conn->index, ms);
-    ok = conn->send_msg(conn, msg, msg_size);
+    ok = datapath->send_msg(conn, msg, msg_size);
     return ok;
 }
