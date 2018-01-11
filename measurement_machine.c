@@ -371,5 +371,5 @@ void measurement_machine(struct ccp_connection *conn) {
         reset_state(state);
     }
 
-    datapath->set_cwnd(conn, state->state_registers[1]);
+    datapath->set_cwnd(datapath, conn, state->state_registers[1]);
 }

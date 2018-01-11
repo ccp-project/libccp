@@ -73,7 +73,7 @@ static inline void set_rate_with_cwnd_abs(
     u32 cwnd, rtt_us;
 
     prims = &conn->prims;
-    datapath->set_rate_abs(conn, rate);
+    datapath->set_rate_abs(datapath, conn, rate);
     rtt_us = prims->rtt_sample_us;
     if (prims->packets_in_flight > 0) {
         cwnd = rate * rtt_us + 3 * (prims->bytes_in_flight / prims->packets_in_flight);
@@ -81,7 +81,7 @@ static inline void set_rate_with_cwnd_abs(
         cwnd = rate * rtt_us;
     }
 
-    datapath->set_cwnd(conn, cwnd);
+    datapath->set_cwnd(datapath, conn, cwnd);
     return;
 }
 
@@ -98,16 +98,16 @@ void send_machine(struct ccp_connection *conn) {
     ev = state->pattern[state->curr_pattern_state];
     switch (ev.type) {
     case SETRATEABS:
-        datapath->set_rate_abs(conn, ev.val);
+        datapath->set_rate_abs(datapath, conn, ev.val);
         break;
     case SETRATEABSWITHCWND:
         set_rate_with_cwnd_abs(conn, ev.val);
         break;
     case SETCWNDABS:
-        datapath->set_cwnd(conn, ev.val);
+        datapath->set_cwnd(datapath, conn, ev.val);
         break;
     case SETRATEREL:
-        datapath->set_rate_rel(conn, ev.val);
+        datapath->set_rate_rel(datapath, conn, ev.val);
         break;
     case WAITREL:
         do_wait_rel(conn, ev.val);

@@ -89,6 +89,7 @@ struct ccp_datapath_info {
 /* 
  * CCP state per connection. 
  * impl is datapath-specific, the rest are internal to libccp
+ * for example, the linux kernel datapath uses impl to store a pointer to struct sock
  */
 struct ccp_connection {
     // the index of this array element
@@ -125,12 +126,12 @@ struct ccp_connection {
  */
 struct ccp_datapath {
     // control primitives
-    void (*set_cwnd)(struct ccp_connection *conn, u32 cwnd); // TODO(eventually): consider setting cwnd in packets, not bytes
-    void (*set_rate_abs)(struct ccp_connection *conn, u32 rate);
-    void (*set_rate_rel)(struct ccp_connection *conn, u32 rate);
+    void (*set_cwnd)(struct ccp_datapath *dp, struct ccp_connection *conn, u32 cwnd); // TODO(eventually): consider setting cwnd in packets, not bytes
+    void (*set_rate_abs)(struct ccp_datapath *dp, struct ccp_connection *conn, u32 rate);
+    void (*set_rate_rel)(struct ccp_datapath *dp, struct ccp_connection *conn, u32 rate);
 
     // IPC communication
-    int (*send_msg)(struct ccp_connection *conn, char *msg, int msg_size);
+    int (*send_msg)(struct ccp_datapath *dp, struct ccp_connection *conn, char *msg, int msg_size);
 
     // time management functions
     u32 (*now)(void); // the current time in datapath time units

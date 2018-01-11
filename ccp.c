@@ -38,9 +38,9 @@ int ccp_init(struct ccp_datapath *dp) {
 
     datapath = __MALLOC__(sizeof(struct ccp_datapath));
     if (!datapath) {
-            return -1;
+        return -1;
     }
-			
+
     // copy function pointers into datapath
     datapath->set_cwnd           = dp->set_cwnd;
     datapath->set_rate_abs       = dp->set_rate_abs;
@@ -61,7 +61,7 @@ int ccp_init(struct ccp_datapath *dp) {
     return 0;
 }
 
-void ccp_free_connection_map(void) {
+void ccp_free(void) {
     __FREE__(ccp_active_connections);
     __FREE__(datapath);
     ccp_active_connections = NULL;
@@ -104,12 +104,12 @@ struct ccp_connection *ccp_connection_start(void *impl) {
 }
 
 __INLINE__ void *ccp_get_global_impl(void) {
-  return datapath->impl;
+    return datapath->impl;
 }
 
 __INLINE__ int ccp_set_global_impl(void *ptr) {
-  datapath->impl = ptr;
-  return 0;
+    datapath->impl = ptr;
+    return 0;
 }
 
 __INLINE__ void *ccp_get_impl(struct ccp_connection *conn) {
@@ -128,7 +128,7 @@ int ccp_invoke(struct ccp_connection *conn) {
     if (state->num_pattern_states == 0) {
         // try contacting the CCP again
         // index of pointer back to this sock for IPC callback
-        ok = send_conn_create(conn);
+        ok = send_conn_create(datapath, conn);
         if (ok < 0) {
             //pr_info("failed to send create message: %d", ok);
         }
@@ -272,7 +272,7 @@ int send_conn_create(
     }
 
     msg_size = write_create_msg(msg, BIGGEST_MSG_SIZE, conn->index, cr);
-    ok = datapath->send_msg(conn, msg, msg_size);
+    ok = datapath->send_msg(datapath, conn, msg, msg_size);
     return ok;
 }
 
@@ -298,6 +298,6 @@ int send_measurement(
     }
 
     msg_size = write_measure_msg(msg, BIGGEST_MSG_SIZE, conn->index, ms);
-    ok = datapath->send_msg(conn, msg, msg_size);
+    ok = datapath->send_msg(datapath, conn, msg, msg_size);
     return ok;
 }
