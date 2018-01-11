@@ -36,15 +36,11 @@ int ccp_init(struct ccp_datapath *dp) {
         return -1;
     }
 
-#ifdef __USRLIB__
-    datapath = malloc(sizeof(struct ccp_datapath));
-#else
-    datapath = kmalloc(sizeof(struct ccp_datapath), GFP_KERNEL);
-#endif
+    datapath = __MALLOC__(sizeof(struct ccp_datapath));
     if (!datapath) {
-        return -1;
+            return -1;
     }
-
+			
     // copy function pointers into datapath
     datapath->set_cwnd           = dp->set_cwnd;
     datapath->set_rate_abs       = dp->set_rate_abs;
@@ -54,17 +50,9 @@ int ccp_init(struct ccp_datapath *dp) {
     datapath->after_usecs        = dp->after_usecs;
     datapath->impl               = dp->impl;
 
-#ifdef __USRLIB__
-    ccp_active_connections = malloc(MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
-#else
-    ccp_active_connections = kmalloc(MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection), GFP_KERNEL);
-#endif
+    ccp_active_connections = __MALLOC__(MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
     if (!ccp_active_connections) {
-#ifdef __USRLIB__
-        free(datapath);
-#else
-        kfree(datapath);
-#endif
+        __FREE__(datapath);
         return -1;
     }
 
@@ -74,13 +62,8 @@ int ccp_init(struct ccp_datapath *dp) {
 }
 
 void ccp_free_connection_map(void) {
-#ifdef __USRLIB__
-    free(ccp_active_connections);
-    free(datapath);
-#else
-    kfree(ccp_active_connections);
-    kfree(datapath);
-#endif
+    __FREE__(ccp_active_connections);
+    __FREE__(datapath);
     ccp_active_connections = NULL;
     datapath = NULL;
 }
