@@ -69,7 +69,6 @@ struct ccp_connection *ccp_connection_start(struct ccp_connection *dp) {
         if (conn->index == 0) {
             // found a free slot
             conn->index = sid + 1;
-            //load_dummy_instr(conn);
             sid = sid + 1;
             break;
         }

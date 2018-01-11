@@ -125,8 +125,6 @@ int ccp_init_connection_map(void);
  */
 void ccp_free_connection_map(void);
 
-void load_dummy_instruction(struct ccp_connection *ccp);
-
 /* Upon a new flow starting,
  * put a new connection into the active connections list
  *
