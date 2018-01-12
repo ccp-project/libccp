@@ -66,6 +66,12 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
  * TODO(eventually): convey relevant sockopts to CCP
  */
 struct __attribute__((packed, aligned(4))) CreateMsg {
+    u32 init_cwnd;
+    u32 mss;
+    u32 src_ip;
+    u32 src_port;
+    u32 dst_ip;
+    u32 dst_port;
     char congAlg[MAX_STRING_SIZE];
 };
 

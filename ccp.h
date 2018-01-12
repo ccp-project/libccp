@@ -68,6 +68,20 @@ struct ccp_primitives {
     u32 snd_cwnd;
 };
 
+// maximum string length for congAlg
+#define  MAX_STRING_SIZE   250
+/* Datapaths provide connection information to ccp_connection_start
+ */
+struct ccp_datapath_info {
+    u32 init_cwnd;
+    u32 mss;
+    u32 src_ip;
+    u32 src_port;
+    u32 dst_ip;
+    u32 dst_port;
+    char congAlg[MAX_STRING_SIZE];
+};
+
 /* The CCP state for each connection.
  * The datapath is reponsible for supplying congestion control functions:
  * 1. the congestion window
@@ -94,6 +108,9 @@ struct ccp_connection {
     // potential limitations in the datapath
     // datapath should update this before calling ccp_invoke()
     struct ccp_primitives prims;
+    
+    // constant flow-level information
+    struct ccp_datapath_info flow_info;
 
     // control primitives
     void (*set_cwnd)(struct ccp_connection *conn, u32 cwnd); // TODO(eventually): consider setting cwnd in packets, not bytes

@@ -110,9 +110,23 @@ inline int ccp_set_impl(struct ccp_connection *conn, void *ptr) {
 
 // TODO: make this return an int for error purposes
 int ccp_invoke(struct ccp_connection *conn) {
+    int ok = 0;
+    struct ccp_priv_state *state = get_ccp_priv_state(conn);
+    if (state->num_pattern_states == 0) {
+        // try contacting the CCP again
+        // index of pointer back to this sock for IPC callback
+        ok = send_conn_create(conn);
+        if (ok < 0) {
+            //pr_info("failed to send create message: %d", ok);
+        }
+
+        return ok;
+    }
+
+    // TODO measurement_machine and send_machine should return error ints
     measurement_machine(conn);
     send_machine(conn);
-    return 0; // NOT OKAY
+    return ok;
 }
 
 // lookup existing connection by its ccp socket id
@@ -231,7 +245,12 @@ int send_conn_create(
     char msg[BIGGEST_MSG_SIZE];
     int msg_size;
     struct CreateMsg cr = {
-        .congAlg = "reno"
+        .init_cwnd = conn->flow_info.init_cwnd,
+        .mss = conn->flow_info.mss,
+        .src_ip = conn->flow_info.src_ip,
+        .src_port = conn->flow_info.src_port,
+        .dst_ip = conn->flow_info.dst_ip,
+        .dst_port = conn->flow_info.dst_port,
     };
 
     if (conn->index < 1) {

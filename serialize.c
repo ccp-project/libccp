@@ -53,7 +53,7 @@ int write_create_msg(
     int congAlgLen = strlen(cr.congAlg) + 1;
     struct CcpMsgHeader hdr = {
         .Type = CREATE, 
-        .Len = 6 + congAlgLen, 
+        .Len = 6 + 24 + congAlgLen, 
         .SocketId = sid,
     };
     

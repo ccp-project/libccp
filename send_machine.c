@@ -83,25 +83,9 @@ static inline void set_rate_with_cwnd_abs(
     return;
 }
 
-extern int send_conn_create(
-    struct ccp_connection *conn
-);
-
 void send_machine(struct ccp_connection *conn) {
-    int ok;
     struct PatternState ev;
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
-    if (state->num_pattern_states == 0) {
-        // try contacting the CCP again
-        // index of pointer back to this sock for IPC callback
-        ok = send_conn_create(conn);
-        if (ok < 0) {
-            //pr_info("failed to send create message: %d", ok);
-        }
-
-        return;
-    }
-
     if (conn->now() > state->next_event_time) { // TODO handle wraparound
         state->curr_pattern_state = (state->curr_pattern_state + 1) % state->num_pattern_states;
         //pr_info("curr pattern event: %d\n", conn->currPatternEvent);
