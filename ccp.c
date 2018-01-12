@@ -25,13 +25,15 @@ struct ccp_datapath* datapath;
 
 int ccp_init(struct ccp_datapath *dp) {
     // check that dp is properly filled in.
-    if (dp == NULL ||
-        dp->set_cwnd == NULL ||
-        dp->set_rate_abs == NULL ||
-        dp->set_rate_rel == NULL ||
-        dp->send_msg == NULL ||
-        dp->now == NULL ||
-        dp->after_usecs == NULL
+    if (
+        dp                ==  NULL  ||
+        dp->set_cwnd      ==  NULL  ||
+        dp->set_rate_abs  ==  NULL  ||
+        dp->set_rate_rel  ==  NULL  ||
+        dp->send_msg      ==  NULL  ||
+        dp->now           ==  NULL  ||
+        dp->since_usecs   ==  NULL  ||
+        dp->after_usecs   ==  NULL
     ) {
         return -1;
     }
@@ -47,8 +49,11 @@ int ccp_init(struct ccp_datapath *dp) {
     datapath->set_rate_rel       = dp->set_rate_rel;
     datapath->send_msg           = dp->send_msg;
     datapath->now                = dp->now;
+    datapath->since_usecs        = dp->since_usecs;
     datapath->after_usecs        = dp->after_usecs;
     datapath->impl               = dp->impl;
+
+    datapath->time_zero = datapath->now();
 
     ccp_active_connections = __MALLOC__(MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
     if (!ccp_active_connections) {

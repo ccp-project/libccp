@@ -121,7 +121,8 @@ struct ccp_connection {
  *
  * Utility functions 
  * 4. send_msg(): send a message from datapath -> userspace CCP.
- * 5. now(): return a notion of time the send machine can use.
+ * 5. now(): return a notion of time.
+ * 6. since_usecs(u32 then): elapsed microseconds since <then>.
  * 6. after_usecs(u32 usecs): return a time <usecs> microseconds in the future.
  */
 struct ccp_datapath {
@@ -133,8 +134,10 @@ struct ccp_datapath {
     // IPC communication
     int (*send_msg)(struct ccp_datapath *dp, struct ccp_connection *conn, char *msg, int msg_size);
 
-    // time management functions
+    // time management
+    u32 time_zero;
     u32 (*now)(void); // the current time in datapath time units
+    u32 (*since_usecs)(u32 then); // elapsed microseconds since <then>
     u32 (*after_usecs)(u32 usecs); // <usecs> microseconds from now in datapath time units
 
     // datapath-specific global state

@@ -282,6 +282,8 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
                     return primitives->packets_in_flight;
                 case SND_CWND:
                     return primitives->snd_cwnd;
+                case NOW:
+                    return datapath->since_usecs(datapath->time_zero);
                 default:
                     return 0;
             }
