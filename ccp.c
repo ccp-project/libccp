@@ -68,7 +68,7 @@ void ccp_free(void) {
     datapath = NULL;
 }
 
-struct ccp_connection *ccp_connection_start(void *impl) {
+struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info *flow_info) {
     int ok;
     u16 sid;
     struct ccp_connection *conn;
@@ -90,6 +90,7 @@ struct ccp_connection *ccp_connection_start(void *impl) {
     }
 
     conn->impl = impl;
+    memcpy(&conn->flow_info, flow_info, sizeof(struct ccp_datapath_info));
 
     init_ccp_priv_state(conn);
 

@@ -158,7 +158,7 @@ void ccp_free(void);
  * returns the index at which the connection was placed; this index shall be used as the CCP socket id
  * return 0 on error
  */
-struct ccp_connection *ccp_connection_start(void *impl);
+struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info *flow_info);
 
 /* Upon a connection ending,
  * free its slot in the connection map.
