@@ -9,9 +9,9 @@ steps necessary to make a datapath CCP compatible.
 
 ## Implementation
 
-### 0 | Include CCP headers in all relevant files
+### 0 | Include ccp.h in all relevant files
 
-```
+```C
 #include "libccp/ccp.h"
 ```
 
@@ -32,7 +32,7 @@ callback invoked by the ccp that must have access to these sockets.
 (Note in this example e.g. `_set_cwnd` is the datapath's implementation of the
 `set_cwnd` function.)
 
-```
+```C
 struct ccp_datapath dp = {
 	.set_cwnd = &_set_cwnd,
         .set_rate_abs = &_set_rate_abs,
@@ -51,7 +51,7 @@ if (ok < 0) {
 
 Be sure to call `ccp_free` in a destructor as well:
 
-```
+```C
 ccp_free();
 ```
 
@@ -67,7 +67,7 @@ will be necessary for accessing the `impl` and the deconstructor at the end.
 
 On connection start:
 
-```
+```C
 struct sock sk;
 ...
 conn = ccp_connection_start((void *) sk);
@@ -82,7 +82,7 @@ if (conn == NULL) {
 
 When connection ends:
 
-```
+```C
 // need reference to conn from above
 
 if (conn != NULL) {
@@ -94,7 +94,8 @@ if (conn != NULL) {
 
 Given a reference to the `struct ccp_connection`, the `impl` field can be
 accessed and casted like so (e.g. unboxing a `struct sock *`)
-```
+
+```C
 struct sock *sk;
 *sk = (struct sock *) ccp_get_impl(dp);
 ```
@@ -119,7 +120,7 @@ state and occasionally send this to the ccp. As the datapath, you don't need to
 be concerned with when this happens, as libccp handles all of this using the
 `send_msg` function from (3). 
 
-```
+```C
 struct ccp_connection *conn;
 // ... get access to conn for this connection
 struct ccp_primitives *mmt = &conn->prims
@@ -142,7 +143,7 @@ Again libccp is responsible for when it communicates this information to the ccp
 
 ## Putting it all together
 
-Now you should be ready to build everything.
+Now you should be ready to build everything. The following is for userspace datapaths; for kernel datapaths, see https://github.mit.edu/nebula/ccp-kernel.
 
 
 ### 0 | Build libccp
