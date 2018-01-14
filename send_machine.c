@@ -75,11 +75,7 @@ static inline void set_rate_with_cwnd_abs(
     prims = &conn->prims;
     datapath->set_rate_abs(datapath, conn, rate);
     rtt_us = prims->rtt_sample_us;
-    if (prims->packets_in_flight > 0) {
-        cwnd = rate * rtt_us + 3 * (prims->bytes_in_flight / prims->packets_in_flight);
-    } else {
-        cwnd = rate * rtt_us;
-    }
+    cwnd = rate * rtt_us + 3 * conn->flow_info.mss;
 
     datapath->set_cwnd(datapath, conn, cwnd);
     return;
