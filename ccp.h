@@ -95,6 +95,8 @@ struct ccp_connection {
     // the index of this array element
     u16 index;
 
+    u32 last_create_msg_sent;
+
     // struct ccp_primitives is large; as a result, we store it inside ccp_connection to avoid
     // potential limitations in the datapath
     // datapath should update this before calling ccp_invoke()

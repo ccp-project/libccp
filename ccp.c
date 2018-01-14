@@ -13,6 +13,7 @@
 #endif
 
 #define MAX_NUM_CONNECTIONS 100
+#define CREATE_TIMEOUT_US 1000000 // 1 second
 
 int send_conn_create(
     struct ccp_datapath *datapath,
@@ -272,6 +273,14 @@ int send_conn_create(
         .dst_ip = conn->flow_info.dst_ip,
         .dst_port = conn->flow_info.dst_port,
     };
+
+    if (conn->last_create_msg_sent == 0) {
+        conn->last_create_msg_sent = datapath->now();
+    } else {
+        if (datapath->since_usecs(conn->last_create_msg_sent) < CREATE_TIMEOUT_US) {
+            return 0;
+        }
+    }
 
     if (conn->index < 1) {
         return -1;
