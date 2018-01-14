@@ -75,8 +75,7 @@ static inline void set_rate_with_cwnd_abs(
     prims = &conn->prims;
     datapath->set_rate_abs(datapath, conn, rate);
     rtt_us = prims->rtt_sample_us;
-    cwnd = rate * rtt_us + 3 * conn->flow_info.mss;
-
+    cwnd = rate * rtt_us / 1000000 + 3 * conn->flow_info.mss;
     datapath->set_cwnd(datapath, conn, cwnd);
     return;
 }
