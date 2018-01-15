@@ -123,13 +123,13 @@ int read_pattern_msg(
     char *buf 
 );
 
-/* INSTRUCTION: 4 u8s - Opcode, Result, Left, Right
+/* INSTRUCTION: 2 u8s: Opcode, Result + 2 u32s: Left, Right
  */
-struct __attribute__((packed, aligned(4))) InstructionMsg {
+struct __attribute__((packed, aligned(2))) InstructionMsg {
     u8 opcode;
     u8 result_register;
-    u8 left_register;
-    u8 right_register;
+    u32 left_register;
+    u32 right_register;
 };
 
 /* INSTALL_FOLD

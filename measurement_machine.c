@@ -144,10 +144,30 @@ int read_op(enum FoldOp *op, u8 opcode) {
     }
 }
 
-int deserialize_reg(struct Register *ret, u8 reg) {
-    u8 num = (reg & 0x3f); // unclear: is this correct
+int deserialize_reg_u8(struct Register *ret, u8 reg) {
+    u8 num = (reg & 0x3f);
     switch (reg >> 6) {
-        case 0: // immediate - other 6 bits
+        case 1: // primitive
+            ret->type = CONST_REG;
+            ret->index = (int)num;
+            return 0;
+        case 2: // tmp
+            ret->type = TMP_REG;
+            ret->index = (int)num;
+            return 0;
+        case 3: // output/permanent
+            ret->type = PERM_REG;
+            ret->index = (int)num;
+            return 0;
+        default: // immediate - not allowed in result
+            return -1;
+    }
+}
+
+int deserialize_reg_u32(struct Register *ret, u32 reg) {
+    u32 num = (reg & 0x3fffffff);
+    switch (reg >> 30) {
+        case 0: // immediate - other 30 bits
             ret->type = IMM_REG;
             ret->value = (u64)num;
             return 0;
@@ -178,17 +198,17 @@ int read_instruction(
         return ok;
     }
 
-    ok = deserialize_reg(&ret->rRet, msg->result_register);
+    ok = deserialize_reg_u8(&ret->rRet, msg->result_register);
     if (ok < 0) {
         return ok;
     }
 
-    ok = deserialize_reg(&ret->rLeft, msg->left_register);
+    ok = deserialize_reg_u32(&ret->rLeft, msg->left_register);
     if (ok < 0) {
         return ok;
     }
 
-    ok = deserialize_reg(&ret->rRight, msg->right_register);
+    ok = deserialize_reg_u32(&ret->rRight, msg->right_register);
     if (ok < 0) {
         return ok;
     }
@@ -227,7 +247,7 @@ void reset_state(struct ccp_priv_state *state) {
             case DEF64:
                 // set the default value of the state register
                 // check for infinity
-                if (current_instruction.rRight.value == (0x3f)) {
+                if (current_instruction.rRight.value == (0x3fffffff)) {
                     write_reg(state, ((u64)~0U), current_instruction.rLeft);
                 } else {
                     write_reg(state, current_instruction.rRight.value, current_instruction.rLeft);
