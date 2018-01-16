@@ -39,7 +39,7 @@ int ccp_init(struct ccp_datapath *dp) {
         return -1;
     }
 
-    datapath = __MALLOC__(sizeof(struct ccp_datapath));
+    datapath = (struct ccp_datapath*)__MALLOC__(sizeof(struct ccp_datapath));
     if (!datapath) {
         return -1;
     }
@@ -56,7 +56,7 @@ int ccp_init(struct ccp_datapath *dp) {
 
     datapath->time_zero = datapath->now();
 
-    ccp_active_connections = __MALLOC__(MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
+    ccp_active_connections = (struct ccp_connection*)__MALLOC__(MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
     if (!ccp_active_connections) {
         __FREE__(datapath);
         return -1;

@@ -21,11 +21,11 @@ u64 myequiv64(u64 a, u64 b) {
 u64 myewma64(u64 a, u64 b, u64 c) {
     u64 num;
     u64 old = a * b;
-    u64 new = ( CCP_FRAC_DENOM - a ) * c;
+    u64 new_val = ( CCP_FRAC_DENOM - a ) * c;
     if ( b == 0 ) {
         return c;
     }
-    num = old + new;
+    num = old + new_val;
     return num/CCP_FRAC_DENOM;
 }
 

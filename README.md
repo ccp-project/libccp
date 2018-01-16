@@ -11,8 +11,18 @@ steps necessary to make a datapath CCP compatible.
 
 ### 0 | Include ccp.h in all relevant files
 
+In C source files:
+
 ```C
 #include "libccp/ccp.h"
+```
+
+In C++ source files:
+
+```C++
+extern "C" {
+#include "libccp/ccp.h"
+}
 ```
 
 
@@ -151,7 +161,11 @@ Now you should be ready to build everything. The following is for userspace data
 Simply run `make` in the top level of this repository.
 This will produce the shared library `libccp.so`. You can leave it here, 
 or move it to a more standard location (e.g. `/usr/lib`). Either way, be
-sure to note the path.
+sure to note the path, it will be used as `LIBCCP` in the following step.
+
+**Important Note: If you intend to link libccp with C++ code, you must build
+libccp with a C++ compiler (e.g. `g++`) rather than `gcc`. Change the first
+line of the Makefile to `CC=g++` and recompile.**
 
 ### 1 | Link libccp
 
