@@ -70,13 +70,13 @@ static inline void set_rate_with_cwnd_abs(
     u32 rate
 ) {
     struct ccp_primitives *prims;
-    u32 cwnd, rtt_us;
+    u64 cwnd, rtt_us;
 
     prims = &conn->prims;
     datapath->set_rate_abs(datapath, conn, rate);
     rtt_us = prims->rtt_sample_us;
-    cwnd = rate * rtt_us / 1000000 + 3 * conn->flow_info.mss;
-    datapath->set_cwnd(datapath, conn, cwnd);
+    cwnd = (rate * rtt_us) / 1000000 + 3 * conn->flow_info.mss;
+    datapath->set_cwnd(datapath, conn, (u32) cwnd);
     return;
 }
 
