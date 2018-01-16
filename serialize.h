@@ -57,7 +57,7 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
 #define  MAX_STRING_SIZE   250
 
 // Some messages contain serialized fold instructions.
-#define  MAX_INSTRUCTIONS  20
+#define  MAX_INSTRUCTIONS  50
 #define  MAX_PERM_REG      16
 #define  MAX_TMP_REG       8
 
