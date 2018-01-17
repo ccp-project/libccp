@@ -248,13 +248,15 @@ int ccp_read_msg(
     } else if (hdr.Type == INSTALL_FOLD) {
         ok = read_install_fold_msg(&hdr, &imsg, buf + ok);
         if (ok < 0) {
-            return ok;
+            PRINT("could not read fold msg", i);
+            return -4;
         }
         memset(state->fold_instructions, 0, MAX_INSTRUCTIONS * sizeof(struct Instruction64));
         for (i = 0; i < imsg.num_instrs; i++) {
             ok = read_instruction(&(state->fold_instructions[i]), &(imsg.instrs[i]));
             if (ok < 0) {
-                return ok;
+                PRINT("could not read instruction: %d", i);
+                return -5;
             }
         }
 

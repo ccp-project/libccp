@@ -1,4 +1,7 @@
 #include "ccp_priv.h"
+#ifdef __USRLIB__
+#include "stdio.h"
+#endif
 
 #define CCP_FRAC_DENOM 10
 
@@ -264,6 +267,8 @@ void reset_state(struct ccp_priv_state *state) {
 
 u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, struct Register reg) {
     switch (reg.type) {
+        case IMM_REG:
+            return reg.value;
         case PERM_REG:
             return state->state_registers[reg.index];
         case TMP_REG:
