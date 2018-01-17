@@ -128,7 +128,6 @@ __INLINE__ int ccp_set_impl(struct ccp_connection *conn, void *ptr) {
     return 0;
 }
 
-// TODO: make this return an int for error purposes
 int ccp_invoke(struct ccp_connection *conn) {
     int ok = 0;
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
@@ -143,8 +142,12 @@ int ccp_invoke(struct ccp_connection *conn) {
         return ok;
     }
 
-    // TODO measurement_machine and send_machine should return error ints
-    measurement_machine(conn);
+    ok = measurement_machine(conn);
+    if (ok < 0) {
+        PRINT("measurement machine runtime error: %d\n", ok);
+        return ok;
+    }
+
     send_machine(conn);
     return ok;
 }
@@ -230,7 +233,7 @@ int ccp_read_msg(
         if (ok < 0) {
             return ok;
         }
-    
+
         state->num_pattern_states = pmsg.numStates;
         state->curr_pattern_state = pmsg.numStates - 1;
         state->next_event_time = datapath->now();

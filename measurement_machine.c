@@ -319,7 +319,7 @@ extern int send_measurement(
     u8 num_fields
 );
 
-void measurement_machine(struct ccp_connection *conn) {
+int measurement_machine(struct ccp_connection *conn) {
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
     struct ccp_primitives* primitives = &conn->prims;
     u8 i;
@@ -339,7 +339,12 @@ void measurement_machine(struct ccp_connection *conn) {
                 write_reg(state, myadd64(arg1, arg2), current_instruction.rRet);
                 break;
             case DIV64:
-                write_reg(state, mydiv64(arg1, arg2), current_instruction.rRet);
+                if (arg2 == 0) {
+                    return -1;
+                } else {
+                    write_reg(state, mydiv64(arg1, arg2), current_instruction.rRet);
+                }
+
                 break;
             case EQUIV64:
                 write_reg(state, myequiv64(arg1, arg2), current_instruction.rRet);
@@ -394,4 +399,5 @@ void measurement_machine(struct ccp_connection *conn) {
     }
 
     datapath->set_cwnd(datapath, conn, state->state_registers[1]);
+    return 0;
 }

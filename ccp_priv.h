@@ -124,7 +124,7 @@ int read_instruction(
     struct InstructionMsg *msg
 );
 
-void measurement_machine(
+int measurement_machine(
     struct ccp_connection *conn
 );
 
