@@ -274,18 +274,18 @@ int send_conn_create(
         .dst_port = conn->flow_info.dst_port,
     };
 
-    if (conn->last_create_msg_sent == 0) {
-        conn->last_create_msg_sent = datapath->now();
-    } else {
-        if (datapath->since_usecs(conn->last_create_msg_sent) < CREATE_TIMEOUT_US) {
-            return 0;
-        }
+    if (
+        conn->last_create_msg_sent != 0 &&
+        datapath->since_usecs(conn->last_create_msg_sent) < CREATE_TIMEOUT_US
+    ) {
+        return 0;
     }
 
     if (conn->index < 1) {
         return -1;
     }
 
+    conn->last_create_msg_sent = datapath->now();
     msg_size = write_create_msg(msg, BIGGEST_MSG_SIZE, conn->index, cr);
     ok = datapath->send_msg(datapath, conn, msg, msg_size);
     return ok;
