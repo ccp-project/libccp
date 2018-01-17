@@ -212,18 +212,18 @@ int ccp_read_msg(
     }
 
     if (hdr.Len > bufsize) {
-        PRINT("message size wrong: %u > %d", hdr.Len, bufsize);
+        PRINT("message size wrong: %u > %d\n", hdr.Len, bufsize);
         return -1;
     }
 
     if (hdr.Len > BIGGEST_MSG_SIZE) {
-        PRINT("message too long: %u > %d", hdr.Len, BIGGEST_MSG_SIZE);
+        PRINT("message too long: %u > %d\n", hdr.Len, BIGGEST_MSG_SIZE);
         return -2;
     }
 
     conn = ccp_connection_lookup(hdr.SocketId);
     if (conn == NULL) {
-        PRINT("unknown connection: %u", hdr.SocketId);
+        PRINT("unknown connection: %u\n", hdr.SocketId);
         return -3;
     }
 
@@ -248,14 +248,14 @@ int ccp_read_msg(
     } else if (hdr.Type == INSTALL_FOLD) {
         ok = read_install_fold_msg(&hdr, &imsg, buf + ok);
         if (ok < 0) {
-            PRINT("could not read fold msg", i);
+            PRINT("could not read fold msg\n");
             return -4;
         }
         memset(state->fold_instructions, 0, MAX_INSTRUCTIONS * sizeof(struct Instruction64));
         for (i = 0; i < imsg.num_instrs; i++) {
             ok = read_instruction(&(state->fold_instructions[i]), &(imsg.instrs[i]));
             if (ok < 0) {
-                PRINT("could not read instruction: %d", i);
+                PRINT("could not read instruction\n");
                 return -5;
             }
         }
