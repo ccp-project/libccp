@@ -73,7 +73,7 @@ struct ccp_primitives {
 };
 
 // maximum string length for congAlg
-#define  MAX_STRING_SIZE   250
+#define  MAX_CONG_ALG_SIZE   64
 /* Datapaths provide connection information to ccp_connection_start
  */
 struct ccp_datapath_info {
@@ -83,7 +83,7 @@ struct ccp_datapath_info {
     u32 src_port;
     u32 dst_ip;
     u32 dst_port;
-    char congAlg[MAX_STRING_SIZE];
+    char congAlg[MAX_CONG_ALG_SIZE];
 };
 
 /* 

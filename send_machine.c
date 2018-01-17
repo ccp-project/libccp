@@ -115,32 +115,3 @@ void send_machine(struct ccp_connection *conn) {
         break;
     }
 }
-
-//static void log_sequence(struct PatternEvent *seq, int numEvents) {
-//    size_t  i;
-//    struct PatternEvent ev;
-//    pr_info("installed pattern:\n");
-//    for (i = 0; i < numEvents; i++) {
-//        ev = seq[i];
-//        switch (ev.type) {
-//        case SETRATEABS:
-//            pr_info("[ev %lu] set rate %u\n", i, ev.val);
-//            break;
-//        case SETCWNDABS:
-//            pr_info("[ev %lu] set cwnd %d\n", i, ev.val);
-//            break;
-//        case SETRATEREL:
-//            pr_info("[ev %lu] set rate factor %u/100\n", i, ev.val);
-//            break;
-//        case WAITREL:
-//            pr_info("[ev %lu] wait rtts %d/100\n", i, ev.val);
-//            break;
-//        case WAITABS:
-//            pr_info("[ev %lu] wait %d us\n", i, ev.val);
-//            break;
-//        case REPORT:
-//            pr_info("[ev %lu] send report\n", i);
-//            break;
-//        }
-//    }
-//}

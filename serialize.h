@@ -17,16 +17,9 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
-/* (type, len, socket_id) header
- * -----------------------------------
- * | Msg Type | Len (B)  | Uint32    |
- * | (1 B)    | (1 B)    | (32 bits) |
- * -----------------------------------
- * total: 6 Bytes
- */
-struct __attribute__((packed, aligned(2))) CcpMsgHeader {
+struct CcpMsgHeader {
     u8 Type;
-    u8 Len;
+    u32 Len;
     u32 SocketId;
 };
 
@@ -53,8 +46,7 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
 #define  INSTALL_FOLD  4
 
 // Some messages contain strings.
-#define  BIGGEST_MSG_SIZE  256
-#define  MAX_STRING_SIZE   250
+#define  BIGGEST_MSG_SIZE  510
 
 // Some messages contain serialized fold instructions.
 #define  MAX_INSTRUCTIONS  50
@@ -72,7 +64,7 @@ struct __attribute__((packed, aligned(4))) CreateMsg {
     u32 src_port;
     u32 dst_ip;
     u32 dst_port;
-    char congAlg[MAX_STRING_SIZE];
+    char congAlg[64];
 };
 
 /* Write cr: CreateMsg into buf with socketid sid.
@@ -111,7 +103,7 @@ int write_measure_msg(
  */
 struct __attribute__((packed, aligned(4))) PatternMsg {
     u32 numStates;
-    char pattern[MAX_STRING_SIZE];
+    char pattern[BIGGEST_MSG_SIZE - 10];
 };
 
 /* 
@@ -136,7 +128,7 @@ struct __attribute__((packed, aligned(2))) InstructionMsg {
  * 1 u32: number of Instruction
  * bytes: series of Instruction ([]Instruction)
  */
-struct __attribute__((packed, aligned(4))) InstallFoldMsg {
+struct __attribute__((packed, aligned(2))) InstallFoldMsg {
     u32 num_instrs;
     struct InstructionMsg instrs[MAX_INSTRUCTIONS];
 };

@@ -11,14 +11,32 @@
 #include <linux/slab.h> // kmalloc
 #endif
 
+/* (type, len << 1, socket_id) header
+ * -----------------------------------
+ * | Msg Type | Len (2B) | Uint32    |
+ * | (1 B)    | (1 B)    | (32 bits) |
+ * -----------------------------------
+ * total: 6 Bytes
+ */
+struct __attribute__((packed, aligned(2))) CcpMsgHeader_Wire {
+    u8 Type;
+    u8 Len;
+    u32 SocketId;
+};
+
 /* We only read Pattern and InstallFold messages.
  */
 int read_header(struct CcpMsgHeader *hdr, char *buf) {
-    memcpy(hdr, buf, sizeof(struct CcpMsgHeader));
+    struct CcpMsgHeader_Wire hdr_wire;
+    memcpy(&hdr_wire, buf, sizeof(struct CcpMsgHeader_Wire));
+    hdr->Type = hdr_wire.Type;
+    hdr->Len = (hdr_wire.Len << 1);
+    hdr->SocketId = hdr_wire.SocketId;
+
     switch (hdr->Type) {
     case PATTERN:
     case INSTALL_FOLD:
-        return sizeof(struct CcpMsgHeader);
+        return sizeof(struct CcpMsgHeader_Wire);
     default:
         return -1;
     }
@@ -27,6 +45,8 @@ int read_header(struct CcpMsgHeader *hdr, char *buf) {
 /* We only write Create, and Measure messages.
  */
 int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr) {
+    struct CcpMsgHeader_Wire hdr_wire;
+
     switch (hdr->Type) {
     case CREATE:
     case MEASURE:
@@ -35,12 +55,20 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr) {
         return -1;
     }
 
-    if (bufsize < ((int)sizeof(struct CcpMsgHeader))) {
+    if (bufsize < ((int)sizeof(struct CcpMsgHeader_Wire))) {
         return -2;
     }
 
-    memcpy(buf, hdr, sizeof(struct CcpMsgHeader));
-    return sizeof(struct CcpMsgHeader);
+    hdr_wire.Type = hdr->Type;
+    hdr_wire.SocketId = hdr->SocketId;
+    if (hdr->Len % 2 == 1) {
+        hdr_wire.Len = (hdr->Len >> 1) + 1;
+    } else {
+        hdr_wire.Len = (hdr->Len >> 1);
+    }
+    
+    memcpy(buf, &hdr_wire, sizeof(struct CcpMsgHeader_Wire));
+    return sizeof(struct CcpMsgHeader_Wire);
 }
 
 int write_create_msg(
@@ -103,19 +131,16 @@ int read_pattern_msg(
     struct PatternMsg *msg,
     char *buf
 ) {
-    int ok;
-    ok = read_header(hdr, buf);
-    if (ok < 0) {
-        return ok;
-    }
-
-    buf += ok;
     if (hdr->Type != PATTERN) {
         return -1;
     }
 
-    memcpy(msg, buf, hdr->Len - 6);
-    return hdr->Len;
+    if (hdr->Len - sizeof(struct CcpMsgHeader_Wire) > sizeof(struct PatternMsg)) {
+        return -2;
+    } 
+
+    memcpy(msg, buf, hdr->Len - sizeof(struct CcpMsgHeader_Wire));
+    return hdr->Len - sizeof(struct CcpMsgHeader_Wire);
 }
 
 int read_install_fold_msg(
@@ -123,17 +148,14 @@ int read_install_fold_msg(
     struct InstallFoldMsg *msg,
     char *buf 
 ) {
-    int ok;
-    ok = read_header(hdr, buf);
-    if (ok < 0) {
-        return ok;
-    }
-
-    buf += ok;
     if (hdr->Type != INSTALL_FOLD) {
         return -1;
     }
 
-    memcpy(msg, buf, hdr->Len - 6);
-    return hdr->Len;
+    if (hdr->Len - sizeof(struct CcpMsgHeader_Wire) > sizeof(struct InstallFoldMsg)) {
+        return -2;
+    } 
+
+    memcpy(msg, buf, hdr->Len - sizeof(struct CcpMsgHeader_Wire));
+    return hdr->Len - sizeof(struct CcpMsgHeader_Wire);
 }
