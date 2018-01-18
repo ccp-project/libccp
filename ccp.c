@@ -211,7 +211,11 @@ int ccp_read_msg(
         return ok;
     }
 
-    if (hdr.Len > bufsize) {
+    if (bufsize < 0) {
+        PRINT("negative bufsize: %d", bufsize);
+        return -1;
+    }
+    if (hdr.Len > ((u32) bufsize)) {
         PRINT("message size wrong: %u > %d\n", hdr.Len, bufsize);
         return -1;
     }

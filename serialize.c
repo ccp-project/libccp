@@ -84,8 +84,12 @@ int write_create_msg(
         .Len = 6 + 24 + congAlgLen, 
         .SocketId = sid,
     };
+
+    if (bufsize < 0) {
+        return -1;
+    }
     
-    if (bufsize < hdr.Len) {
+    if (((u32) bufsize) < hdr.Len) {
         return -2;
     }
     
@@ -112,7 +116,11 @@ int write_measure_msg(
         .SocketId = sid,
     };
 
-    if (bufsize < hdr.Len) {
+    if (bufsize < 0) {
+        return -1;
+    }
+
+    if (((u32) bufsize) < hdr.Len) {
         return -2;
     }
 
