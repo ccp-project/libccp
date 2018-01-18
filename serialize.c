@@ -79,6 +79,10 @@ int write_create_msg(
 ) {
     int ok;
     int congAlgLen = strlen(cr.congAlg) + 1;
+    // ensure length is always even since we lose 1 bit of size info
+    if (congAlgLen % 2 == 1) { 
+        congAlgLen++;
+    }
     struct CcpMsgHeader hdr = {
         .Type = CREATE, 
         .Len = 6 + 24 + congAlgLen, 
