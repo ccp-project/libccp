@@ -24,6 +24,10 @@
  * WaitRel: Same as WaitAbs, but the duration given is a multiplicative factor of the current RTT.
  * Report: Send the current measurement state to userspace CCP now.
  */
+#ifdef __CPLUSPLUS__
+extern "C" {
+#endif
+
 #define  SETRATEABS          0
 #define  SETCWNDABS          1
 #define  SETRATEREL          2
@@ -178,5 +182,7 @@ __INLINE__ struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *conn
 #define  PACKETS_IN_FLIGHT   12
 #define  SND_CWND            13
 #define  NOW                 14
-
+#ifdef __CPLUSPLUS__
+} // extern "C"
+#endif
 #endif

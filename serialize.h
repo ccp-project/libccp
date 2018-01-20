@@ -17,6 +17,10 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
+#ifdef __CPLUSPLUS__
+extern "C" {
+#endif
+
 struct CcpMsgHeader {
     u8 Type;
     u32 Len;
@@ -140,5 +144,9 @@ int read_install_fold_msg(
     struct InstallFoldMsg *msg,
     char *buf 
 );
+
+#ifdef __CPLUSPLUS__
+} // extern "C"
+#endif
 
 #endif

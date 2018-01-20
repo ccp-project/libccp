@@ -33,6 +33,10 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
+#ifdef __CPLUSPLUS__
+extern "C" {
+#endif
+
 /* Datapaths must support these measurement primitives.
  * Each value is reported *per invocation*. 
  *
@@ -206,5 +210,9 @@ int ccp_read_msg(
  * Will invoke the send and measurement machines.
  */
 int ccp_invoke(struct ccp_connection *conn);
+
+#ifdef __CPLUSPLUS__
+} // extern "C"
+#endif
 
 #endif
