@@ -26,6 +26,6 @@ int init_ccp_priv_state(struct ccp_connection *conn) {
     return 0;
 }
 
-inline struct ccp_priv_state* get_ccp_priv_state(struct ccp_connection *conn) {
+__INLINE__ struct ccp_priv_state* get_ccp_priv_state(struct ccp_connection *conn) {
     return (struct ccp_priv_state*) conn->state;
 }
