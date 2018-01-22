@@ -182,7 +182,10 @@ __INLINE__ struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *conn
 #define  PACKETS_IN_FLIGHT   12
 #define  SND_CWND            13
 #define  NOW                 14
+#define  BYTES_PENDING       15
+
 #ifdef __CPLUSPLUS__
 } // extern "C"
 #endif
+
 #endif

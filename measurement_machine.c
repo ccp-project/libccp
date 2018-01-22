@@ -309,6 +309,8 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
                     return primitives->snd_cwnd;
                 case NOW:
                     return datapath->since_usecs(datapath->time_zero);
+                case BYTES_PENDING:
+                    return primitives->bytes_pending;
                 default:
                     return 0;
             }

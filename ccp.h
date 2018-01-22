@@ -74,6 +74,10 @@ struct ccp_primitives {
     u32 packets_in_flight;
     // the target congestion window to maintain, in bytes
     u32 snd_cwnd;
+
+    // amount of data available to be sent
+    // NOT per-packet - an absolute measurement
+    u32 bytes_pending;
 };
 
 // maximum string length for congAlg
