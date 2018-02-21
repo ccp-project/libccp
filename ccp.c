@@ -12,7 +12,7 @@
 #include <linux/slab.h> // kmalloc
 #endif
 
-#define MAX_NUM_CONNECTIONS 100
+#define MAX_NUM_CONNECTIONS 4096
 #define CREATE_TIMEOUT_US 1000000 // 1 second
 
 int send_conn_create(
