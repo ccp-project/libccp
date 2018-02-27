@@ -405,6 +405,9 @@ int measurement_machine(struct ccp_connection *conn) {
         reset_state(state);
     }
 
-    datapath->set_cwnd(datapath, conn, state->state_registers[1]);
+    if (state->state_registers[1] != primitives->snd_cwnd) {
+        datapath->set_cwnd(datapath, conn, state->state_registers[1]);
+    }
+
     return 0;
 }
