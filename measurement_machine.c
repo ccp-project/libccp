@@ -233,8 +233,8 @@ void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
 }
 
 // Implicit return registers:
-// isUrgent
-// Cwnd
+#define IS_URGENT_REG 0
+#define CWND_REG 1
 #define NUM_IMPLICIT_REGISTERS 2
 
 void reset_state(struct ccp_priv_state *state) {
@@ -242,7 +242,7 @@ void reset_state(struct ccp_priv_state *state) {
     struct Instruction64 current_instruction;
 
     // reset the implicit registers
-    state->state_registers[0] = 0; // isUrgent
+    state->state_registers[IS_URGENT_REG] = 0; // isUrgent
 
     for (i = 0; i < state->num_instructions; i++) {
         current_instruction = state->fold_instructions[i];
@@ -335,7 +335,7 @@ int measurement_machine(struct ccp_connection *conn) {
     u64 arg2;
     struct Instruction64 current_instruction;
 
-    state->state_registers[1] = primitives->snd_cwnd;
+    state->state_registers[CWND_REG] = primitives->snd_cwnd;
 
     for (i = 0; i < state->num_instructions; i++) {
         current_instruction = state->fold_instructions[i];
@@ -398,15 +398,15 @@ int measurement_machine(struct ccp_connection *conn) {
         }
     };
 
-    if (state->state_registers[0] == 1) { // isUrgent register set
+    if (state->state_registers[IS_URGENT_REG] == 1) { // isUrgent register set
         // immediately send measurement state to CCP, bypassing send pattern
         struct ccp_priv_state *state = get_ccp_priv_state(conn);
         send_measurement(conn, state->state_registers, state->num_to_return);
         reset_state(state);
     }
 
-    if (state->state_registers[1] != primitives->snd_cwnd) {
-        datapath->set_cwnd(datapath, conn, state->state_registers[1]);
+    if (state->state_registers[CWND_REG] != primitives->snd_cwnd) {
+        datapath->set_cwnd(datapath, conn, state->state_registers[CWND_REG]);
     }
 
     return 0;
