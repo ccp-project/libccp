@@ -174,7 +174,13 @@ struct ccp_connection *ccp_connection_lookup(u16 sid) {
 // after connection ends, free its slot in the ccp table
 // also free slot in ccp instruction table
 void ccp_connection_free(u16 sid) {
+    int msg_size, ok;
     struct ccp_connection *conn;
+    char msg[BIGGEST_MSG_SIZE];
+    struct MeasureMsg ms = {
+        .num_fields = 0,
+    };
+
     PRINT("Entering %s\n", __FUNCTION__);
     // bounds check
     if (sid == 0 || sid > MAX_NUM_CONNECTIONS) {
@@ -190,6 +196,12 @@ void ccp_connection_free(u16 sid) {
 
     conn->index = 0;
     // TODO: figure out if you need to free the array? unclear
+
+    msg_size = write_measure_msg(msg, BIGGEST_MSG_SIZE, conn->index, ms);
+    ok = datapath->send_msg(datapath, conn, msg, msg_size);
+    if (ok < 0) {
+        PRINT("error sending close message: %d", ok);
+    }
 
     return;
 }

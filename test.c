@@ -172,6 +172,7 @@ int main(int argc, char **argv) {
 
     now_us++;
 
+    ccp_connection_free(conn->index);
   ret:
     ccp_free();
     return 0;
