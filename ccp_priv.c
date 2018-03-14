@@ -17,7 +17,7 @@ int init_ccp_priv_state(struct ccp_connection *conn) {
 #endif
     state = (struct ccp_priv_state*) conn->state;
     // initialize send_machine state in conn
-    state->next_event_time = datapath->now(); // get time from datapath
+    state->next_event_time = datapath->time_zero; // get time from datapath
     state->curr_pattern_state = 0;
     state->num_pattern_states = 0;
 

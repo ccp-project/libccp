@@ -257,8 +257,8 @@ int ccp_read_msg(
         }
 
         state->num_pattern_states = pmsg.numStates;
-        state->curr_pattern_state = pmsg.numStates - 1;
-        state->next_event_time = datapath->now();
+        state->curr_pattern_state = 0;
+        state->next_event_time = datapath->time_zero; // ensure the send machine runs
     
         send_machine(conn);
     } else if (hdr.Type == INSTALL_FOLD) {

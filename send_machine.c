@@ -80,38 +80,50 @@ static inline void set_rate_with_cwnd_abs(
     return;
 }
 
+static inline void advance_state(struct ccp_priv_state *state) {
+    state->curr_pattern_state = (state->curr_pattern_state + 1) % state->num_pattern_states;
+}
+
 void send_machine(struct ccp_connection *conn) {
     struct PatternState ev;
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
-    if (datapath->now() > state->next_event_time) { // TODO handle wraparound
-        state->curr_pattern_state = (state->curr_pattern_state + 1) % state->num_pattern_states;
-        //pr_info("curr pattern event: %d\n", conn->currPatternEvent);
-    } else {
+    int start_state = state->curr_pattern_state;
+    if (datapath->now() < state->next_event_time) {
         return;
     }
 
-    ev = state->pattern[state->curr_pattern_state];
-    switch (ev.type) {
-    case SETRATEABS:
-        datapath->set_rate_abs(datapath, conn, ev.val);
-        break;
-    case SETRATEABSWITHCWND:
-        set_rate_with_cwnd_abs(conn, ev.val);
-        break;
-    case SETCWNDABS:
-        datapath->set_cwnd(datapath, conn, ev.val);
-        break;
-    case SETRATEREL:
-        datapath->set_rate_rel(datapath, conn, ev.val);
-        break;
-    case WAITREL:
-        do_wait_rel(conn, ev.val);
-        break;
-    case WAITABS:
-        do_wait_abs(conn, ev.val);
-        break;
-    case REPORT:
-        do_report(conn);
-        break;
-    }
+    // if there is no wait, only run through the pattern once, otherwise
+    // we'll infinite loop
+    do {
+        ev = state->pattern[state->curr_pattern_state];
+        switch (ev.type) {
+        case SETRATEABS:
+            datapath->set_rate_abs(datapath, conn, ev.val);
+            break;
+        case SETRATEABSWITHCWND:
+            set_rate_with_cwnd_abs(conn, ev.val);
+            break;
+        case SETCWNDABS:
+            datapath->set_cwnd(datapath, conn, ev.val);
+            break;
+        case SETRATEREL:
+            datapath->set_rate_rel(datapath, conn, ev.val);
+            break;
+        // in the WAIT and REPORT cases, stop the loop immediately
+        case REPORT:
+            do_report(conn);
+            advance_state(state);
+            return;
+        case WAITREL:
+            do_wait_rel(conn, ev.val);
+            advance_state(state);
+            return;
+        case WAITABS:
+            do_wait_abs(conn, ev.val);
+            advance_state(state);
+            return;
+        }
+        
+        advance_state(state);
+    } while (state->curr_pattern_state != start_state);
 }
