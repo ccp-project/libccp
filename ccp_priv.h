@@ -141,7 +141,7 @@ struct ccp_priv_state {
     u8 num_pattern_states; // 1 B
     struct PatternState pattern[MAX_INSTRUCTIONS]; // 6 B * MAX_INSTRUCTIONS = 120 B
     u8 curr_pattern_state; // 1 B
-    u32 next_event_time; // 4 B
+    u64 next_event_time; // 4 B
 
     // measure machine state
     u8 num_instructions; // number of instructions

@@ -145,10 +145,10 @@ struct ccp_datapath {
     int (*send_msg)(struct ccp_datapath *dp, struct ccp_connection *conn, char *msg, int msg_size);
 
     // time management
-    u32 time_zero;
-    u32 (*now)(void); // the current time in datapath time units
-    u32 (*since_usecs)(u32 then); // elapsed microseconds since <then>
-    u32 (*after_usecs)(u32 usecs); // <usecs> microseconds from now in datapath time units
+    u64 time_zero;
+    u64 (*now)(void); // the current time in datapath time units
+    u64 (*since_usecs)(u64 then); // elapsed microseconds since <then>
+    u64 (*after_usecs)(u64 usecs); // <usecs> microseconds from now in datapath time units
 
     // datapath-specific global state
     void *impl;

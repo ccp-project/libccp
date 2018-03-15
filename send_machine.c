@@ -48,7 +48,7 @@ static inline void do_report(
 
 static inline void do_wait_abs(
     struct ccp_connection *conn,
-    u32 wait_ns
+    u64 wait_ns
 ) {
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
     state->next_event_time = datapath->after_usecs(wait_ns / 1000);
