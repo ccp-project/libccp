@@ -77,13 +77,15 @@ int write_create_msg(
     u32 sid, 
     struct CreateMsg cr
 ) {
-    int ok;
-    int congAlgLen = strlen(cr.congAlg) + 1;
+    struct CcpMsgHeader hdr;
+    int ok, congAlgLen;
+    congAlgLen = strlen(cr.congAlg) + 1;
     // ensure length is always even since we lose 1 bit of size info
     if (congAlgLen % 2 == 1) { 
         congAlgLen++;
     }
-    struct CcpMsgHeader hdr = {
+    
+    hdr = (struct CcpMsgHeader){
         .Type = CREATE, 
         .Len = 6 + 24 + congAlgLen, 
         .SocketId = sid,
