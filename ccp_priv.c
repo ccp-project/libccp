@@ -16,13 +16,11 @@ int init_ccp_priv_state(struct ccp_connection *conn) {
     conn->state = kmalloc(sizeof(struct ccp_priv_state), GFP_KERNEL);
 #endif
     state = (struct ccp_priv_state*) conn->state;
-    // initialize send_machine state in conn
-    state->next_event_time = datapath->time_zero; // get time from datapath
-    state->curr_pattern_state = 0;
-    state->num_pattern_states = 0;
-
-    // TODO initialize measurement_machine state in conn
-    
+    state->sent_create = false;
+    state->num_expressions = 0;
+    state->num_instructions = 0;
+    state->num_to_return = 0;
+    state->implicit_time_zero = datapath->time_zero;
     return 0;
 }
 

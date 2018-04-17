@@ -11,23 +11,32 @@
 #define CCP_H
 
 #ifdef __USRLIB__
-  #define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
-  #define __INLINE__
-	#define __MALLOC__(size) malloc(size)
-	#define __FREE__(ptr) free(ptr)
+    #ifdef __DEBUG__
+        #define DBG_PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
+    #else
+        #define DBG_PRINT(fmt, args...) 
+    #endif
+    
+    #define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
+    
+    #define __INLINE__
+    #define __MALLOC__(size) malloc(size)
+    #define __FREE__(ptr) free(ptr)
 #else
-  #define PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
-  #define __INLINE__ inline
-	#define __MALLOC__(size) kmalloc(size, GFP_KERNEL)
-	#define __FREE__(ptr) kfree(ptr)
+    #define DBG_PRINT  
+    #define PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
+    #define __INLINE__ inline
+    #define __MALLOC__(size) kmalloc(size, GFP_KERNEL)
+    #define __FREE__(ptr) kfree(ptr)
 #endif
 
 #ifdef __USRLIB__
-#include <stdint.h>
-#include <stdbool.h>
+    #include <stdint.h>
+    #include <stdbool.h>
 #else
-#include <linux/types.h>
+    #include <linux/types.h>
 #endif
+
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -74,6 +83,8 @@ struct ccp_primitives {
     u32 packets_in_flight;
     // the target congestion window to maintain, in bytes
     u32 snd_cwnd;
+    // target rate to maintain, in bytes/s
+    u64 snd_rate;
 
     // amount of data available to be sent
     // NOT per-packet - an absolute measurement

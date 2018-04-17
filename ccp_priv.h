@@ -7,154 +7,129 @@
 /*
  * CCP Send State Machine
  * 
- * Userspace CCP algorithms specify "send patterns", e.g.:
- * SetCwnd(15) => WaitRtts(1.0) => Report()
- *
- * We implement these patterns on the ACK clock.
- *
- * There are 6 states (type field in PatternState)
- * SetRateAbs, SetRateAbsWithCwnd, SetCwndAbs: 
- *   Set the value of the Rate and Cwnd, respectively.
- *   Importantly, setting a Rate does not change the Cwnd, and vice versa;
- *   this way, CCP algorithms can express a window with a maximum rate, or
- *   a rate with a maximum number of packets in flight.
- *
- * SetRateRel: Change the rate by the given relative multiplicative factor.
- * WaitAbs: Maintain the current Rate and Cwnd until the given duration of time, modulo the ACK clock, has passed.
- * WaitRel: Same as WaitAbs, but the duration given is a multiplicative factor of the current RTT.
- * Report: Send the current measurement state to userspace CCP now.
+ * Userspace CCP algorithms specify "expressions", e.g.:
+ * (def (Report.loss 0) (Control.bottle_rate 1000))
+ * (when (> Ns 0)
+ *      (bind Rate (* Control.bottle_rate 3))
+ *      (fallthrough)
+ *  )
+ * (when (> Ns 2000)
+ *       (report)
+ *       (bind Rate (* Control.bottle_rate 2))
+ *       (fallthrough)
+ *  )
+ * (when (> Ns 8000)
+ *       (report)
+ *       (reset)
+ *       (fallthrough)
+ * )
+ * (when true
+ *       (bind Report.loss (+ Flow.loss Pkt.lost_pkts_sample))
+ *       (bind Rate (max Rate (min Pkt.rate_outgoing Pkt.rate_incoming)))
+ * )
+ * Expressions are conditions (a series of instructions that evaluate to a boolean expression)
+ * followed by a set of instructions to execute if that event is true
  */
 #ifdef __CPLUSPLUS__
 extern "C" {
 #endif
 
-#define  SETRATEABS          0
-#define  SETCWNDABS          1
-#define  SETRATEREL          2
-#define  WAITABS             3
-#define  WAITREL             4
-#define  REPORT              5
-#define  SETRATEABSWITHCWND  6
-
-struct __attribute__((packed, aligned(2))) PatternState {
-    u8 type;
-    u8 size;
-    u32 val;
-};
-
-/* Events deserialized from the string in a PatternMsg
- * If a state
- *
- * seq: array of PatternState
- * return: 0 if ok, -1 otherwise
- */
-int read_pattern(
-    struct PatternState *seq,
-    char *pattern,
-    int numEvents
-);
-
-/* Triggers the sending state machine.
+/* Triggers the state machine that goes through the expressions and evaluates conditions if true.
  * Should be called on each tick of the ACK clock; i.e. every packet.
  */
-void send_machine(
+int state_machine(
     struct ccp_connection *conn
 );
 
-/*
- * CCP Fold State Machine
- *
- * Userspace CCP algorithms specify the measurements they are interested in with a fold function, e.g.:
- *
- * (def (min_rtt +infinity))
- * (= Flow.min_rtt (min Flow.min_rtt Pkt.rtt_sample_us))
- *
- * This is compiled into an []Instruction, e.g.:
- *
- * [
- *   Instruction{_, init, Flow.min_rtt, 0x3f},
- *   Instruction{tmp0, min, Flow.min_rtt, Pkt.rtt_sample_us},
- *   Instruction{Flow.min_rtt, bind, tmp0},
- * ]
- *
- * This []Instruction is serialized into an InstallFold message.
- * Once received here, the []Instruction is run through upon every ccp_invoke()
- */
-
-enum RegType64 {
-    CONST_REG, // primitives
-    PERM_REG, // state/return values
-    TMP_REG, // temporary values
-    IMM_REG // immutables
-};
-
-enum FoldOp {
-    ADD64, // (add a b) return a+b
-    BIND64, // add a to store
-    DEF64, // set initial output register value
-    DIV64, // (div a b) return a/b (integer division)
-    EQUIV64, // (eq a b) return a == b
-    EWMA64, // (ewma a b) return old * (a/10) + b * (1-(a/10)) old is return reg
-    GT64, // (> a b) return a > b
-    IFCNT64, // if (a) add 1 to store
-    IFNOTCNT64, // if not a, add 1 to store
-    LT64, // (< a b) return a < b
-    MAX64, // (max a b) return max(a,b)
-    MIN64, // (min a b) return min(a,b)
-    MUL64, // (mul a b) return a * b
-    SUB64, // (sub a b) return a - b
-    MAX64WRAP, // (max a b) return max(a,b) with MAX_U32 wraparound
-};
-
 struct Register {
-    enum RegType64 type;
+    u8 type;
     int index;
     u64 value;
 };
 
-// for EWMA, IFCNT: store register is implicit 'old' state argument
 struct Instruction64 {
-    enum FoldOp op;
+    u8 op;
     struct Register rRet;
     struct Register rLeft;
     struct Register rRight;
 };
 
-// limits on the number of signals and instructions
-// limits on how many registers the user can send down
+/*  Expression contains reference to:
+ *  instructions for condition
+ *  instructions for body of expression
+ */
+struct Expression {
+    u32 cond_start_idx;
+    u32 num_cond_instrs;
+    u32 event_start_idx;
+    u32 num_event_instrs;
+};
+
+int read_expression(
+    struct Expression *ret,
+    struct ExpressionMsg *msg
+);
 
 int read_instruction(
     struct Instruction64 *ret,
     struct InstructionMsg *msg
 );
 
-int measurement_machine(
-    struct ccp_connection *conn
-);
+void print_register(struct Register* reg);
+
 
 /* libccp Private State
  * struct ccp_connection has a void* state to store libccp's state
  * libccp internally casts this to a struct ccp_priv_state*.
  */
 struct ccp_priv_state {
-    // send machine state
-    u8 num_pattern_states; // 1 B
-    struct PatternState pattern[MAX_INSTRUCTIONS]; // 6 B * MAX_INSTRUCTIONS = 120 B
-    u8 curr_pattern_state; // 1 B
-    u64 next_event_time; // 4 B
+    bool sent_create;
 
-    // measure machine state
-    u8 num_instructions; // number of instructions
-    struct Instruction64 fold_instructions[MAX_INSTRUCTIONS]; // array of instructions
-    u8 num_to_return; // how many state_registers are used?
-    u64 state_registers[MAX_PERM_REG];
-    u64 tmp_registers[MAX_TMP_REG];
+    u32 num_expressions;
+    struct Expression expressions[MAX_EXPRESSIONS];
+   
+    u32 num_instructions;
+    struct Instruction64 fold_instructions[MAX_INSTRUCTIONS];
+
+    // report and control registers - users send a DEF for these
+    u64 report_registers[MAX_REPORT_REG]; // reported variables, reset to DEF value upon report
+    u64 control_registers[MAX_CONTROL_REG]; // extra user defined variables, not reset on report
+
+    // tmp, local and implicit registers
+    u64 impl_registers[MAX_IMPLICIT_REG]; // stores special flags and variables
+    u64 tmp_registers[MAX_TMP_REG]; // used for temporary calculation in instructions
+    u64 local_registers[MAX_LOCAL_REG]; // for local variables within a program - created in a bind in a when clause
+        
+    u8 num_to_return; // how many registers are used for measurements to be reported?
+
+    u64 implicit_time_zero; // can be reset
+   
 };
+
+
+/*
+ * Resets a specific register's value in response to an update field message.
+ * Needs pointer to ccp_connection in case message is for updating the cwnd or rate.
+ */
+int update_register(
+    struct ccp_connection* conn,
+    struct ccp_priv_state *state,
+    struct UpdateField *update_field
+);
 
 /* Reset the output state registers to their default values
  * according to the DEF instruction preamble.
  */
 void reset_state(struct ccp_priv_state *state);
+
+/* Initializes the control registers to their default values
+ * according to the DEF instruction preamble.
+ */
+void init_control_state(struct ccp_priv_state *state);
+
+/* Reset the implicit time registers to count from datapath->now()
+ */
+void reset_time(struct ccp_priv_state *state);
 
 /* Initialize send machine and measurement machine state in ccp_connection.
  * Called from ccp_connection_start()
@@ -165,24 +140,64 @@ int init_ccp_priv_state(struct ccp_connection *conn);
  */
 __INLINE__ struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *conn);
 
-// rate sample primitives
-// must be the same order as in userspace CCP!
-#define  BYTES_ACKED         0
-#define  PACKETS_ACKED       1
-#define  BYTES_MISORDERED    2
-#define  PACKETS_MISORDERED  3
-#define  ECN_BYTES           4
-#define  ECN_PACKETS         5
-#define  LOST_PKTS_SAMPLE    6
-#define  WAS_TIMEOUT         7
-#define  RTT_SAMPLE_US       8
-#define  RATE_OUTGOING       9
-#define  RATE_INCOMING       10
-#define  BYTES_IN_FLIGHT     11
-#define  PACKETS_IN_FLIGHT   12
-#define  SND_CWND            13
-#define  NOW                 14
-#define  BYTES_PENDING       15
+/*
+ * Reserved Implicit Registers
+ */
+#define EXPR_FLAG_REG             0
+#define SHOULD_FALLTHROUGH_REG    1
+#define SHOULD_REPORT_REG         2
+#define NS_ELAPSED_REG            3
+#define CWND_REG                  4
+#define RATE_REG                  5
+
+/*
+ * Primitive registers
+ */
+#define  ACK_BYTES_ACKED          0
+#define  ACK_BYTES_MISORDERED     1
+#define  ACK_ECN_BYTES            2
+#define  ACK_ECN_PACKETS          3
+#define  ACK_LOST_PKTS_SAMPLE     4
+#define  ACK_NOW                  5
+#define  ACK_PACKETS_ACKED        6
+#define  ACK_PACKETS_MISORDERED   7
+#define  FLOW_BYTES_IN_FLIGHT     8
+#define  FLOW_BYTES_PENDING       9
+#define  FLOW_PACKETS_IN_FLIGHT   10
+#define  FLOW_RATE_INCOMING       11
+#define  FLOW_RATE_OUTGOING       12
+#define  FLOW_RTT_SAMPLE_US       13
+#define  FLOW_WAS_TIMEOUT         14
+
+/*
+ * Operations
+ */
+#define    ADD        0
+#define    BIND       1
+#define    DEF        2
+#define    DIV        3
+#define    EQUIV      4
+#define    EWMA       5
+#define    GT         6
+#define    IF         7
+#define    LT         8
+#define    MAX        9
+#define    MAXWRAP    10
+#define    MIN        11
+#define    MUL        12
+#define    NOTIF      13
+#define    RESETTIME  14
+#define    SUB        15
+#define MAX_OP        16
+
+// types of registers
+#define CONTROL_REG    0
+#define IMMEDIATE_REG  1
+#define IMPLICIT_REG   2
+#define LOCAL_REG      3
+#define PRIMITIVE_REG  4
+#define REPORT_REG     5
+#define TMP_REG        6
 
 #ifdef __CPLUSPLUS__
 } // extern "C"

@@ -1,4 +1,5 @@
 #include "serialize.h"
+#include "ccp.h"
 
 #ifdef __USRLIB__
 #include <ctype.h>
@@ -24,7 +25,7 @@ struct __attribute__((packed, aligned(2))) CcpMsgHeader_Wire {
     u32 SocketId;
 };
 
-/* We only read Pattern and InstallFold messages.
+/* We only read Install Expr messages.
  */
 int read_header(struct CcpMsgHeader *hdr, char *buf) {
     struct CcpMsgHeader_Wire hdr_wire;
@@ -34,8 +35,7 @@ int read_header(struct CcpMsgHeader *hdr, char *buf) {
     hdr->SocketId = hdr_wire.SocketId;
 
     switch (hdr->Type) {
-    case PATTERN:
-    case INSTALL_FOLD:
+    case INSTALL_EXPR:
         return sizeof(struct CcpMsgHeader_Wire);
     default:
         return -1;
@@ -113,15 +113,23 @@ int write_measure_msg(
     char *buf,
     int bufsize,
     u32 sid, 
-    struct MeasureMsg ms
+    u64 *msg_fields,
+    u8 num_fields
 ) {
     int ok;
+    struct MeasureMsg ms = {
+        .num_fields = num_fields,
+    };
+    
     struct CcpMsgHeader hdr = {
         .Type = MEASURE, 
         .Len = 10 + ms.num_fields * sizeof(u64),
         .SocketId = sid,
     };
-
+    
+    // copy message fields into MeasureMsg struct
+    memcpy(ms.fields, msg_fields, ms.num_fields * sizeof(u64));
+    
     if (bufsize < 0) {
         return -1;
     }
@@ -140,35 +148,42 @@ int write_measure_msg(
     return hdr.Len;
 }
 
-int read_pattern_msg(
-    struct CcpMsgHeader *hdr, 
-    struct PatternMsg *msg,
+int read_install_expr_msg(
+    struct CcpMsgHeader *hdr,
+    struct InstallExpressionMsg *msg,
     char *buf
 ) {
-    if (hdr->Type != PATTERN) {
+    if (hdr->Type != INSTALL_EXPR) {
         return -1;
-    }
-
-    if (hdr->Len - sizeof(struct CcpMsgHeader_Wire) > sizeof(struct PatternMsg)) {
-        return -2;
     } 
 
-    memcpy(msg, buf, hdr->Len - sizeof(struct CcpMsgHeader_Wire));
+    if (hdr->Len - sizeof(struct CcpMsgHeader_Wire) > sizeof(struct InstallExpressionMsg)) {
+        return -2;
+    }
+
+    memcpy(msg, buf, 2 * sizeof(u32));
+    buf += 2 * sizeof(u32);
+
+    memcpy(&msg->exprs, buf, msg->num_expressions * sizeof(struct ExpressionMsg));
+    buf += msg->num_expressions * sizeof(struct ExpressionMsg);
+    memcpy(&msg->instrs, buf, msg->num_instructions * sizeof(struct InstructionMsg));
+    buf += msg->num_expressions * sizeof(struct InstructionMsg);
+
     return hdr->Len - sizeof(struct CcpMsgHeader_Wire);
 }
 
-int read_install_fold_msg(
-    struct CcpMsgHeader *hdr, 
-    struct InstallFoldMsg *msg,
-    char *buf 
+int read_update_fields_msg(
+    struct CcpMsgHeader *hdr,
+    struct UpdateFieldsMsg *msg,
+    char *buf
 ) {
-    if (hdr->Type != INSTALL_FOLD) {
+    if (hdr->Type != UPDATE_FIELDS) {
         return -1;
     }
 
-    if (hdr->Len - sizeof(struct CcpMsgHeader_Wire) > sizeof(struct InstallFoldMsg)) {
+    if (hdr->Len - sizeof(struct CcpMsgHeader_Wire) > sizeof(struct UpdateFieldsMsg)) {
         return -2;
-    } 
+    }
 
     memcpy(msg, buf, hdr->Len - sizeof(struct CcpMsgHeader_Wire));
     return hdr->Len - sizeof(struct CcpMsgHeader_Wire);

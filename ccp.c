@@ -105,7 +105,10 @@ struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info
     ok = send_conn_create(datapath, conn);
     if (ok < 0) {
         PRINT("failed to send create message: %d", ok);
+        return conn;
     }
+        
+    get_ccp_priv_state(conn)->sent_create = true;
 
     return conn;
 }
@@ -131,24 +134,24 @@ __INLINE__ int ccp_set_impl(struct ccp_connection *conn, void *ptr) {
 int ccp_invoke(struct ccp_connection *conn) {
     int ok = 0;
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
-    if (state->num_pattern_states == 0) {
+    if (!(state->sent_create)) {
         // try contacting the CCP again
         // index of pointer back to this sock for IPC callback
         ok = send_conn_create(datapath, conn);
         if (ok < 0) {
-            //pr_info("failed to send create message: %d", ok);
+            PRINT("failed to send create message: %d", ok);
         }
 
         return ok;
     }
 
-    ok = measurement_machine(conn);
+    /*ok = measurement_machine(conn);
     if (ok < 0) {
         PRINT("measurement machine runtime error: %d\n", ok);
         return ok;
-    }
+    }*/
 
-    send_machine(conn);
+    ok = state_machine(conn);
     return ok;
 }
 
@@ -176,10 +179,7 @@ struct ccp_connection *ccp_connection_lookup(u16 sid) {
 void ccp_connection_free(u16 sid) {
     int msg_size, ok;
     struct ccp_connection *conn;
-    char msg[BIGGEST_MSG_SIZE];
-    struct MeasureMsg ms = {
-        .num_fields = 0,
-    };
+    char msg[REPORT_MSG_SIZE];
 
     PRINT("Entering %s\n", __FUNCTION__);
     // bounds check
@@ -197,7 +197,7 @@ void ccp_connection_free(u16 sid) {
     conn->index = 0;
     // TODO: figure out if you need to free the array? unclear
 
-    msg_size = write_measure_msg(msg, BIGGEST_MSG_SIZE, conn->index, ms);
+    msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, conn->index, 0, 0);
     ok = datapath->send_msg(datapath, conn, msg, msg_size);
     if (ok < 0) {
         PRINT("error sending close message: %d", ok);
@@ -215,8 +215,8 @@ int ccp_read_msg(
     struct ccp_connection *conn;
     struct ccp_priv_state *state;
     struct CcpMsgHeader hdr;
-    struct InstallFoldMsg imsg;
-    struct PatternMsg pmsg;
+    struct InstallExpressionMsg emsg;
+    struct UpdateFieldsMsg fields_msg;
 
     ok = read_header(&hdr, buf);  
     if (ok < 0) {
@@ -244,40 +244,51 @@ int ccp_read_msg(
     }
 
     state = get_ccp_priv_state(conn);
-    if (hdr.Type == PATTERN) {
-        ok = read_pattern_msg(&hdr, &pmsg, buf + ok);
+    if (hdr.Type == INSTALL_EXPR) {
+        memset(&emsg, 0, sizeof(struct InstallExpressionMsg));
+        ok = read_install_expr_msg(&hdr, &emsg, buf + ok);
         if (ok < 0) {
-            return ok;
-        }
-
-        memset(state->pattern, 0, MAX_INSTRUCTIONS * sizeof(struct PatternState));
-        ok = read_pattern(state->pattern, pmsg.pattern, pmsg.numStates);
-        if (ok < 0) {
-            return ok;
-        }
-
-        state->num_pattern_states = pmsg.numStates;
-        state->curr_pattern_state = 0;
-        state->next_event_time = datapath->time_zero; // ensure the send machine runs
-    
-        send_machine(conn);
-    } else if (hdr.Type == INSTALL_FOLD) {
-        ok = read_install_fold_msg(&hdr, &imsg, buf + ok);
-        if (ok < 0) {
-            PRINT("could not read fold msg\n");
+            PRINT("could not read install expression msg: %d\n", ok);
             return -4;
         }
+        // memset expression and instruction list to 0
+        memset(state->expressions, 0, MAX_EXPRESSIONS * sizeof(struct Expression));
         memset(state->fold_instructions, 0, MAX_INSTRUCTIONS * sizeof(struct Instruction64));
-        for (i = 0; i < imsg.num_instrs; i++) {
-            ok = read_instruction(&(state->fold_instructions[i]), &(imsg.instrs[i]));
+    
+        state->num_expressions = emsg.num_expressions;
+        state->num_instructions = emsg.num_instructions;
+
+        // parse the expressions 
+        for (i=0; i<state->num_expressions; i++) {
+            ok = read_expression(&(state->expressions[i]), &(emsg.exprs[i]));
             if (ok < 0) {
-                PRINT("could not read instruction\n");
-                return -5;
+                PRINT("could not read expression\n");
+                return -7;
             }
         }
 
-        state->num_instructions = imsg.num_instrs;
+        // parse the instructions
+        for (i=0; i<state->num_instructions; i++) {
+            ok = read_instruction(&(state->fold_instructions[i]), &(emsg.instrs[i]));
+            if (ok < 0) {
+                PRINT("could not read instruction %lu: %d\n", i, ok);
+                return -8;
+            }
+        }
+
+        // call reset state to initialize all variables
         reset_state(state);
+        init_control_state(state);
+    } else if (hdr.Type == UPDATE_FIELDS) {
+        ok = read_update_fields_msg(&hdr, &fields_msg, buf + ok);
+        if (ok < 0) {
+            PRINT("could not read update fields msg\n");
+            return -9;
+        }
+
+        for (i=0; i<fields_msg.num_updates; i++) {
+            update_register(conn, state, &(fields_msg.updates[i]));
+        }
     }
 
     return ok;
@@ -289,8 +300,9 @@ int send_conn_create(
     struct ccp_connection *conn
 ) {
     int ok;
-    char msg[BIGGEST_MSG_SIZE];
+    char msg[REPORT_MSG_SIZE];
     int msg_size;
+    struct ccp_priv_state* state = get_ccp_priv_state(conn);
     struct CreateMsg cr = {
         .init_cwnd = conn->flow_info.init_cwnd,
         .mss = conn->flow_info.mss,
@@ -304,6 +316,7 @@ int send_conn_create(
         conn->last_create_msg_sent != 0 &&
         datapath->since_usecs(conn->last_create_msg_sent) < CREATE_TIMEOUT_US
     ) {
+        state->sent_create = true;
         return 0;
     }
 
@@ -312,7 +325,7 @@ int send_conn_create(
     }
 
     conn->last_create_msg_sent = datapath->now();
-    msg_size = write_create_msg(msg, BIGGEST_MSG_SIZE, conn->index, cr);
+    msg_size = write_create_msg(msg, REPORT_MSG_SIZE, conn->index, cr);
     ok = datapath->send_msg(datapath, conn, msg, msg_size);
     return ok;
 }
@@ -325,20 +338,15 @@ int send_measurement(
     u8 num_fields
 ) {
     int ok;
-    char msg[BIGGEST_MSG_SIZE];
+    char msg[REPORT_MSG_SIZE];
     int msg_size;
-    struct MeasureMsg ms = {
-        .num_fields = num_fields,
-    };
-
-    memcpy(ms.fields, fields, ms.num_fields * sizeof(u64));
-
     if (conn->index < 1) {
         ok = -1;
         return ok;
     }
 
-    msg_size = write_measure_msg(msg, BIGGEST_MSG_SIZE, conn->index, ms);
+    msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, conn->index, fields, num_fields);
+    DBG_PRINT("In %s\n", __FUNCTION__);
     ok = datapath->send_msg(datapath, conn, msg, msg_size);
     return ok;
 }

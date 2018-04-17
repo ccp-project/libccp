@@ -46,16 +46,25 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
  */
 #define  CREATE        0
 #define  MEASURE       1
-#define  PATTERN       3
-#define  INSTALL_FOLD  4
+#define  INSTALL_EXPR  2
+#define  UPDATE_FIELDS 3
 
 // Some messages contain strings.
-#define  BIGGEST_MSG_SIZE  510
+#define  BIGGEST_MSG_SIZE  1024
+
+// for create messages, we know they are smaller when we send them up
+#define CREATE_MSG_SIZE     512
+// size of report msg is 12 B * MAX_REPORT_REG
+#define REPORT_MSG_SIZE     900
 
 // Some messages contain serialized fold instructions.
-#define  MAX_INSTRUCTIONS  50
-#define  MAX_PERM_REG      16
-#define  MAX_TMP_REG       8
+#define MAX_EXPRESSIONS    10 // 10 * 4 = 40 bytes for expressions
+#define MAX_INSTRUCTIONS   50 // 50 * 16 = 800 bytes for instructions
+#define MAX_IMPLICIT_REG   6
+#define MAX_REPORT_REG     15 // measure msg is 15*8 + 4 = 124 bytes
+#define MAX_CONTROL_REG    15
+#define MAX_TMP_REG        8
+#define MAX_LOCAL_REG      8
 
 /* CREATE
  * str: the datapath's requested congestion control algorithm (could be overridden)
@@ -82,13 +91,13 @@ int write_create_msg(
 );
 
 /* MEASURE
- * 1 u32: number of returned fields
+ * 1 u32: number of retrned fields
  * bytes: the return registers of the installed fold function ([]uint64).
  *        there will be at most MAX_PERM_REG returned registers
  */
 struct __attribute__((packed, aligned(4))) MeasureMsg {
     u32 num_fields;
-    u64 fields[MAX_PERM_REG];
+    u64 fields[MAX_REPORT_REG];
 };
 
 /* Write ms: MeasureMsg into buf with socketid sid.
@@ -98,51 +107,72 @@ int write_measure_msg(
     char *buf,
     int bufsize,
     u32 sid,
-    struct MeasureMsg ms
+    u64 *msg_fields,
+    u8 num_fields
 );
 
-/* PATTERN
- * 1 u32: number of PatternState
- * bytes: series of PatternState ([]PatternState)
+/* INSTRUCTION: 4 u8s: opcode, result_register, left_register, right_register
  */
-struct __attribute__((packed, aligned(4))) PatternMsg {
-    u32 numStates;
-    char pattern[BIGGEST_MSG_SIZE - 10];
-};
-
-/* 
- * return: size of msg
- */
-int read_pattern_msg(
-    struct CcpMsgHeader *hdr, 
-    struct PatternMsg *msg,
-    char *buf 
-);
-
-/* INSTRUCTION: 2 u8s: Opcode, Result + 2 u32s: Left, Right
- */
-struct __attribute__((packed, aligned(2))) InstructionMsg {
+struct __attribute__((packed, aligned(4))) InstructionMsg {
     u8 opcode;
-    u8 result_register;
+    u8 result_reg_type;
+    u32 result_register;
+    u8 left_reg_type;
     u32 left_register;
+    u8 right_reg_type;
     u32 right_register;
 };
 
-/* INSTALL_FOLD
- * 1 u32: number of Instruction
- * bytes: series of Instruction ([]Instruction)
+
+/* ExpressionMsg: 4 u8s
+ * start of expression condition instr ID
+ * number of expression condition instrs
+ * start of event body instr ID
+ * number of event body instrs
  */
-struct __attribute__((packed, aligned(2))) InstallFoldMsg {
-    u32 num_instrs;
+struct __attribute__((packed, aligned(4))) ExpressionMsg {
+    u8 cond_start_idx;
+    u8 num_cond_instrs;
+    u8 event_start_idx;
+    u8 num_event_instrs;
+};
+
+/* InstallExprMsg: 842 bytes in total
+ * 2 u32s: number of expressions and instructions
+ * []ExprMsg: expressions -> 40 bytes, MAX = 10
+ * []InstructionMsg: all instructions -> 800 bytes, MAX = 16
+ */
+struct __attribute__((packed, aligned(4))) InstallExpressionMsg {
+    u32 num_expressions;
+    u32 num_instructions;
+    struct ExpressionMsg exprs[MAX_EXPRESSIONS];
     struct InstructionMsg instrs[MAX_INSTRUCTIONS];
 };
 
 /* return: size of msg
  */
-int read_install_fold_msg(
-    struct CcpMsgHeader *hdr, 
-    struct InstallFoldMsg *msg,
-    char *buf 
+int read_install_expr_msg(
+    struct CcpMsgHeader *hdr,
+    struct InstallExpressionMsg *msg,
+    char *buf
+);
+
+
+struct __attribute__((packed, aligned(4))) UpdateField {
+    u8 reg_type;
+    u32 reg_index;
+    u64 new_value;
+};
+
+struct __attribute__((packed, aligned(4))) UpdateFieldsMsg {
+    u8 num_updates;
+    struct UpdateField updates[MAX_REPORT_REG];
+};
+
+int read_update_fields_msg(
+    struct CcpMsgHeader *hdr,
+    struct UpdateFieldsMsg *msg,
+    char *buf
 );
 
 #ifdef __CPLUSPLUS__
