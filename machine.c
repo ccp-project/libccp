@@ -568,6 +568,9 @@ int state_machine(struct ccp_connection *conn) {
     // reset should Report, should fall through, and event expression
     reset_impl_registers(state);
 
+    // set cwnd and rate registers to what they are in the datapath
+    state->impl_registers[CWND_REG] = (u64)conn->prims.snd_cwnd;
+    state->impl_registers[RATE_REG] = (u64)conn->prims.snd_rate;
 
     // update the NS_ELAPSED registers
     implicit_now = datapath->since_usecs(state->implicit_time_zero);
