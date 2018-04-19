@@ -37,6 +37,8 @@ int read_header(struct CcpMsgHeader *hdr, char *buf) {
     switch (hdr->Type) {
     case INSTALL_EXPR:
         return sizeof(struct CcpMsgHeader_Wire);
+    case UPDATE_FIELDS:
+        return sizeof(struct CcpMsgHeader_Wire);
     default:
         return -1;
     }

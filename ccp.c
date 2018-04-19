@@ -220,27 +220,28 @@ int ccp_read_msg(
 
     ok = read_header(&hdr, buf);  
     if (ok < 0) {
-        return ok;
+        PRINT("read header failed: %d", ok);
+        return -1;
     }
 
     if (bufsize < 0) {
         PRINT("negative bufsize: %d", bufsize);
-        return -1;
+        return -2;
     }
     if (hdr.Len > ((u32) bufsize)) {
         PRINT("message size wrong: %u > %d\n", hdr.Len, bufsize);
-        return -1;
+        return -3;
     }
 
     if (hdr.Len > BIGGEST_MSG_SIZE) {
         PRINT("message too long: %u > %d\n", hdr.Len, BIGGEST_MSG_SIZE);
-        return -2;
+        return -4;
     }
 
     conn = ccp_connection_lookup(hdr.SocketId);
     if (conn == NULL) {
         PRINT("unknown connection: %u\n", hdr.SocketId);
-        return -3;
+        return -5;
     }
 
     state = get_ccp_priv_state(conn);
@@ -249,7 +250,7 @@ int ccp_read_msg(
         ok = read_install_expr_msg(&hdr, &emsg, buf + ok);
         if (ok < 0) {
             PRINT("could not read install expression msg: %d\n", ok);
-            return -4;
+            return -6;
         }
         // memset expression and instruction list to 0
         memset(state->expressions, 0, MAX_EXPRESSIONS * sizeof(struct Expression));
