@@ -466,7 +466,7 @@ int process_instruction(int instr_index, struct ccp_priv_state *state, struct cc
             write_reg(state, mygt64(arg1, arg2), current_instruction.rRet);
             break;
         case LT:
-#if __DEBUG__
+#ifdef __DEBUG__
             DBG_PRINT("Checking lt: %lu <? %lu\n", arg1, arg2);
             print_register(&current_instruction.rRight);
             print_register(&current_instruction.rLeft);

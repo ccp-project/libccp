@@ -23,7 +23,7 @@
     #define __MALLOC__(size) malloc(size)
     #define __FREE__(ptr) free(ptr)
 #else
-    #define DBG_PRINT  
+    #define DBG_PRINT(fmt, args...)
     #define PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
     #define __INLINE__ inline
     #define __MALLOC__(size) kmalloc(size, GFP_KERNEL)
