@@ -218,10 +218,14 @@ int update_register(struct ccp_connection* conn, struct ccp_priv_state *state, s
         case IMPLICIT_REG:
             if (update_field->reg_index == CWND_REG) {
                 state->impl_registers[CWND_REG] = update_field->new_value;
-                datapath->set_cwnd(datapath, conn, state->impl_registers[CWND_REG]);
+                if (state->impl_registers[CWND_REG] != 0) {
+                    datapath->set_cwnd(datapath, conn, state->impl_registers[CWND_REG]);
+                }
             } else if (update_field->reg_index == RATE_REG) {
                 state->impl_registers[RATE_REG] = update_field->new_value;
-                datapath->set_rate_abs(datapath, conn, state->impl_registers[RATE_REG]);
+                if (state->impl_registers[RATE_REG] != 0) {
+                    datapath->set_rate_abs(datapath, conn, state->impl_registers[RATE_REG]);
+                }
             }
             return 0;
         default:
@@ -590,8 +594,14 @@ int state_machine(struct ccp_connection *conn) {
     }
 
     // set rate and cwnd from implicit registers
-    datapath->set_cwnd(datapath, conn, state->impl_registers[CWND_REG]);
-    datapath->set_rate_abs(datapath, conn, state->impl_registers[RATE_REG]);
+    if (state->impl_registers[CWND_REG] > 0) {
+        datapath->set_cwnd(datapath, conn, state->impl_registers[CWND_REG]);
+    }
+
+    if (state->impl_registers[RATE_REG] != 0) {
+        datapath->set_rate_abs(datapath, conn, state->impl_registers[RATE_REG]);
+    }
+
 #ifdef __DEBUG__
     DBG_PRINT("state: num to return: %u\n", state->num_to_return);
     for (i=0; i < state->num_to_return; i++) {
