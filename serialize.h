@@ -21,9 +21,9 @@ typedef uint64_t u64;
 extern "C" {
 #endif
 
-struct CcpMsgHeader {
-    u8 Type;
-    u32 Len;
+struct __attribute__((packed, aligned(4))) CcpMsgHeader {
+    u16 Type;
+    u16 Len;
     u32 SocketId;
 };
 
@@ -77,7 +77,6 @@ struct __attribute__((packed, aligned(4))) CreateMsg {
     u32 src_port;
     u32 dst_ip;
     u32 dst_port;
-    char congAlg[64];
 };
 
 /* Write cr: CreateMsg into buf with socketid sid.
@@ -91,7 +90,7 @@ int write_create_msg(
 );
 
 /* MEASURE
- * 1 u32: number of retrned fields
+ * 1 u32: number of returned fields,
  * bytes: the return registers of the installed fold function ([]uint64).
  *        there will be at most MAX_PERM_REG returned registers
  */
@@ -111,7 +110,9 @@ int write_measure_msg(
     u8 num_fields
 );
 
-/* INSTRUCTION: 4 u8s: opcode, result_register, left_register, right_register
+/* INSTRUCTION
+ * 1 u8 for opcode
+ * 3 sets of {u8, u32} for each of the result register, left register and right register
  */
 struct __attribute__((packed, aligned(4))) InstructionMsg {
     u8 opcode;
@@ -150,6 +151,11 @@ struct __attribute__((packed, aligned(4))) InstallExpressionMsg {
 };
 
 /* return: size of msg
+ * When reading this message, the buffer sent down
+ * does not fill the entire InstallExpressionMsg,
+ * as space is allocated for MAX_EXPRESSIONS and MAX_INSTRUCTIONS, but the message
+ * is sent down with exact num_expressions ExpressionMsg structs
+ * and exactly num_instructions InstructionMsg structs
  */
 int read_install_expr_msg(
     struct CcpMsgHeader *hdr,
@@ -158,14 +164,14 @@ int read_install_expr_msg(
 );
 
 
-struct __attribute__((packed, aligned(4))) UpdateField {
+struct __attribute__((packed, aligned(1))) UpdateField {
     u8 reg_type;
     u32 reg_index;
     u64 new_value;
 };
 
-struct __attribute__((packed, aligned(4))) UpdateFieldsMsg {
-    u8 num_updates;
+struct __attribute__((packed, aligned(1))) UpdateFieldsMsg {
+    u32 num_updates;
     struct UpdateField updates[MAX_REPORT_REG];
 };
 

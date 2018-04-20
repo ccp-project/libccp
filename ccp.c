@@ -218,6 +218,14 @@ int ccp_read_msg(
     struct InstallExpressionMsg emsg;
     struct UpdateFieldsMsg fields_msg;
 
+#ifdef __DEBUG__
+    PRINT("\n%s: got: [", __FUNCTION__);
+    for (i = 0; i < bufsize; i++) {
+        PRINT("%d, ", buf[i]);
+    }
+    PRINT("]\n");
+#endif
+
     ok = read_header(&hdr, buf);  
     if (ok < 0) {
         PRINT("read header failed: %d", ok);

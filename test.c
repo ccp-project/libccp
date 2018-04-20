@@ -107,19 +107,19 @@ int test_init(struct ccp_connection **conn, struct test_conn *my_conn, struct cc
         .src_ip = 1,
         .src_port = 2,
         .dst_ip = 3, 
-        .dst_port = 4,
-        .congAlg = "test",
+        .dst_port = 4
     };
 
     char create_msg[32] = {
-        0x00,0x10,0x01,0x00,
-        0x00,0x00,0x64,0x00,
-        0x00,0x00,0x0a,0x00,
-        0x00,0x00,0x01,0x00,
-        0x00,0x00,0x02,0x00,
-        0x00,0x00,0x03,0x00,
-        0x00,0x00,0x04,0x00,
-        0x00,0x00,0x00,0x00,
+        0x00,0x00,
+        0x20,0x00,
+        0x01,0x00,0x00,0x00,
+        0x64,0x00,0x00,0x00,
+        0x0a,0x00,0x00,0x00,
+        0x01,0x00,0x00,0x00,
+        0x02,0x00,0x00,0x00,
+        0x03,0x00,0x00,0x00,
+        0x04,0x00,0x00,0x00,
     };
 
     memcpy(&expected_sent_msg, &create_msg, 32);
@@ -169,9 +169,9 @@ int getreport_helper(char *expected, size_t msg_len, struct ccp_connection *conn
 
 int test_basic(struct ccp_connection *conn) {
     int ok;
-    char dp[104] = {
-        2,                                              // INSTALL
-        0x34,                                           // length = 0x34 * 2 = 52 *2 = 104
+    char dp[100] = {
+        2, 0,                                           // INSTALL
+        0x64, 0,                                        // length = 0x64 = 100
         1, 0, 0, 0,                                     // sock_id = 1
         1, 0, 0, 0,                                     // num_events = 1
         5, 0, 0, 0,                                     // num_instrs = 5
@@ -182,9 +182,9 @@ int test_basic(struct ccp_connection *conn) {
         1, 5, 0, 0, 0, 0, 5, 0, 0, 0, 0, 6, 0, 0, 0, 0, //     (bind Report.foo ^^^^^^^^^^^^^^^^)
         1, 2, 2, 0, 0, 0, 2, 2, 0, 0, 0, 1, 1, 0, 0, 0, //     (bind __shouldReport true)
     };
-    char report_msg[18] = {
-        0x01,
-        0x09,
+    char report_msg[20] = {
+        0x01, 0x00,
+        0x14, 0x00,
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -192,13 +192,13 @@ int test_basic(struct ccp_connection *conn) {
     printf("%s...", __func__);
     fflush(stdout);
 
-    ok = install_helper(dp, 104);
+    ok = install_helper(dp, 100);
     if (ok < 0) {
         printf("\n");
         return -1;
     }
 
-    ok = getreport_helper(report_msg, 18, conn);
+    ok = getreport_helper(report_msg, 20, conn);
     if (ok < 0) {
         printf("\n");
         return -1;
@@ -210,9 +210,9 @@ int test_basic(struct ccp_connection *conn) {
 
 int test_primitives(struct ccp_connection *conn) {
     int ok;
-    char dp[82] = {
-        2,                                                       // INSTALL
-        0x29,                                                    // length = 0x29 * 2 = 41 *2 = 82
+    char dp[84] = {
+        2, 0,                                                    // INSTALL
+        84, 0,                                                   // length = 84
         1, 0, 0, 0,                                              // sock_id = 1
         1, 0, 0, 0,                                              // num_events = 1
         4, 0, 0, 0,                                              // num_instrs = 2
@@ -222,9 +222,9 @@ int test_primitives(struct ccp_connection *conn) {
         1, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 4, 13,  0,   0,   0,   //     (bind Report.minrtt Flow.rtt_sample_us) 
         1, 2, 2, 0, 0, 0, 2, 2,  0, 0, 0, 1, 1,   0,   0,   0,   //     (bind __shouldReport true)
     };
-    char report_msg[18] = {
-        0x01,
-        0x09,
+    char report_msg[20] = {
+        0x01, 0,
+        0x14, 0,
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00,
         0xed, 0xfe, 0xfe, 0xca, 0x00, 0x00, 0x00, 0x00,
@@ -234,13 +234,13 @@ int test_primitives(struct ccp_connection *conn) {
 
     conn->prims.rtt_sample_us = 0xcafefeed;
 
-    ok = install_helper(dp, 104);
+    ok = install_helper(dp, 84);
     if (ok < 0) {
         printf("\n");
         return -1;
     }
 
-    ok = getreport_helper(report_msg, 18, conn);
+    ok = getreport_helper(report_msg, 20, conn);
     if (ok < 0) {
         printf("\n");
         return -1;
@@ -252,9 +252,9 @@ int test_primitives(struct ccp_connection *conn) {
 
 int test_multievent(struct ccp_connection *conn) {
     int ok;
-    char dp[162] = {
-        2,                                                       // INSTALL
-        0x51,                                                    // length = 0x51 * 2 = 81 *2 = 162
+    char dp[152] = {
+        2, 0,                                                    // INSTALL
+        152, 0,                                                  // length = 152
         1, 0, 0, 0,                                              // sock_id = 1
         2, 0, 0, 0,                                              // num_events = 2
         8, 0, 0, 0,                                              // num_instrs = 8
@@ -269,16 +269,16 @@ int test_multievent(struct ccp_connection *conn) {
         0, 6, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 1,   0,   0,   0,   //     ---------------------(+ Report.counter 1)-
         1, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 6, 0,   0,   0,   0    //     (bind Report.counter ^^^^^^^^^^^^^^^^^^^^))
     };
-    char first_report_msg[18] = {
-        0x01,
-        0x09,
+    char first_report_msg[20] = {
+        0x01, 0,
+        0x14, 0,
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
-    char report_msg[18] = {
-        0x01,
-        0x09,
+    char report_msg[20] = {
+        0x01, 0,
+        0x14, 0,
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00,
         0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -287,13 +287,13 @@ int test_multievent(struct ccp_connection *conn) {
 
     conn->prims.rtt_sample_us = 0xcafefeed;
     fflush(stdout);
-    ok = install_helper(dp, 162);
+    ok = install_helper(dp, 152);
     if (ok < 0) {
         printf("install\n");
         return -1;
     }
     
-    ok = getreport_helper(first_report_msg, 18, conn);
+    ok = getreport_helper(first_report_msg, 20, conn);
     if (ok < 0) {
         printf("failed on first report\n");
         return -1;
@@ -312,7 +312,7 @@ int test_multievent(struct ccp_connection *conn) {
     }
 
     conn->prims.rtt_sample_us = 0xcafefeeb;
-    ok = getreport_helper(report_msg, 18, conn);
+    ok = getreport_helper(report_msg, 20, conn);
     if (ok < 0) {
         printf("failed on second report\n");
         return -1;
@@ -324,9 +324,9 @@ int test_multievent(struct ccp_connection *conn) {
 
 int test_fallthrough(struct ccp_connection *conn) {
     int ok;
-    char dp[170] = {
-        2,                                                       // INSTALL
-        0x56,                                                    // length = 0x56 * 2 = 86 *2 = 172
+    char dp[168] = {
+        2, 0,                                                    // INSTALL
+        168, 0,                                                  // length = 168
         1, 0, 0, 0,                                              // sock_id = 1
         2, 0, 0, 0,                                              // num_events = 2
         9, 0, 0, 0,                                              // num_instrs = 9
@@ -342,16 +342,16 @@ int test_fallthrough(struct ccp_connection *conn) {
         0, 6, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 1,   0,   0,   0,   //     ---------------------(+ Report.counter 1)-
         1, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 6, 0,   0,   0,   0,   //     (bind Report.counter ^^^^^^^^^^^^^^^^^^^^))
     };
-    char first_report_msg[18] = {
-        0x01,
-        0x09,
+    char first_report_msg[20] = {
+        0x01, 0,
+        0x14, 0,
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
-    char report_msg[18] = {
-        0x01,
-        0x09,
+    char report_msg[20] = {
+        0x01, 0,
+        0x14, 0,
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00,
         0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -360,13 +360,13 @@ int test_fallthrough(struct ccp_connection *conn) {
 
     conn->prims.rtt_sample_us = 0xcafefeed;
     fflush(stdout);
-    ok = install_helper(dp, 172);
+    ok = install_helper(dp, 168);
     if (ok < 0) {
         printf("install\n");
         return -1;
     }
     
-    ok = getreport_helper(first_report_msg, 18, conn);
+    ok = getreport_helper(first_report_msg, 20, conn);
     if (ok < 0) {
         printf("failed on first report\n");
         return -1;
@@ -385,7 +385,7 @@ int test_fallthrough(struct ccp_connection *conn) {
     }
 
     conn->prims.rtt_sample_us = 0xcafefeeb;
-    ok = getreport_helper(report_msg, 18, conn);
+    ok = getreport_helper(report_msg, 20, conn);
     if (ok < 0) {
         printf("failed on second report\n");
         return -1;
@@ -397,9 +397,9 @@ int test_fallthrough(struct ccp_connection *conn) {
 
 int test_read_implicit(struct ccp_connection *conn) {
     int ok;
-    char dp[114] = {
-        2,                                              // INSTALL
-        0x39,                                           // length = 0x39 * 2 = 57 * 2 = 114
+    char dp[116] = {
+        2, 0,                                           // INSTALL
+        0x74, 0,                                        // length = 116
         1, 0, 0, 0,                                     // sock_id = 1
         1, 0, 0, 0,                                     // num_events = 2
         6, 0, 0, 0,                                     // num_instrs = 6
@@ -411,9 +411,9 @@ int test_read_implicit(struct ccp_connection *conn) {
         1, 5, 0, 0, 0, 0, 5, 0, 0, 0, 0, 6, 0, 0, 0, 0, //     (bind Control.foo ^^^^^^^^^^^) 
         1, 2, 2, 0, 0, 0, 2, 2, 0, 0, 0, 1, 1, 0, 0, 0  //     (bind __shouldReport true))
     };
-    char report_msg[18] = {
-        0x01,
-        0x09,
+    char report_msg[20] = {
+        0x01, 0,
+        0x14, 0,
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -421,13 +421,13 @@ int test_read_implicit(struct ccp_connection *conn) {
     printf("%s...", __func__);
     fflush(stdout);
 
-    ok = install_helper(dp, 114);
+    ok = install_helper(dp, 116);
     if (ok < 0) {
         printf("install failed\n");
         return -1;
     }
     
-    ok = getreport_helper(report_msg, 18, conn);
+    ok = getreport_helper(report_msg, 20, conn);
     if (ok < 0) {
         printf("failed on report\n");
         return -1;
@@ -487,14 +487,14 @@ int main(int UNUSED(argc), char **UNUSED(argv)) {
         goto ret;
     }
 
-    char close_msg[10] = {
-        0x01,
-        0x05,
+    char close_msg[12] = {
+        0x01, 0,
+        0x0c, 0,
         0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00,
     };
-    memcpy(&expected_sent_msg, &close_msg, 10);
-    expecting_send = 10;
+    memcpy(&expected_sent_msg, &close_msg, 12);
+    expecting_send = 12;
     ccp_connection_free(conn->index);
   ret:
     ccp_free();

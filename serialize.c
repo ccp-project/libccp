@@ -12,43 +12,32 @@
 #include <linux/slab.h> // kmalloc
 #endif
 
-/* (type, len << 1, socket_id) header
+/* (type, len, socket_id) header
  * -----------------------------------
  * | Msg Type | Len (2B) | Uint32    |
- * | (1 B)    | (1 B)    | (32 bits) |
+ * | (2 B)    | (2 B)    | (32 bits) |
  * -----------------------------------
  * total: 6 Bytes
  */
-struct __attribute__((packed, aligned(2))) CcpMsgHeader_Wire {
-    u8 Type;
-    u8 Len;
-    u32 SocketId;
-};
 
 /* We only read Install Expr messages.
  */
 int read_header(struct CcpMsgHeader *hdr, char *buf) {
-    struct CcpMsgHeader_Wire hdr_wire;
-    memcpy(&hdr_wire, buf, sizeof(struct CcpMsgHeader_Wire));
-    hdr->Type = hdr_wire.Type;
-    hdr->Len = (hdr_wire.Len << 1);
-    hdr->SocketId = hdr_wire.SocketId;
+    memcpy(hdr, buf, sizeof(struct CcpMsgHeader));
 
     switch (hdr->Type) {
     case INSTALL_EXPR:
-        return sizeof(struct CcpMsgHeader_Wire);
+        return sizeof(struct CcpMsgHeader);
     case UPDATE_FIELDS:
-        return sizeof(struct CcpMsgHeader_Wire);
+        return sizeof(struct CcpMsgHeader);
     default:
-        return -1;
+        return -hdr->Type;
     }
 }
 
 /* We only write Create, and Measure messages.
  */
 int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr) {
-    struct CcpMsgHeader_Wire hdr_wire;
-
     switch (hdr->Type) {
     case CREATE:
     case MEASURE:
@@ -57,20 +46,12 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr) {
         return -1;
     }
 
-    if (bufsize < ((int)sizeof(struct CcpMsgHeader_Wire))) {
+    if (bufsize < ((int)sizeof(struct CcpMsgHeader))) {
         return -2;
     }
 
-    hdr_wire.Type = hdr->Type;
-    hdr_wire.SocketId = hdr->SocketId;
-    if (hdr->Len % 2 == 1) {
-        hdr_wire.Len = (hdr->Len >> 1) + 1;
-    } else {
-        hdr_wire.Len = (hdr->Len >> 1);
-    }
-    
-    memcpy(buf, &hdr_wire, sizeof(struct CcpMsgHeader_Wire));
-    return sizeof(struct CcpMsgHeader_Wire);
+    memcpy(buf, hdr, sizeof(struct CcpMsgHeader));
+    return sizeof(struct CcpMsgHeader);
 }
 
 int write_create_msg(
@@ -80,16 +61,12 @@ int write_create_msg(
     struct CreateMsg cr
 ) {
     struct CcpMsgHeader hdr;
-    int ok, congAlgLen;
-    congAlgLen = strlen(cr.congAlg) + 1;
-    // ensure length is always even since we lose 1 bit of size info
-    if (congAlgLen % 2 == 1) { 
-        congAlgLen++;
-    }
+    int ok;
+    u16 msg_len = sizeof(struct CcpMsgHeader) + sizeof(struct CreateMsg);
     
     hdr = (struct CcpMsgHeader){
         .Type = CREATE, 
-        .Len = 6 + 24 + congAlgLen, 
+        .Len = msg_len,
         .SocketId = sid,
     };
 
@@ -107,7 +84,7 @@ int write_create_msg(
     }
 
     buf += ok;
-    memcpy(buf, &cr, hdr.Len - 6);
+    memcpy(buf, &cr, hdr.Len - sizeof(struct CcpMsgHeader));
     return hdr.Len;
 }
 
@@ -123,9 +100,11 @@ int write_measure_msg(
         .num_fields = num_fields,
     };
     
+    // 4 bytes for num_fields, which is u32
+    u16 msg_len = sizeof(struct CcpMsgHeader) + 4 + ms.num_fields * sizeof(u64);
     struct CcpMsgHeader hdr = {
         .Type = MEASURE, 
-        .Len = 10 + ms.num_fields * sizeof(u64),
+        .Len = msg_len,
         .SocketId = sid,
     };
     
@@ -146,7 +125,7 @@ int write_measure_msg(
     }
 
     buf += ok;
-    memcpy(buf, &ms, hdr.Len - 6);
+    memcpy(buf, &ms, hdr.Len - sizeof(struct CcpMsgHeader));
     return hdr.Len;
 }
 
@@ -159,7 +138,7 @@ int read_install_expr_msg(
         return -1;
     } 
 
-    if (hdr->Len - sizeof(struct CcpMsgHeader_Wire) > sizeof(struct InstallExpressionMsg)) {
+    if (hdr->Len - sizeof(struct CcpMsgHeader) > sizeof(struct InstallExpressionMsg)) {
         return -2;
     }
 
@@ -171,7 +150,7 @@ int read_install_expr_msg(
     memcpy(&msg->instrs, buf, msg->num_instructions * sizeof(struct InstructionMsg));
     buf += msg->num_expressions * sizeof(struct InstructionMsg);
 
-    return hdr->Len - sizeof(struct CcpMsgHeader_Wire);
+    return hdr->Len - sizeof(struct CcpMsgHeader);
 }
 
 int read_update_fields_msg(
@@ -183,10 +162,10 @@ int read_update_fields_msg(
         return -1;
     }
 
-    if (hdr->Len - sizeof(struct CcpMsgHeader_Wire) > sizeof(struct UpdateFieldsMsg)) {
+    if ((hdr->Len - sizeof(struct CcpMsgHeader)) > sizeof(struct UpdateFieldsMsg)) {
         return -2;
     }
 
-    memcpy(msg, buf, hdr->Len - sizeof(struct CcpMsgHeader_Wire));
-    return hdr->Len - sizeof(struct CcpMsgHeader_Wire);
+    memcpy(msg, buf, hdr->Len - sizeof(struct CcpMsgHeader));
+    return hdr->Len - sizeof(struct CcpMsgHeader);
 }
