@@ -214,7 +214,7 @@ int update_register(struct ccp_connection* conn, struct ccp_priv_state *state, s
         case CONTROL_REG:
             // set new value
             state->control_registers[update_field->reg_index] = update_field->new_value;
-            break;
+            return 0;
         case IMPLICIT_REG:
             if (update_field->reg_index == CWND_REG) {
                 state->impl_registers[CWND_REG] = update_field->new_value;
@@ -231,8 +231,6 @@ int update_register(struct ccp_connection* conn, struct ccp_priv_state *state, s
         default:
             return 0; // allowed only for CONTROL and CWND and RATE reg within CONTROL_REG
     }
-
-    return 0;
 }
 
 /*
@@ -339,9 +337,6 @@ void reset_state(struct ccp_priv_state *state) {
         current_instruction = state->fold_instructions[i];
         switch (current_instruction.op) {
             case DEF:
-#ifdef __DEBUG__
-                print_register(&(current_instruction.rLeft));
-#endif
                 if (current_instruction.rLeft.type != REPORT_REG) {
                     continue;
                 }
@@ -372,9 +367,6 @@ void init_control_state(struct ccp_priv_state *state) {
         current_instruction = state->fold_instructions[i];
         switch (current_instruction.op) {
             case DEF:
-#ifdef __DEBUG__
-                print_register(&(current_instruction.rLeft));
-#endif
                 if (current_instruction.rLeft.type != CONTROL_REG) {
                     continue;
                 }
@@ -445,11 +437,9 @@ int process_instruction(int instr_index, struct ccp_priv_state *state, struct cc
 
     arg1 = read_reg(state, primitives, current_instruction.rLeft);
     arg2 = read_reg(state, primitives, current_instruction.rRight);
-    DBG_PRINT("Instruction: %d, left arg: %lu, right arg: %lu\n", current_instruction.op, arg1, arg2);
     
     switch (current_instruction.op) {
         case ADD:
-            //DBG_PRINT("Adding: %lu, %lu, result reg type: %u, result reg index: %d\n", arg1, arg2, current_instruction.rRet.type, current_instruction.rRet.index);
             write_reg(state, myadd64(arg1, arg2), current_instruction.rRet);
             break;
         case DIV:
@@ -470,11 +460,6 @@ int process_instruction(int instr_index, struct ccp_priv_state *state, struct cc
             write_reg(state, mygt64(arg1, arg2), current_instruction.rRet);
             break;
         case LT:
-#ifdef __DEBUG__
-            DBG_PRINT("Checking lt: %lu <? %lu\n", arg1, arg2);
-            print_register(&current_instruction.rRight);
-            print_register(&current_instruction.rLeft);
-#endif
             write_reg(state, mylt64(arg1, arg2), current_instruction.rRet);
             break;
         case MAX:
@@ -506,10 +491,6 @@ int process_instruction(int instr_index, struct ccp_priv_state *state, struct cc
             }
             break;
         case BIND: // take arg2, and put it in rRet
-#ifdef __DEBUG__
-            DBG_PRINT("Binding %lu to following register\n", arg2);
-            print_register(&(current_instruction.rRet));
-#endif
             write_reg(state, arg2, current_instruction.rRet);
             break;
         default:
@@ -526,9 +507,7 @@ int process_expression(int expr_index, struct ccp_priv_state *state, struct ccp_
     struct Expression *expression = &(state->expressions[expr_index]);
     u8 idx;
     int ret;
-    DBG_PRINT("%u, %u, %u, %u\n", expression->cond_start_idx, expression->num_cond_instrs, expression->event_start_idx, expression->num_event_instrs);
     for (idx=expression->cond_start_idx; idx<(expression->cond_start_idx + expression->num_cond_instrs); idx++) {
-       DBG_PRINT("processed instr for event condition\n");
        ret = process_instruction(idx, state, primitives);
        if (ret < 0) {
          return -1;
@@ -537,7 +516,6 @@ int process_expression(int expr_index, struct ccp_priv_state *state, struct ccp_
 
     // flag from event is promised to be stored in this implicit register
     if (state->impl_registers[EXPR_FLAG_REG] ) {
-        DBG_PRINT("expr flag reg true\n");
         for (idx = expression->event_start_idx; idx<(expression->event_start_idx + expression->num_event_instrs ); idx++) {
             ret = process_instruction(idx, state, primitives);
             if (ret < 0) {
@@ -602,16 +580,8 @@ int state_machine(struct ccp_connection *conn) {
         datapath->set_rate_abs(datapath, conn, state->impl_registers[RATE_REG]);
     }
 
-#ifdef __DEBUG__
-    DBG_PRINT("state: num to return: %u\n", state->num_to_return);
-    for (i=0; i < state->num_to_return; i++) {
-        DBG_PRINT("i: %d, state: %lu\n", i, state->report_registers[i]);
-    }
-#endif
-
     // if we should report, report and reset state
     if (state->impl_registers[SHOULD_REPORT_REG]) {
-        DBG_PRINT("sending report\n");
         send_measurement(conn, state->report_registers, state->num_to_return);
         reset_state(state);
     }

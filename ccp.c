@@ -145,12 +145,6 @@ int ccp_invoke(struct ccp_connection *conn) {
         return ok;
     }
 
-    /*ok = measurement_machine(conn);
-    if (ok < 0) {
-        PRINT("measurement machine runtime error: %d\n", ok);
-        return ok;
-    }*/
-
     ok = state_machine(conn);
     return ok;
 }
@@ -195,7 +189,6 @@ void ccp_connection_free(u16 sid) {
     }
 
     conn->index = 0;
-    // TODO: figure out if you need to free the array? unclear
 
     msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, conn->index, 0, 0);
     ok = datapath->send_msg(datapath, conn, msg, msg_size);
