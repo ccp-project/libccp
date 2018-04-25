@@ -251,7 +251,7 @@ void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
         case LOCAL_REG:
             state->local_registers[reg.index] = value;
             break;
-        case IMPLICIT_REG: // cannot write to NS_ELAPSED reg
+        case IMPLICIT_REG: // cannot write to US_ELAPSED reg
             if (reg.index == EXPR_FLAG_REG || reg.index == CWND_REG || reg.index == RATE_REG || reg.index == SHOULD_REPORT_REG || reg.index == SHOULD_FALLTHROUGH_REG ) {
                 state->impl_registers[reg.index] = value;
             }
@@ -393,12 +393,12 @@ void init_control_state(struct ccp_priv_state *state) {
 }
 
 /*
- * Resets implicit registers associated with NS_ELAPSED
+ * Resets implicit registers associated with US_ELAPSED
  */
 void reset_time(struct ccp_priv_state *state) {
     // reset the ns elapsed register to register now as 0
     state->implicit_time_zero = datapath->since_usecs(datapath->time_zero);
-    state->impl_registers[NS_ELAPSED_REG] = 0;
+    state->impl_registers[US_ELAPSED_REG] = 0;
 }
 
 #ifdef __DEBUG__
@@ -576,9 +576,9 @@ int state_machine(struct ccp_connection *conn) {
     state->impl_registers[CWND_REG] = (u64)conn->prims.snd_cwnd;
     state->impl_registers[RATE_REG] = (u64)conn->prims.snd_rate;
 
-    // update the NS_ELAPSED registers
+    // update the US_ELAPSED registers
     implicit_now = datapath->since_usecs(state->implicit_time_zero);
-    state->impl_registers[NS_ELAPSED_REG] = implicit_now;
+    state->impl_registers[US_ELAPSED_REG] = implicit_now;
 
     // cycle through expressions, and process instructions
     for (i=0; i < state->num_expressions; i++) {

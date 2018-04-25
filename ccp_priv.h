@@ -9,16 +9,16 @@
  * 
  * Userspace CCP algorithms specify "expressions", e.g.:
  * (def (Report.loss 0) (Control.bottle_rate 1000))
- * (when (> Ns 0)
+ * (when (> Micros 0)
  *      (bind Rate (* Control.bottle_rate 3))
  *      (fallthrough)
  *  )
- * (when (> Ns 2000)
+ * (when (> Micros 2000)
  *       (report)
  *       (bind Rate (* Control.bottle_rate 2))
  *       (fallthrough)
  *  )
- * (when (> Ns 8000)
+ * (when (> Micros 8000)
  *       (report)
  *       (reset)
  *       (fallthrough)
@@ -146,7 +146,7 @@ __INLINE__ struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *conn
 #define EXPR_FLAG_REG             0
 #define SHOULD_FALLTHROUGH_REG    1
 #define SHOULD_REPORT_REG         2
-#define NS_ELAPSED_REG            3
+#define US_ELAPSED_REG            3
 #define CWND_REG                  4
 #define RATE_REG                  5
 
