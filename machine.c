@@ -397,7 +397,7 @@ void init_control_state(struct ccp_priv_state *state) {
  */
 void reset_time(struct ccp_priv_state *state) {
     // reset the ns elapsed register to register now as 0
-    state->implicit_time_zero = datapath->since_usecs(datapath->time_zero);
+    state->implicit_time_zero = datapath->now();
     state->impl_registers[US_ELAPSED_REG] = 0;
 }
 
