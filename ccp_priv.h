@@ -125,7 +125,7 @@ void reset_state(struct ccp_priv_state *state);
 /* Initializes the control registers to their default values
  * according to the DEF instruction preamble.
  */
-void init_control_state(struct ccp_priv_state *state);
+void init_register_state(struct ccp_priv_state *state);
 
 /* Reset the implicit time registers to count from datapath->now()
  */
@@ -190,13 +190,14 @@ __INLINE__ struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *conn
 #define    MAX_OP     15
 
 // types of registers
-#define CONTROL_REG    0
-#define IMMEDIATE_REG  1
-#define IMPLICIT_REG   2
-#define LOCAL_REG      3
-#define PRIMITIVE_REG  4
-#define REPORT_REG     5
-#define TMP_REG        6
+#define CONTROL_REG            0
+#define IMMEDIATE_REG          1
+#define IMPLICIT_REG           2
+#define LOCAL_REG              3
+#define PRIMITIVE_REG          4
+#define VOLATILE_REPORT_REG    5
+#define NONVOLATILE_REPORT_REG 6
+#define TMP_REG                7
 
 #ifdef __CPLUSPLUS__
 } // extern "C"

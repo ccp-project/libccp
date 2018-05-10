@@ -176,7 +176,7 @@ int test_basic(struct ccp_connection *conn) {
         1, 0, 0, 0,                                     // num_events = 1
         5, 0, 0, 0,                                     // num_instrs = 5
         1, 1, 2, 3,                                     // event { flag-idx=1, num-flag=1, body-idx=2, num-body=3 }
-        2, 5, 0, 0, 0, 0, 5, 0, 0, 0, 0, 1, 0, 0, 0, 0, // (def (Report.foo 0))
+        2, 5, 0, 0, 0, 0, 5, 0, 0, 0, 0, 1, 0, 0, 0, 0, // (def (volatile Report.foo 0))
         1, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, // (when true
         0, 6, 0, 0, 0, 0, 5, 0, 0, 0, 0, 1, 1, 0, 0, 0, //      ----------------(+ Report.foo 1)
         1, 5, 0, 0, 0, 0, 5, 0, 0, 0, 0, 6, 0, 0, 0, 0, //     (bind Report.foo ^^^^^^^^^^^^^^^^)
@@ -217,7 +217,7 @@ int test_primitives(struct ccp_connection *conn) {
         1, 0, 0, 0,                                              // num_events = 1
         4, 0, 0, 0,                                              // num_instrs = 2
         1, 1, 2, 2,                                              // event { flag-idx=1, num-flag=1, body-idx=2, num-body=2 }
-        2, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 255, 255, 255, 255, // (def (Report.minrtt +infinity))
+        2, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 255, 255, 255, 255, // (def (volatile Report.minrtt +infinity))
         8, 2, 0, 0, 0, 0, 4, 13, 0, 0, 0, 5, 0,   0,   0,   0,   // (when (< Flow.rtt_sample_us Report.minrtt)
         1, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 4, 13,  0,   0,   0,   //     (bind Report.minrtt Flow.rtt_sample_us) 
         1, 2, 2, 0, 0, 0, 2, 2,  0, 0, 0, 1, 1,   0,   0,   0,   //     (bind __shouldReport true)
@@ -260,14 +260,14 @@ int test_multievent(struct ccp_connection *conn) {
         8, 0, 0, 0,                                              // num_instrs = 8
         2, 1, 3, 2,                                              // event { flag-idx=2, num-flag=1, body-idx=3, num-body=2 }
         5, 1, 6, 2,                                              // event { flag-idx=5, num-flag=1, body-idx=6, num-body=2 }
-        2, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 0,   0,   0,   0,   // -----(Control.minrtt +infinity)--------------------
-        2, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 1, 255, 255, 255, 255, // (def ^^^^^^^^^^^^^^^^^^^^^^^^^^ (Report.counter 0))
-        8, 2, 0, 0, 0, 0, 4, 13, 0, 0, 0, 0, 0,   0,   0,   0,   // (when (< Flow.rtt_sample_us Control.minrtt)
-        1, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 4, 13,  0,   0,   0,   //     (bind Control.minrtt Flow.rtt_sample_us) 
+        2, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 0,   0,   0,   0,   //  -----------------------(volatile Report.counter 0)
+        2, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 1, 255, 255, 255, 255, // (def (minrtt +infinity) ^^^^^^^^^^^^^^^^^^^^^^^^^^^)
+        8, 2, 0, 0, 0, 0, 4, 13, 0, 0, 0, 0, 0,   0,   0,   0,   // (when (< Flow.rtt_sample_us minrtt)
+        1, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 4, 13,  0,   0,   0,   //     (bind minrtt Flow.rtt_sample_us) 
         1, 2, 2, 0, 0, 0, 2, 2,  0, 0, 0, 1, 1,   0,   0,   0,   //     (bind __shouldReport true))
         1, 2, 0, 0, 0, 0, 2, 0,  0, 0, 0, 1, 1,   0,   0,   0,   // (when true
-        0, 6, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 1,   0,   0,   0,   //     ---------------------(+ Report.counter 1)-
-        1, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 6, 0,   0,   0,   0    //     (bind Report.counter ^^^^^^^^^^^^^^^^^^^^))
+        0, 7, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 1,   0,   0,   0,   //     ---------------------(+ Report.counter 1)-
+        1, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 7, 0,   0,   0,   0    //     (bind Report.counter ^^^^^^^^^^^^^^^^^^^^))
     };
     char first_report_msg[20] = {
         0x01, 0,
@@ -332,15 +332,15 @@ int test_fallthrough(struct ccp_connection *conn) {
         9, 0, 0, 0,                                              // num_instrs = 9
         2, 1, 3, 3,                                              // event { flag-idx=2, num-flag=1, body-idx=3, num-body=3 }
         6, 1, 7, 2,                                              // event { flag-idx=6, num-flag=1, body-idx=7, num-body=2 }
-        2, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 1, 255, 255, 255, 255, // -----(Control.minrtt +infinity)--------------------
-        2, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 0,   0,   0,   0,   // (def ^^^^^^^^^^^^^^^^^^^^^^^^^^ (Report.counter 0))
-        8, 2, 0, 0, 0, 0, 4, 13, 0, 0, 0, 0, 0,   0,   0,   0,   // (when (< Flow.rtt_sample_us Control.minrtt)
-        1, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 4, 13,  0,   0,   0,   //     (bind Control.minrtt Flow.rtt_sample_us) 
+        2, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 1, 255, 255, 255, 255, // -----(minrtt +infinity)-----------------------------
+        2, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 0,   0,   0,   0,   // (def ^^^^^^^^^^^^^^^^^^ (volatile Report.counter 0))
+        8, 2, 0, 0, 0, 0, 4, 13, 0, 0, 0, 0, 0,   0,   0,   0,   // (when (< Flow.rtt_sample_us minrtt)
+        1, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 4, 13,  0,   0,   0,   //     (bind minrtt Flow.rtt_sample_us) 
         1, 2, 2, 0, 0, 0, 2, 2,  0, 0, 0, 1, 1,   0,   0,   0,   //     (bind __shouldReport true)
         1, 2, 1, 0, 0, 0, 2, 1,  0, 0, 0, 1, 1,   0,   0,   0,   //     (bind __shouldContinue true))
         1, 2, 0, 0, 0, 0, 2, 0,  0, 0, 0, 1, 1,   0,   0,   0,   // (when true
-        0, 6, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 1,   0,   0,   0,   //     ---------------------(+ Report.counter 1)-
-        1, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 6, 0,   0,   0,   0,   //     (bind Report.counter ^^^^^^^^^^^^^^^^^^^^))
+        0, 7, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 1,   0,   0,   0,   //     ---------------------(+ Report.counter 1)-
+        1, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 7, 0,   0,   0,   0,   //     (bind Report.counter ^^^^^^^^^^^^^^^^^^^^))
     };
     char first_report_msg[20] = {
         0x01, 0,

@@ -136,8 +136,12 @@ int deserialize_register(struct Register *ret, u8 reg_type, u32 reg_value) {
             ret->type = (int)PRIMITIVE_REG;
             ret->index = (int)reg_value;
             return 0;
-        case REPORT_REG: // output/permanent
-            ret->type = (int)REPORT_REG;
+        case VOLATILE_REPORT_REG: // output/permanent
+            ret->type = (int)VOLATILE_REPORT_REG;
+            ret->index = (int)reg_value;
+            return 0;
+        case NONVOLATILE_REPORT_REG: // output/permanent
+            ret->type = (int)NONVOLATILE_REPORT_REG;
             ret->index = (int)reg_value;
             return 0;
         case TMP_REG: // temporary register
@@ -165,12 +169,13 @@ int read_instruction(
     if (ok < 0) {
         return -1;
     }
-
-    ok = deserialize_register(&ret->rRet, msg->result_reg_type, msg->result_register);
+    
     // check if the reg type is IMMEDIATE or PRIMITIVE
     if (msg->result_reg_type == IMMEDIATE_REG || msg->result_reg_type == PRIMITIVE_REG) {
         return -2;
     }
+
+    ok = deserialize_register(&ret->rRet, msg->result_reg_type, msg->result_register);
     if (ok < 0) {
         return -3;
     }
@@ -235,12 +240,13 @@ int update_register(struct ccp_connection* conn, struct ccp_priv_state *state, s
 
 /*
  * Write into specified registers
- * Only allowed to write into REPORT_REG, TMP_REG, LOCAL_REG
+ * Only allowed to write into NONVOLATILE_REPORT_REG, VOLATILE_REPORT_REG, TMP_REG, LOCAL_REG
  * and some of the IMPL_REG: EXPR_FLAG_REG, CWND_REG, RATE_REG, SHOULD_REPORT_REG
  */
 void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
     switch (reg.type) {
-        case REPORT_REG:
+        case NONVOLATILE_REPORT_REG:
+        case VOLATILE_REPORT_REG:
             state->report_registers[reg.index] = value;
             break;
         case TMP_REG:
@@ -268,7 +274,8 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
     switch (reg.type) {
         case IMMEDIATE_REG:
             return reg.value;
-        case REPORT_REG:
+        case NONVOLATILE_REPORT_REG:
+        case VOLATILE_REPORT_REG:
             return state->report_registers[reg.index];
         case CONTROL_REG:
             return state->control_registers[reg.index];
@@ -332,14 +339,25 @@ void reset_state(struct ccp_priv_state *state) {
     struct Instruction64 current_instruction;
     u8 num_to_return = 0;
 
-    // go through all the DEF instructions, and reset all REPORT_REG variables
+    // go through all the DEF instructions, and reset all VOLATILE_REPORT_REG variables
     for (i = 0; i < state->num_instructions; i++) {
         current_instruction = state->fold_instructions[i];
         switch (current_instruction.op) {
             case DEF:
-                if (current_instruction.rLeft.type != REPORT_REG) {
+                // This only applies to REPORT_REG.
+                if (current_instruction.rLeft.type != NONVOLATILE_REPORT_REG && 
+                    current_instruction.rLeft.type != VOLATILE_REPORT_REG) {
                     continue;
                 }
+                
+                // We report both NONVOLATILE_REPORT_REG and VOLATILE_REPORT_REG.
+                num_to_return += 1;
+
+                // We don't reset NONVOLATILE_REPORT_REG
+                if (current_instruction.rLeft.type == NONVOLATILE_REPORT_REG) {
+                    continue;
+                }
+
                 // set the default value of the state register
                 // check for infinity
                 if (current_instruction.rRight.value == (0x3fffffff)) {
@@ -347,7 +365,6 @@ void reset_state(struct ccp_priv_state *state) {
                 } else {
                     write_reg(state, current_instruction.rRight.value, current_instruction.rLeft);
                 }
-                num_to_return += 1;
                 break;
             default:
                 // DEF instructions are only at the beginnning
@@ -358,16 +375,16 @@ void reset_state(struct ccp_priv_state *state) {
     }    
 }
 
-void init_control_state(struct ccp_priv_state *state) {
+void init_register_state(struct ccp_priv_state *state) {
     u8 i;
     struct Instruction64 current_instruction;
 
-    // go through all the DEF instructions, and reset all REPORT_REG variables
+    // go through all the DEF instructions, and reset all CONTROL_REG and NONVOLATILE_REPORT_REG variables
     for (i = 0; i < state->num_instructions; i++) {
         current_instruction = state->fold_instructions[i];
         switch (current_instruction.op) {
             case DEF:
-                if (current_instruction.rLeft.type != CONTROL_REG) {
+                if (current_instruction.rLeft.type != CONTROL_REG && current_instruction.rLeft.type != NONVOLATILE_REPORT_REG) {
                     continue;
                 }
                 // set the default value of the state register
@@ -409,8 +426,11 @@ void print_register(struct Register* reg) {
         case PRIMITIVE_REG:
             type = "PRIMITIVE";
             break;
-        case REPORT_REG:
-            type = "REPORT";
+        case VOLATILE_REPORT_REG:
+            type = "VOL_REPORT";
+            break;
+        case NONVOLATILE_REPORT_REG:
+            type = "NONVOL_REPORT";
             break;
         case TMP_REG:
             type = "TMP";

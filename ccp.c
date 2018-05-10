@@ -280,7 +280,7 @@ int ccp_read_msg(
 
         // call reset state to initialize all variables
         reset_state(state);
-        init_control_state(state);
+        init_register_state(state);
         reset_time(state);
     } else if (hdr.Type == UPDATE_FIELDS) {
         ok = read_update_fields_msg(&hdr, &fields_msg, buf + ok);
