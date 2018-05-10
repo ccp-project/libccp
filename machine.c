@@ -477,9 +477,6 @@ int process_instruction(int instr_index, struct ccp_priv_state *state, struct cc
         case MAXWRAP:
             write_reg(state, mymax64_wrap(arg1, arg2), current_instruction.rRet);
             break;
-        case RESETTIME: // resets the ns_elapsed time counter
-            reset_time(state);
-            break;
         case IF: // if arg1 (rLeft), stores rRight in rRet
             if (arg1) {
                 write_reg(state, arg2, current_instruction.rRet);

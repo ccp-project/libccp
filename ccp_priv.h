@@ -186,9 +186,8 @@ __INLINE__ struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *conn
 #define    MIN        11
 #define    MUL        12
 #define    NOTIF      13
-#define    RESETTIME  14
-#define    SUB        15
-#define MAX_OP        16
+#define    SUB        14
+#define    MAX_OP     15
 
 // types of registers
 #define CONTROL_REG    0
