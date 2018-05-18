@@ -1,4 +1,4 @@
-# libccp
+# libccp [![Build Status](https://travis-ci.org/ccp-project/libccp.svg?branch=master)](https://travis-ci.org/ccp-project/libccp)
 
 Libccp is an implementation of the core functionality necsesary for a datapath
 to communicate with a CCP process. The datapath is responsible for providing 
