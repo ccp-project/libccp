@@ -1,6 +1,7 @@
-CC = gcc # C compiler
+#CC = ${CC} # C compiler
 CFLAGS = -fPIC -Wall -Wextra -O2 -g # C flags
 CFLAGS += -D__USRLIB__ # Only use this makefile for compiling user-space library
+CFLAGS += -std=gnu99 -Wno-declaration-after-statement -fgnu89-inline
 ifeq ($(DEBUG), 1)
 	CFLAGS += -D__DEBUG__
 else
@@ -26,7 +27,7 @@ $(TARGET_LIB): $(OBJS)
 $(SRCS:.c=.d):%.d:%.c
 	$(CC) $(CFLAGS) -MM $< >$@
 
-include $(SRCS:.c=.d)
+-include $(SRCS:.c=.d)
 
 $(TEST_TARGET): ${TARGET_LIB} ${TEST_OBJS}
 	$(CC) ${CFLAGS} -D__DEBUG__ ${TEST_SRCS} -L. -l${LIB_NAME} -o ${TEST_TARGET}
