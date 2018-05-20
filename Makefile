@@ -7,7 +7,7 @@ ifeq ($(DEBUG), y)
 	CFLAGS += -D__DEBUG__
 else
 endif
-LDFLAGS = -shared  # linking flags
+LDFLAGS = -pthread -lpthread # linking flags
 RM = rm -f  # rm command
 LIB_NAME = ccp
 TARGET_LIB = lib${LIB_NAME}.so # target lib
@@ -23,7 +23,7 @@ TEST_OBJS = $(TEST_SRCS:.c=.o)
 all: ${TARGET_LIB} test
 
 $(TARGET_LIB): $(OBJS)
-	$(CC) ${LDFLAGS} -o $@ $^
+	$(CC) -shared ${LDFLAGS} -o $@ $^
 
 $(SRCS:.c=.d):%.d:%.c
 	$(CC) $(CFLAGS) -MM $< >$@
@@ -31,7 +31,7 @@ $(SRCS:.c=.d):%.d:%.c
 -include $(SRCS:.c=.d)
 
 $(TEST_TARGET): ${TARGET_LIB} ${TEST_OBJS}
-	$(CC) ${CFLAGS} -D__DEBUG__ ${TEST_SRCS} -L. -l${LIB_NAME} -o ${TEST_TARGET}
+	$(CC) ${CFLAGS} -D__DEBUG__ ${TEST_SRCS} -L. ${LDFLAGS} -l${LIB_NAME} -o ${TEST_TARGET}
 
 test: $(TEST_TARGET)
 	LD_LIBRARY_PATH=. ./libccp-test
