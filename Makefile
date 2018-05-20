@@ -1,8 +1,9 @@
 #CC = ${CC} # C compiler
+DEBUG = y
 CFLAGS = -fPIC -Wall -Wextra -O2 -g # C flags
 CFLAGS += -D__USRLIB__ # Only use this makefile for compiling user-space library
 CFLAGS += -std=gnu99 -Wno-declaration-after-statement -fgnu89-inline
-ifeq ($(DEBUG), 1)
+ifeq ($(DEBUG), y)
 	CFLAGS += -D__DEBUG__
 else
 endif
