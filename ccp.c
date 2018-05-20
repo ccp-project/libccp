@@ -6,10 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h> // for mutex
 #else
 #include <linux/types.h>
 #include <linux/string.h> // memcpy
 #include <linux/slab.h> // kmalloc
+#include <linux/spinlock.h> // spinlock
 #endif
 
 #define MAX_NUM_CONNECTIONS 4096
@@ -23,6 +25,8 @@ int send_conn_create(
 // array of active connections
 struct ccp_connection* ccp_active_connections;
 struct ccp_datapath* datapath;
+
+DEFINE_LOCK(ccp_state_lock);
 
 int ccp_init(struct ccp_datapath *dp) {
     // check that dp is properly filled in.
@@ -64,12 +68,15 @@ int ccp_init(struct ccp_datapath *dp) {
 
     memset(ccp_active_connections, 0, MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
 
+    INIT_LOCK(&ccp_state_lock);
+
     return 0;
 }
 
 void ccp_free(void) {
     __FREE__(ccp_active_connections);
     __FREE__(datapath);
+    DESTROY_LOCK(&ccp_state_lock);
     ccp_active_connections = NULL;
     datapath = NULL;
 }
@@ -141,11 +148,11 @@ int ccp_invoke(struct ccp_connection *conn) {
         if (ok < 0) {
             PRINT("failed to send create message: %d", ok);
         }
-
         return ok;
     }
-
+    ACQUIRE_LOCK(&ccp_state_lock);
     ok = state_machine(conn);
+    RELEASE_LOCK(&ccp_state_lock);
     return ok;
 }
 
@@ -245,7 +252,8 @@ int ccp_read_msg(
             PRINT("could not read install expression msg: %d\n", ok);
             return -6;
         }
-        // memset expression and instruction list to 0
+
+        ACQUIRE_LOCK(&ccp_state_lock);
         memset(state->expressions, 0, MAX_EXPRESSIONS * sizeof(struct Expression));
         memset(state->fold_instructions, 0, MAX_INSTRUCTIONS * sizeof(struct Instruction64));
     
@@ -257,6 +265,7 @@ int ccp_read_msg(
             ok = read_expression(&(state->expressions[i]), &(emsg.exprs[i]));
             if (ok < 0) {
                 PRINT("could not read expression\n");
+                RELEASE_LOCK(&ccp_state_lock);
                 return -7;
             }
         }
@@ -266,6 +275,7 @@ int ccp_read_msg(
             ok = read_instruction(&(state->fold_instructions[i]), &(emsg.instrs[i]));
             if (ok < 0) {
                 PRINT("could not read instruction %lu: %d\n", i, ok);
+                RELEASE_LOCK(&ccp_state_lock);
                 return -8;
             }
         }
@@ -274,6 +284,7 @@ int ccp_read_msg(
         reset_state(state);
         init_register_state(state);
         reset_time(state);
+        RELEASE_LOCK(&ccp_state_lock);
     } else if (hdr.Type == UPDATE_FIELDS) {
         ok = read_update_fields_msg(&hdr, &fields_msg, buf + ok);
         if (ok < 0) {
@@ -281,9 +292,11 @@ int ccp_read_msg(
             return -9;
         }
 
+        ACQUIRE_LOCK(&ccp_state_lock);
         for (i=0; i<fields_msg.num_updates; i++) {
             update_register(conn, state, &(fields_msg.updates[i]));
         }
+        RELEASE_LOCK(&ccp_state_lock);
     }
 
     return ok;

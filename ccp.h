@@ -16,12 +16,15 @@
     #else
         #define DBG_PRINT(fmt, args...) 
     #endif
-    
     #define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
-    
     #define __INLINE__
     #define __MALLOC__(size) malloc(size)
-    #define __FREE__(ptr) free(ptr)
+    #define __FREE__(ptr)    free(ptr)
+    #define DEFINE_LOCK(l)   pthread_spinlock_t l 
+    #define INIT_LOCK(l)     pthread_spin_init(l, PTHREAD_PROCESS_SHARED)
+    #define ACQUIRE_LOCK(l)  pthread_spin_lock(l)
+    #define RELEASE_LOCK(l)  pthread_spin_unlock(l)
+    #define DESTROY_LOCK(l)  pthread_spin_destroy(l)
 #else
     #ifdef __DEBUG__
         #define DBG_PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
@@ -29,9 +32,15 @@
         #define DBG_PRINT(fmt, args...)
     #endif
     #define PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
-    #define __INLINE__ inline
+
+    #define __INLINE__       inline
     #define __MALLOC__(size) kmalloc(size, GFP_KERNEL)
-    #define __FREE__(ptr) kfree(ptr)
+    #define __FREE__(ptr)    kfree(ptr)
+    #define DEFINE_LOCK(l)   DEFINE_SPINLOCK(l)
+    #define INIT_LOCK(l)     
+    #define ACQUIRE_LOCK(l)  spin_lock(l)
+    #define RELEASE_LOCK(l)  spin_unlock(l)
+    #define DESTROY_LOCK(l)  
 #endif
 
 #ifdef __USRLIB__
