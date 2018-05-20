@@ -1,7 +1,11 @@
 #include "ccp_priv.h"
 #ifdef __USRLIB__
+#include <inttypes.h>
 #include "stdio.h"
+#else
+#define PRIu64 "llu"
 #endif
+
 
 #define CCP_FRAC_DENOM 10
 
@@ -443,7 +447,7 @@ void print_register(struct Register* reg) {
             break;
     }
 
-    DBG_PRINT("Register{%s(%u), ind: %d, val: %lu}\n", type, reg->type, reg->index, reg->value);
+    DBG_PRINT("Register{%s(%u), ind: %d, val: %" PRIu64 "}\n", type, reg->type, reg->index, reg->value);
 }
 #endif
 
@@ -460,16 +464,20 @@ int process_instruction(int instr_index, struct ccp_priv_state *state, struct cc
     
     switch (current_instruction.op) {
         case ADD:
-            write_reg(state, myadd64(arg1, arg2), current_instruction.rRet);
+            DBG_PRINT("ADD  %" PRIu64 " + %" PRIu64 " = %" PRIu64 "\n", arg1, arg2, myadd64(arg1, arg2)); write_reg(state, myadd64(arg1, arg2), current_instruction.rRet);
             break;
         case DIV:
+            DBG_PRINT("DIV  %" PRIu64 " / %" PRIu64 " = ", arg1, arg2);
             if (arg2 == 0) {
+                DBG_PRINT("!!! divide by 0 error, skipping...\n");
                 return -1;
             } else {
+                DBG_PRINT("%" PRIu64 "\n", mydiv64(arg1, arg2));
                 write_reg(state, mydiv64(arg1, arg2), current_instruction.rRet);
             }
             break;
         case EQUIV:
+            DBG_PRINT("EQV  %" PRIu64 " == %" PRIu64 " => %" PRIu64 "\n", arg1, arg2, myequiv64(arg1, arg2));
             write_reg(state, myequiv64(arg1, arg2), current_instruction.rRet);
             break;
         case EWMA: // arg0 = current, arg2 = new, arg1 = constant
@@ -477,40 +485,51 @@ int process_instruction(int instr_index, struct ccp_priv_state *state, struct cc
             write_reg(state, myewma64(arg1, arg0, arg2), current_instruction.rRet);
             break;
         case GT:
+            DBG_PRINT("GT   %" PRIu64 " > %" PRIu64 " => %" PRIu64 "\n", arg1, arg2, mygt64(arg1, arg2));
             write_reg(state, mygt64(arg1, arg2), current_instruction.rRet);
             break;
         case LT:
+            DBG_PRINT("LT   %" PRIu64 " > %" PRIu64 " => %" PRIu64 "\n", arg1, arg2, mylt64(arg1, arg2));
             write_reg(state, mylt64(arg1, arg2), current_instruction.rRet);
             break;
         case MAX:
+            DBG_PRINT("MAX  %" PRIu64 " , %" PRIu64 " => %" PRIu64 "\n", arg1, arg2, mymax64(arg1, arg2));
             write_reg(state, mymax64(arg1, arg2), current_instruction.rRet);
             break;
         case MIN:
+            DBG_PRINT("MIN  %" PRIu64 " , %" PRIu64 " => %" PRIu64 "\n", arg1, arg2, mymin64(arg1, arg2));
             write_reg(state, mymin64(arg1, arg2), current_instruction.rRet);
             break;
         case MUL:
+            DBG_PRINT("MUL  %" PRIu64 " * %" PRIu64 " = %" PRIu64 "\n", arg1, arg2, mymul64(arg1, arg2));
             write_reg(state, mymul64(arg1, arg2), current_instruction.rRet);
             break;
         case SUB:
+            DBG_PRINT("SUB  %" PRIu64 " - %" PRIu64 " = %" PRIu64 "\n", arg1, arg2, mysub64(arg1, arg2));
             write_reg(state, mysub64(arg1, arg2), current_instruction.rRet);
             break;
         case MAXWRAP:
+            DBG_PRINT("MAXW %" PRIu64 " , %" PRIu64 " => %" PRIu64 "\n", arg1, arg2, mymax64_wrap(arg1, arg2));
             write_reg(state, mymax64_wrap(arg1, arg2), current_instruction.rRet);
             break;
         case IF: // if arg1 (rLeft), stores rRight in rRet
+            DBG_PRINT("IF   %" PRIu64 " : r%" PRIu64 " -> r%" PRIu64 "\n", arg1, arg2, current_instruction.rRet.value);
             if (arg1) {
                 write_reg(state, arg2, current_instruction.rRet);
             }
             break;
         case NOTIF:
+            DBG_PRINT("!IF  %" PRIu64 " : r%" PRIu64 " -> r%" PRIu64 "\n", arg1, arg2, current_instruction.rRet.value);
             if (arg1 == 0) {
                 write_reg(state, arg2, current_instruction.rRet);
             }
             break;
         case BIND: // take arg2, and put it in rRet
+            DBG_PRINT("BIND r%" PRIu64 " -> r%" PRIu64 "\n", arg2, current_instruction.rRet.value);
             write_reg(state, arg2, current_instruction.rRet);
             break;
         default:
+            DBG_PRINT("UNKNOWN OP %d\n", current_instruction.op);
             break;
     }
     return 0;
@@ -524,12 +543,14 @@ int process_expression(int expr_index, struct ccp_priv_state *state, struct ccp_
     struct Expression *expression = &(state->expressions[expr_index]);
     u8 idx;
     int ret;
+    DBG_PRINT("when #%d {\n", expr_index);
     for (idx=expression->cond_start_idx; idx<(expression->cond_start_idx + expression->num_cond_instrs); idx++) {
        ret = process_instruction(idx, state, primitives);
        if (ret < 0) {
          return -1;
        }
     }
+    DBG_PRINT("} => %" PRIu64 "\n", state->impl_registers[EXPR_FLAG_REG]);
 
     // flag from event is promised to be stored in this implicit register
     if (state->impl_registers[EXPR_FLAG_REG] ) {
@@ -574,11 +595,13 @@ int state_machine(struct ccp_connection *conn) {
     // update the US_ELAPSED registers
     implicit_now = datapath->since_usecs(state->implicit_time_zero);
     state->impl_registers[US_ELAPSED_REG] = implicit_now;
-
+    
+    DBG_PRINT(">>> program starting <<<\n");
     // cycle through expressions, and process instructions
     for (i=0; i < state->num_expressions; i++) {
         ret = process_expression(i, state, primitives);
         if (ret < 0) {
+            DBG_PRINT(">>> program finished ret=-1 <<<\n\n");
             return -1;
         }
 
@@ -586,8 +609,8 @@ int state_machine(struct ccp_connection *conn) {
         if ((state->impl_registers[EXPR_FLAG_REG]) && !(state->impl_registers[SHOULD_FALLTHROUGH_REG])) {
             break;
         }
+        DBG_PRINT("fallthrough...\n");
     }
-
     // set rate and cwnd from implicit registers
     if (state->impl_registers[CWND_REG] > 0) {
         datapath->set_cwnd(datapath, conn, state->impl_registers[CWND_REG]);
@@ -603,5 +626,6 @@ int state_machine(struct ccp_connection *conn) {
         reset_state(state);
     }
 
+    DBG_PRINT(">>> program finished ret=0 <<<\n\n");
     return 0;
 }
