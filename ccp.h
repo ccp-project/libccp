@@ -23,7 +23,11 @@
     #define __MALLOC__(size) malloc(size)
     #define __FREE__(ptr) free(ptr)
 #else
-    #define DBG_PRINT(fmt, args...)
+    #ifdef __DEBUG__
+        #define DBG_PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
+    #else
+        #define DBG_PRINT(fmt, args...)
+    #endif
     #define PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
     #define __INLINE__ inline
     #define __MALLOC__(size) kmalloc(size, GFP_KERNEL)
@@ -35,6 +39,7 @@
     #include <stdbool.h>
 #else
     #include <linux/types.h>
+    #include <linux/module.h>
 #endif
 
 typedef uint8_t u8;
