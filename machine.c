@@ -126,7 +126,7 @@ int deserialize_register(struct Register *ret, u8 reg_type, u32 reg_value) {
     switch (reg_type) {
         case CONTROL_REG: // control register
             ret->type = (int)CONTROL_REG;
-            ret->value = (u64)reg_value;
+            ret->index = (u64)reg_value;
             return 0;
        case IMMEDIATE_REG: // immediate - store in value
             ret->type = (int)IMMEDIATE_REG;
@@ -262,6 +262,10 @@ void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
         case IMPLICIT_REG: // cannot write to US_ELAPSED reg
             if (reg.index == EXPR_FLAG_REG || reg.index == CWND_REG || reg.index == RATE_REG || reg.index == SHOULD_REPORT_REG || reg.index == SHOULD_FALLTHROUGH_REG ) {
                 state->impl_registers[reg.index] = value;
+            } else if (reg.index == US_ELAPSED_REG) {
+                // set micros register to this value, and datapath start time to be time before now
+                state->implicit_time_zero = datapath->now() - value;
+                state->impl_registers[US_ELAPSED_REG] = value;
             }
             break;
         case CONTROL_REG:
