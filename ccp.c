@@ -284,6 +284,7 @@ int ccp_read_msg(
         reset_state(state);
         init_register_state(state);
         reset_time(state);
+        DBG_PRINT("installed new program with %d expressions and %d instructions\n", state->num_expressions, state->num_instructions);
         RELEASE_LOCK(&ccp_state_lock);
     } else if (hdr.Type == UPDATE_FIELDS) {
         ok = read_update_fields_msg(&hdr, &fields_msg, buf + ok);
