@@ -189,7 +189,7 @@ int test_basic(struct ccp_connection *conn) {
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
-    printf("%s...", __func__);
+    printf("%s...\n", __func__);
     fflush(stdout);
 
     ok = install_helper(dp, 100);
@@ -229,7 +229,7 @@ int test_primitives(struct ccp_connection *conn) {
         0x01, 0x00, 0x00, 0x00,
         0xed, 0xfe, 0xfe, 0xca, 0x00, 0x00, 0x00, 0x00,
     };
-    printf("%s...", __func__);
+    printf("%s...\n", __func__);
     fflush(stdout);
 
     conn->prims.rtt_sample_us = 0xcafefeed;
@@ -283,7 +283,7 @@ int test_multievent(struct ccp_connection *conn) {
         0x01, 0x00, 0x00, 0x00,
         0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
-    printf("%s...", __func__);
+    printf("%s...\n", __func__);
 
     conn->prims.rtt_sample_us = 0xcafefeed;
     fflush(stdout);
@@ -356,7 +356,7 @@ int test_fallthrough(struct ccp_connection *conn) {
         0x01, 0x00, 0x00, 0x00,
         0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
-    printf("%s...", __func__);
+    printf("%s...\n", __func__);
 
     conn->prims.rtt_sample_us = 0xcafefeed;
     fflush(stdout);
@@ -418,7 +418,7 @@ int test_read_implicit(struct ccp_connection *conn) {
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
-    printf("%s...", __func__);
+    printf("%s...\n", __func__);
     fflush(stdout);
 
     ok = install_helper(dp, 116);
