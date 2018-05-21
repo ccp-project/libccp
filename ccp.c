@@ -264,6 +264,13 @@ int ccp_read_msg(
 
     state = get_ccp_priv_state(conn);
     if (hdr.Type == INSTALL_EXPR) {
+        // allocate space for ccp_priv_state to read the program into
+        // so there can be one atomic update into the actual state
+        // must free state upon returning from this function
+        struct ccp_priv_state *tmp_state;
+        tmp_state = (struct ccp_priv_state*)__MALLOC__(sizeof(struct ccp_priv_state));
+        memcpy(tmp_state, state, sizeof(struct ccp_priv_state));
+
         memset(&emsg, 0, sizeof(struct InstallExpressionMsg));
         ok = read_install_expr_msg(&hdr, &emsg, buf + ok);
         if (ok < 0) {
@@ -271,39 +278,43 @@ int ccp_read_msg(
             return -6;
         }
         // memset expression and instruction list to 0
-        // TODO: statically allocate space for expressions and instructions, then do memcpy into the state->expressions and state->fold_instructions
-        lock();
-        memset(state->expressions, 0, MAX_EXPRESSIONS * sizeof(struct Expression));
-        memset(state->fold_instructions, 0, MAX_INSTRUCTIONS * sizeof(struct Instruction64));
+        memset(tmp_state->expressions, 0, MAX_EXPRESSIONS * sizeof(struct Expression));
+        memset(tmp_state->fold_instructions, 0, MAX_INSTRUCTIONS * sizeof(struct Instruction64));
     
-        state->num_expressions = emsg.num_expressions;
-        state->num_instructions = emsg.num_instructions;
+        tmp_state->num_expressions = emsg.num_expressions;
+        tmp_state->num_instructions = emsg.num_instructions;
 
         // parse the expressions 
-        for (i=0; i<state->num_expressions; i++) {
-            ok = read_expression(&(state->expressions[i]), &(emsg.exprs[i]));
+        // TODO: make this a single memcpy
+        for (i=0; i<tmp_state->num_expressions; i++) {
+            ok = read_expression(&(tmp_state->expressions[i]), &(emsg.exprs[i]));
             if (ok < 0) {
                 PRINT("could not read expression\n");
-                unlock();
+                __FREE__(tmp_state);
                 return -7;
             }
         }
 
         // parse the instructions
-        for (i=0; i<state->num_instructions; i++) {
-            ok = read_instruction(&(state->fold_instructions[i]), &(emsg.instrs[i]));
+        // TODO: make this a single memcpy
+        for (i=0; i<tmp_state->num_instructions; i++) {
+            ok = read_instruction(&(tmp_state->fold_instructions[i]), &(emsg.instrs[i]));
             if (ok < 0) {
                 PRINT("could not read instruction %lu: %d\n", i, ok);
-                unlock();
+                __FREE__(tmp_state);
                 return -8;
             }
         }
 
         // call reset state to initialize all variables
-        reset_state(state);
-        init_register_state(state);
-        reset_time(state);
-        unlock();
+        reset_state(tmp_state);
+        init_register_state(tmp_state);
+        reset_time(tmp_state);
+
+        // copy from temporary buffer back into state as one atomic transaction
+        memcpy(state, tmp_state, sizeof(struct ccp_priv_state));
+        __FREE__(tmp_state);
+    
     } else if (hdr.Type == UPDATE_FIELDS) {
         ok = read_update_fields_msg(&hdr, &fields_msg, buf + ok);
         if (ok < 0) {
