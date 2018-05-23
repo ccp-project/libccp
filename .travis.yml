@@ -1,4 +1,7 @@
 language: c
+os:
+    - linux
+    - osx
 matrix:
     # works on Precise and Trusty
     - os: linux
