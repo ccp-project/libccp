@@ -7,6 +7,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h> // for mutex
+#ifdef __APPLE__
+#include "spinlock.h"
+#endif
 #else
 #include <linux/types.h>
 #include <linux/string.h> // memcpy
