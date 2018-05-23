@@ -461,19 +461,25 @@ void print_register(struct Register* reg) {
  */
 int process_instruction(int instr_index, struct ccp_priv_state *state, struct ccp_primitives* primitives) {
     struct Instruction64 current_instruction = state->fold_instructions[instr_index];
-    u64 arg0, arg1, arg2; // extra arg0 for ewma, if, not if
+    u64 arg0, arg1, arg2, result; // extra arg0 for ewma, if, not if
 
     arg1 = read_reg(state, primitives, current_instruction.rLeft);
     arg2 = read_reg(state, primitives, current_instruction.rRight);
     
     switch (current_instruction.op) {
         case ADD:
-            DBG_PRINT("ADD  %" PRIu64 " + %" PRIu64 " = %" PRIu64 "\n", arg1, arg2, myadd64(arg1, arg2)); write_reg(state, myadd64(arg1, arg2), current_instruction.rRet);
+            DBG_PRINT("ADD  %" PRIu64 " + %" PRIu64 " = %" PRIu64 "\n", arg1, arg2, myadd64(arg1, arg2)); 
+            result = myadd64(arg1, arg2);
+            if (result < arg1) {
+                PRINT("ERROR! Integer overflow: %" PRIu64 " + %" PRIu64 "\n", arg1, arg2);
+                return -1;
+            }
+            write_reg(state, result, current_instruction.rRet);
             break;
         case DIV:
             DBG_PRINT("DIV  %" PRIu64 " / %" PRIu64 " = ", arg1, arg2);
             if (arg2 == 0) {
-                DBG_PRINT("!!! divide by 0 error, skipping...\n");
+                PRINT("ERROR! Attempt to divide by 0: %" PRIu64 " / %" PRIu64 "\n", arg1, arg2);
                 return -1;
             } else {
                 DBG_PRINT("%" PRIu64 "\n", mydiv64(arg1, arg2));
@@ -506,11 +512,21 @@ int process_instruction(int instr_index, struct ccp_priv_state *state, struct cc
             break;
         case MUL:
             DBG_PRINT("MUL  %" PRIu64 " * %" PRIu64 " = %" PRIu64 "\n", arg1, arg2, mymul64(arg1, arg2));
-            write_reg(state, mymul64(arg1, arg2), current_instruction.rRet);
+            result = mymul64(arg1, arg2);
+            if (result < arg1) {
+                PRINT("ERROR! Integer overflow: %" PRIu64 " * %" PRIu64 "\n", arg1, arg2);
+                return -1;
+            }
+            write_reg(state, result, current_instruction.rRet);
             break;
         case SUB:
             DBG_PRINT("SUB  %" PRIu64 " - %" PRIu64 " = %" PRIu64 "\n", arg1, arg2, mysub64(arg1, arg2));
-            write_reg(state, mysub64(arg1, arg2), current_instruction.rRet);
+            result = mysub64(arg1, arg2);
+            if (result > arg1) {
+                PRINT("ERROR! Integer underflow: %" PRIu64 " - %" PRIu64 "\n", arg1, arg2);
+                return -1;
+            }
+            write_reg(state, result, current_instruction.rRet);
             break;
         case MAXWRAP:
             DBG_PRINT("MAXW %" PRIu64 " , %" PRIu64 " => %" PRIu64 "\n", arg1, arg2, mymax64_wrap(arg1, arg2));
