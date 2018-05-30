@@ -513,7 +513,7 @@ int process_instruction(int instr_index, struct ccp_priv_state *state, struct cc
         case MUL:
             DBG_PRINT("MUL  %" PRIu64 " * %" PRIu64 " = %" PRIu64 "\n", arg1, arg2, mymul64(arg1, arg2));
             result = mymul64(arg1, arg2);
-            if (result < arg1) {
+            if (result < arg1 && arg2 > 0) {
                 PRINT("ERROR! Integer overflow: %" PRIu64 " * %" PRIu64 "\n", arg1, arg2);
                 return -1;
             }
