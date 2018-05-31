@@ -185,7 +185,7 @@ void ccp_connection_free(u16 sid) {
     struct ccp_connection *conn;
     char msg[REPORT_MSG_SIZE];
 
-    PRINT("Entering %s\n", __FUNCTION__);
+    DBG_PRINT("Entering %s\n", __FUNCTION__);
     // bounds check
     if (sid == 0 || sid > MAX_NUM_CONNECTIONS) {
         PRINT("index out of bounds: %d", sid);
@@ -200,7 +200,7 @@ void ccp_connection_free(u16 sid) {
 
     conn->index = 0;
 
-    msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, conn->index, 0, 0);
+    msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, 0, conn->index, 0, 0);
     ok = datapath->send_msg(datapath, conn, msg, msg_size);
     if (ok < 0) {
         PRINT("error sending close message: %d", ok);
@@ -260,6 +260,7 @@ int ccp_read_msg(
         memset(state->expressions, 0, MAX_EXPRESSIONS * sizeof(struct Expression));
         memset(state->fold_instructions, 0, MAX_INSTRUCTIONS * sizeof(struct Instruction64));
     
+        state->program_uid = emsg.program_uid;
         state->num_expressions = emsg.num_expressions;
         state->num_instructions = emsg.num_instructions;
 
@@ -287,7 +288,7 @@ int ccp_read_msg(
         reset_state(state);
         init_register_state(state);
         reset_time(state);
-        DBG_PRINT("installed new program with %d expressions and %d instructions\n", state->num_expressions, state->num_instructions);
+        DBG_PRINT("installed new program (uid=%d) with %d expressions and %d instructions\n", state->program_uid, state->num_expressions, state->num_instructions);
         RELEASE_LOCK(&ccp_state_lock);
     } else if (hdr.Type == UPDATE_FIELDS) {
         ok = read_update_fields_msg(&hdr, &fields_msg, buf + ok);
@@ -346,6 +347,7 @@ int send_conn_create(
 // acks, rtt, rin, rout
 int send_measurement(
     struct ccp_connection *conn,
+    u32 program_uid,
     u64 *fields,
     u8 num_fields
 ) {
@@ -357,7 +359,7 @@ int send_measurement(
         return ok;
     }
 
-    msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, conn->index, fields, num_fields);
+    msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, conn->index, program_uid, fields, num_fields);
     DBG_PRINT("In %s\n", __FUNCTION__);
     ok = datapath->send_msg(datapath, conn, msg, msg_size);
     return ok;

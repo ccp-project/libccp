@@ -90,11 +90,14 @@ int write_create_msg(
 );
 
 /* MEASURE
- * 1 u32: number of returned fields,
+ * program_uid: unique id for the datapath program that generated this report,
+ *              so that the ccp can use the corresponding scope
+ * num_fields: number of returned fields,
  * bytes: the return registers of the installed fold function ([]uint64).
  *        there will be at most MAX_PERM_REG returned registers
  */
 struct __attribute__((packed, aligned(4))) MeasureMsg {
+    u32 program_uid;
     u32 num_fields;
     u64 fields[MAX_REPORT_REG];
 };
@@ -106,6 +109,7 @@ int write_measure_msg(
     char *buf,
     int bufsize,
     u32 sid,
+    u32 program_uid,
     u64 *msg_fields,
     u8 num_fields
 );
@@ -138,12 +142,13 @@ struct __attribute__((packed, aligned(4))) ExpressionMsg {
     u8 num_event_instrs;
 };
 
-/* InstallExprMsg: 842 bytes in total
- * 2 u32s: number of expressions and instructions
+/* InstallExprMsg: 846 bytes in total
+ * 3 u32s: unique id, number of expressions and instructions
  * []ExprMsg: expressions -> 40 bytes, MAX = 10
  * []InstructionMsg: all instructions -> 800 bytes, MAX = 16
  */
 struct __attribute__((packed, aligned(4))) InstallExpressionMsg {
+    u32 program_uid;
     u32 num_expressions;
     u32 num_instructions;
     struct ExpressionMsg exprs[MAX_EXPRESSIONS];

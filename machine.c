@@ -13,6 +13,7 @@ extern struct ccp_datapath *datapath;
 
 extern int send_measurement(
     struct ccp_connection *conn,
+    u32 program_uid,
     u64 *fields,
     u8 num_fields
 );
@@ -465,7 +466,6 @@ int process_instruction(int instr_index, struct ccp_priv_state *state, struct cc
 
     arg1 = read_reg(state, primitives, current_instruction.rLeft);
     arg2 = read_reg(state, primitives, current_instruction.rRight);
-    
     switch (current_instruction.op) {
         case ADD:
             DBG_PRINT("ADD  %" PRIu64 " + %" PRIu64 " = %" PRIu64 "\n", arg1, arg2, myadd64(arg1, arg2)); 
@@ -642,7 +642,7 @@ int state_machine(struct ccp_connection *conn) {
 
     // if we should report, report and reset state
     if (state->impl_registers[SHOULD_REPORT_REG]) {
-        send_measurement(conn, state->report_registers, state->num_to_return);
+        send_measurement(conn, state->program_uid, state->report_registers, state->num_to_return);
         reset_state(state);
     }
 

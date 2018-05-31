@@ -92,16 +92,18 @@ int write_measure_msg(
     char *buf,
     int bufsize,
     u32 sid, 
+    u32 program_uid,
     u64 *msg_fields,
     u8 num_fields
 ) {
     int ok;
     struct MeasureMsg ms = {
+        .program_uid = program_uid,
         .num_fields = num_fields,
     };
     
-    // 4 bytes for num_fields, which is u32
-    u16 msg_len = sizeof(struct CcpMsgHeader) + 4 + ms.num_fields * sizeof(u64);
+    // 4 bytes for num_fields (u32) and 4 for program_uid = 8
+    u16 msg_len = sizeof(struct CcpMsgHeader) + 8 + ms.num_fields * sizeof(u64);
     struct CcpMsgHeader hdr = {
         .Type = MEASURE, 
         .Len = msg_len,
@@ -142,8 +144,8 @@ int read_install_expr_msg(
         return -2;
     }
 
-    memcpy(msg, buf, 2 * sizeof(u32));
-    buf += 2 * sizeof(u32);
+    memcpy(msg, buf, 3 * sizeof(u32));
+    buf += 3 * sizeof(u32);
 
     memcpy(&msg->exprs, buf, msg->num_expressions * sizeof(struct ExpressionMsg));
     buf += msg->num_expressions * sizeof(struct ExpressionMsg);
