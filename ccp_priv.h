@@ -85,6 +85,8 @@ void print_register(struct Register* reg);
 struct ccp_priv_state {
     bool sent_create;
 
+    u32 program_uid;
+
     u32 num_expressions;
     struct Expression expressions[MAX_EXPRESSIONS];
    
