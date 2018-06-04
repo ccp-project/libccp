@@ -50,21 +50,22 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
 #define  UPDATE_FIELDS 3
 
 // Some messages contain strings.
-#define  BIGGEST_MSG_SIZE  1024
+#define  BIGGEST_MSG_SIZE  32678
 
 // for create messages, we know they are smaller when we send them up
 #define CREATE_MSG_SIZE     512
-// size of report msg is 12 B * MAX_REPORT_REG
+// size of report msg is approx MAX_REPORT_REG * 8 + 4 + 4
 #define REPORT_MSG_SIZE     900
 
 // Some messages contain serialized fold instructions.
-#define MAX_EXPRESSIONS    10 // 10 * 4 = 40 bytes for expressions
-#define MAX_INSTRUCTIONS   50 // 50 * 16 = 800 bytes for instructions
-#define MAX_IMPLICIT_REG   6
-#define MAX_REPORT_REG     15 // measure msg is 15*8 + 4 = 124 bytes
-#define MAX_CONTROL_REG    15
+#define MAX_EXPRESSIONS    256 // arbitrary TODO: make configurable
+#define MAX_INSTRUCTIONS   256 // arbitrary, TODO: make configurable
+#define MAX_IMPLICIT_REG   6  // fixed number of implicit registers
+#define MAX_REPORT_REG     110 // measure msg 110 * 8 + 4 + 4
+#define MAX_CONTROL_REG    110 // arbitrary
 #define MAX_TMP_REG        8
 #define MAX_LOCAL_REG      8
+#define MAX_MUTABLE_REG    222 // # report + # control + cwnd, rate registers
 
 /* CREATE
  * str: the datapath's requested congestion control algorithm (could be overridden)
