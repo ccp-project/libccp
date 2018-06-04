@@ -15,7 +15,6 @@
 
 u32 now_us; // emulated time in microseconds
 
-#define  BIGGEST_MSG_SIZE  1024
 char expected_sent_msg[BIGGEST_MSG_SIZE];
 int expecting_send;
 
