@@ -131,43 +131,42 @@ int write_measure_msg(
     return hdr.Len;
 }
 
-int read_install_expr_msg(
+int read_install_expr_msg_hdr(
     struct CcpMsgHeader *hdr,
-    struct InstallExpressionMsg *msg,
+    struct InstallExpressionMsgHdr *expr_msg_info,
     char *buf
 ) {
     if (hdr->Type != INSTALL_EXPR) {
         return -1;
     } 
 
-    if (hdr->Len - sizeof(struct CcpMsgHeader) > sizeof(struct InstallExpressionMsg)) {
+    if (expr_msg_info->num_expressions > MAX_EXPRESSIONS) {
+        PRINT("Program to install has too many expressions: %u\n", expr_msg_info->num_expressions);
         return -2;
     }
 
-    memcpy(msg, buf, 3 * sizeof(u32));
-    buf += 3 * sizeof(u32);
+    if (expr_msg_info->num_instructions > MAX_INSTRUCTIONS) {
+        PRINT("Program to install has too many instructions: %u\n", expr_msg_info->num_instructions);
+        return -2;
+    }
+    memcpy(expr_msg_info, buf, sizeof(struct InstallExpressionMsgHdr));
+    return sizeof(struct InstallExpressionMsgHdr);
 
-    memcpy(&msg->exprs, buf, msg->num_expressions * sizeof(struct ExpressionMsg));
-    buf += msg->num_expressions * sizeof(struct ExpressionMsg);
-    memcpy(&msg->instrs, buf, msg->num_instructions * sizeof(struct InstructionMsg));
-    buf += msg->num_expressions * sizeof(struct InstructionMsg);
-
-    return hdr->Len - sizeof(struct CcpMsgHeader);
 }
 
-int read_update_fields_msg(
+int check_update_fields_msg(
     struct CcpMsgHeader *hdr,
-    struct UpdateFieldsMsg *msg,
+    u32 *num_updates,
     char *buf
 ) {
     if (hdr->Type != UPDATE_FIELDS) {
         return -1;
     }
 
-    if ((hdr->Len - sizeof(struct CcpMsgHeader)) > sizeof(struct UpdateFieldsMsg)) {
+    *num_updates = (u32)*buf;
+    if (*num_updates > MAX_MUTABLE_REG) {
+        PRINT("Too many updates!: %u\n", *num_updates);
         return -2;
     }
-
-    memcpy(msg, buf, hdr->Len - sizeof(struct CcpMsgHeader));
-    return hdr->Len - sizeof(struct CcpMsgHeader);
+    return sizeof(u32);
 }

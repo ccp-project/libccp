@@ -168,14 +168,14 @@ int getreport_helper(char *expected, size_t msg_len, struct ccp_connection *conn
 
 int test_basic(struct ccp_connection *conn) {
     int ok;
-    char dp[104] = {
+    char dp[116] = {
         2, 0,                                           // INSTALL
         0x68, 0,                                        // length = 0x68 = 104
         1, 0, 0, 0,                                     // sock_id = 1
         7, 0, 0, 0,                                     // program_uid = 7 (arbitrary)
         1, 0, 0, 0,                                     // num_events = 1
         5, 0, 0, 0,                                     // num_instrs = 5
-        1, 1, 2, 3,                                     // event { flag-idx=1, num-flag=1, body-idx=2, num-body=3 }
+        1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, // event { flag-idx=1, num-flag=1, body-idx=2, num-body=3 }
         2, 5, 0, 0, 0, 0, 5, 0, 0, 0, 0, 1, 0, 0, 0, 0, // (def (volatile Report.foo 0))
         1, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, // (when true
         0, 6, 0, 0, 0, 0, 5, 0, 0, 0, 0, 1, 1, 0, 0, 0, //      ----------------(+ Report.foo 1)
@@ -211,14 +211,14 @@ int test_basic(struct ccp_connection *conn) {
 
 int test_primitives(struct ccp_connection *conn) {
     int ok;
-    char dp[88] = {
+    char dp[100] = {
         2, 0,                                                    // INSTALL
         84, 0,                                                   // length = 88
         1, 0, 0, 0,                                              // sock_id = 1
         3, 0, 0, 0,                                              // program_uid = 3 (arbitrary)
         1, 0, 0, 0,                                              // num_events = 1
         4, 0, 0, 0,                                              // num_instrs = 2
-        1, 1, 2, 2,                                              // event { flag-idx=1, num-flag=1, body-idx=2, num-body=2 }
+        1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0,          // event { flag-idx=1, num-flag=1, body-idx=2, num-body=2 }
         2, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 255, 255, 255, 255, // (def (volatile Report.minrtt +infinity))
         8, 2, 0, 0, 0, 0, 4, 13, 0, 0, 0, 5, 0,   0,   0,   0,   // (when (< Flow.rtt_sample_us Report.minrtt)
         1, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 4, 13,  0,   0,   0,   //     (bind Report.minrtt Flow.rtt_sample_us) 
@@ -255,15 +255,15 @@ int test_primitives(struct ccp_connection *conn) {
 
 int test_multievent(struct ccp_connection *conn) {
     int ok;
-    char dp[156] = {
+    char dp[180] = {
         2, 0,                                                    // INSTALL
         156, 0,                                                  // length = 156
         1, 0, 0, 0,                                              // sock_id = 1
         9, 0, 0, 0,                                              // program_uid = 9 (arbitrary)
         2, 0, 0, 0,                                              // num_events = 2
         8, 0, 0, 0,                                              // num_instrs = 8
-        2, 1, 3, 2,                                              // event { flag-idx=2, num-flag=1, body-idx=3, num-body=2 }
-        5, 1, 6, 2,                                              // event { flag-idx=5, num-flag=1, body-idx=6, num-body=2 }
+        2, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 2, 0, 0, 0,          // event { flag-idx=2, num-flag=1, body-idx=3, num-body=2 }
+        5, 0, 0, 0, 1, 0, 0, 0, 6, 0, 0, 0, 2, 0, 0, 0,          // event { flag-idx=5, num-flag=1, body-idx=6, num-body=2 }
         2, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 0,   0,   0,   0,   //  -----------------------(volatile Report.counter 0)
         2, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 1, 255, 255, 255, 255, // (def (minrtt +infinity) ^^^^^^^^^^^^^^^^^^^^^^^^^^^)
         8, 2, 0, 0, 0, 0, 4, 13, 0, 0, 0, 0, 0,   0,   0,   0,   // (when (< Flow.rtt_sample_us minrtt)
@@ -330,15 +330,15 @@ int test_multievent(struct ccp_connection *conn) {
 
 int test_fallthrough(struct ccp_connection *conn) {
     int ok;
-    char dp[172] = {
+    char dp[196] = {
         2, 0,                                                    // INSTALL
         172, 0,                                                  // length = 172
         1, 0, 0, 0,                                              // sock_id = 1
         4, 0, 0, 0,                                              // program_uid = 4 (arbitrary)
         2, 0, 0, 0,                                              // num_events = 2
         9, 0, 0, 0,                                              // num_instrs = 9
-        2, 1, 3, 3,                                              // event { flag-idx=2, num-flag=1, body-idx=3, num-body=3 }
-        6, 1, 7, 2,                                              // event { flag-idx=6, num-flag=1, body-idx=7, num-body=2 }
+        2, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0,          // event { flag-idx=2, num-flag=1, body-idx=3, num-body=3 }
+        6, 0, 0, 0, 1, 0, 0, 0, 7, 0, 0, 0, 2, 0, 0, 0,          // event { flag-idx=6, num-flag=1, body-idx=7, num-body=2 }
         2, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 1, 255, 255, 255, 255, // -----(minrtt +infinity)-----------------------------
         2, 5, 0, 0, 0, 0, 5, 0,  0, 0, 0, 1, 0,   0,   0,   0,   // (def ^^^^^^^^^^^^^^^^^^ (volatile Report.counter 0))
         8, 2, 0, 0, 0, 0, 4, 13, 0, 0, 0, 0, 0,   0,   0,   0,   // (when (< Flow.rtt_sample_us minrtt)
@@ -406,14 +406,14 @@ int test_fallthrough(struct ccp_connection *conn) {
 
 int test_read_implicit(struct ccp_connection *conn) {
     int ok;
-    char dp[120] = {
+    char dp[132] = {
         2, 0,                                           // INSTALL
         0x78, 0,                                        // length = 120
         1, 0, 0, 0,                                     // sock_id = 1
         5, 0, 0, 0,                                     // program_uid = 5 (arbitrary)
         1, 0, 0, 0,                                     // num_events = 2
         6, 0, 0, 0,                                     // num_instrs = 6
-        1, 1, 2, 4,                                     // event { flag-idx=2, num-flag=1, body-idx=3, num-body=2 }
+        1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 4, 0, 0, 0, // event { flag-idx=2, num-flag=1, body-idx=3, num-body=2 }
         2, 5, 0, 0, 0, 0, 5, 0, 0, 0, 0, 1, 0, 0, 0, 0, // (def (Report.foo 0))
         1, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, // (when true
         1, 2, 4, 0, 0, 0, 2, 4, 0, 0, 0, 1, 5, 0, 0, 0, //     (bind Cwnd 5)

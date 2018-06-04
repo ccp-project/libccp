@@ -129,45 +129,40 @@ struct __attribute__((packed, aligned(4))) InstructionMsg {
 };
 
 
-/* ExpressionMsg: 4 u8s
+/* ExpressionMsg: 4 u32s
  * start of expression condition instr ID
  * number of expression condition instrs
  * start of event body instr ID
  * number of event body instrs
  */
 struct __attribute__((packed, aligned(4))) ExpressionMsg {
-    u8 cond_start_idx;
-    u8 num_cond_instrs;
-    u8 event_start_idx;
-    u8 num_event_instrs;
+    u32 cond_start_idx;
+    u32 num_cond_instrs;
+    u32 event_start_idx;
+    u32 num_event_instrs;
 };
 
-/* InstallExprMsg: 846 bytes in total
- * 3 u32s: unique id, number of expressions and instructions
- * []ExprMsg: expressions -> 40 bytes, MAX = 10
- * []InstructionMsg: all instructions -> 800 bytes, MAX = 16
- */
-struct __attribute__((packed, aligned(4))) InstallExpressionMsg {
+struct __attribute__((packed, aligned(4))) InstallExpressionMsgHdr {
     u32 program_uid;
     u32 num_expressions;
     u32 num_instructions;
-    struct ExpressionMsg exprs[MAX_EXPRESSIONS];
-    struct InstructionMsg instrs[MAX_INSTRUCTIONS];
 };
 
-/* return: size of msg
- * When reading this message, the buffer sent down
- * does not fill the entire InstallExpressionMsg,
- * as space is allocated for MAX_EXPRESSIONS and MAX_INSTRUCTIONS, but the message
- * is sent down with exact num_expressions ExpressionMsg structs
- * and exactly num_instructions InstructionMsg structs
+/* return: size of InstallExpressionMsgHeader
+ * copies from buffer into InstallExpressionMsgHdr struct.
+ * also checks whether the number of instructions or expressions is too large.
+ * InstallExprMessage:
+ * {
+ *  struct InstallExpressionMsgHeader (3 u32s)
+ *  ExpressionMsg[num_expressions]
+ *  InstructionMsg[num_instructions]
+ * }
  */
-int read_install_expr_msg(
+int read_install_expr_msg_hdr(
     struct CcpMsgHeader *hdr,
-    struct InstallExpressionMsg *msg,
+    struct InstallExpressionMsgHdr *expr_msg_info,
     char *buf
 );
-
 
 struct __attribute__((packed, aligned(1))) UpdateField {
     u8 reg_type;
@@ -175,14 +170,18 @@ struct __attribute__((packed, aligned(1))) UpdateField {
     u64 new_value;
 };
 
-struct __attribute__((packed, aligned(1))) UpdateFieldsMsg {
-    u32 num_updates;
-    struct UpdateField updates[MAX_REPORT_REG];
-};
-
-int read_update_fields_msg(
+/* Fills in number of updates.
+ * Check whether number of updates is too large.
+ * Returns size of update field header: 1 u32
+ * UpdateFieldsMsg:
+ * {
+ *  1 u32: num_updates
+ *  UpdateField[num_updates]
+ * }
+ */
+int check_update_fields_msg(
     struct CcpMsgHeader *hdr,
-    struct UpdateFieldsMsg *msg,
+    u32 *num_updates,
     char *buf
 );
 

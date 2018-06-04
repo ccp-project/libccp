@@ -218,8 +218,11 @@ int ccp_read_msg(
     struct ccp_connection *conn;
     struct ccp_priv_state *state;
     struct CcpMsgHeader hdr;
-    struct InstallExpressionMsg emsg;
-    struct UpdateFieldsMsg fields_msg;
+    struct InstallExpressionMsgHdr expr_msg_info;
+    struct InstructionMsg *current_instr; // cast message memory to this, and copy over fields
+    u32 num_updates;
+    struct UpdateField *current_update;
+    char* msg_ptr;
 
     ok = read_header(&hdr, buf);  
     if (ok < 0) {
@@ -246,42 +249,40 @@ int ccp_read_msg(
         PRINT("unknown connection: %u\n", hdr.SocketId);
         return -5;
     }
+    msg_ptr = buf + ok;
 
     state = get_ccp_priv_state(conn);
     if (hdr.Type == INSTALL_EXPR) {
-        memset(&emsg, 0, sizeof(struct InstallExpressionMsg));
-        ok = read_install_expr_msg(&hdr, &emsg, buf + ok);
+        memset(&expr_msg_info, 0, sizeof(struct InstallExpressionMsgHdr));
+        ok = read_install_expr_msg_hdr(&hdr, &expr_msg_info, msg_ptr);
         if (ok < 0) {
-            PRINT("could not read install expression msg: %d\n", ok);
+            PRINT("could not read install expression msg header: %d\n", ok);
             return -6;
         }
+        msg_ptr += ok;
 
         ACQUIRE_LOCK(&ccp_state_lock);
         memset(state->expressions, 0, MAX_EXPRESSIONS * sizeof(struct Expression));
         memset(state->fold_instructions, 0, MAX_INSTRUCTIONS * sizeof(struct Instruction64));
     
-        state->program_uid = emsg.program_uid;
-        state->num_expressions = emsg.num_expressions;
-        state->num_instructions = emsg.num_instructions;
+        state->program_uid = expr_msg_info.program_uid;
+        state->num_expressions = expr_msg_info.num_expressions;
+        state->num_instructions = expr_msg_info.num_instructions;
 
-        // parse the expressions 
-        for (i=0; i<state->num_expressions; i++) {
-            ok = read_expression(&(state->expressions[i]), &(emsg.exprs[i]));
-            if (ok < 0) {
-                PRINT("could not read expression\n");
-                RELEASE_LOCK(&ccp_state_lock);
-                return -7;
-            }
-        }
+        // copy expressions directly from buffer (memory layout is the same)
+        memcpy(state->expressions, msg_ptr, state->num_expressions * sizeof(struct ExpressionMsg));
+        msg_ptr += state->num_expressions * sizeof(struct ExpressionMsg);
 
         // parse the instructions
         for (i=0; i<state->num_instructions; i++) {
-            ok = read_instruction(&(state->fold_instructions[i]), &(emsg.instrs[i]));
+            current_instr = (struct InstructionMsg*)(msg_ptr);
+            ok = read_instruction(&(state->fold_instructions[i]), current_instr);
             if (ok < 0) {
-                PRINT("could not read instruction %lu: %d\n", i, ok);
+                PRINT("could not read instruction # %lu: %d\n", i, ok);
                 RELEASE_LOCK(&ccp_state_lock);
                 return -8;
             }
+            msg_ptr += sizeof(struct InstructionMsg);
         }
 
         // call reset state to initialize all variables
@@ -290,16 +291,19 @@ int ccp_read_msg(
         reset_time(state);
         DBG_PRINT("installed new program (uid=%d) with %d expressions and %d instructions\n", state->program_uid, state->num_expressions, state->num_instructions);
         RELEASE_LOCK(&ccp_state_lock);
+
     } else if (hdr.Type == UPDATE_FIELDS) {
-        ok = read_update_fields_msg(&hdr, &fields_msg, buf + ok);
+        ok = check_update_fields_msg(&hdr, &num_updates, msg_ptr);
+        msg_ptr += ok;
         if (ok < 0) {
-            PRINT("could not read update fields msg\n");
+            PRINT("Update fields message failed: %d\n", ok);
             return -9;
         }
-
         ACQUIRE_LOCK(&ccp_state_lock);
-        for (i=0; i<fields_msg.num_updates; i++) {
-            update_register(conn, state, &(fields_msg.updates[i]));
+        for (i=0; i<num_updates; i++) {
+            current_update = (struct UpdateField*)(msg_ptr);
+            update_register(conn, state, current_update);
+            msg_ptr += sizeof(struct UpdateField);
         }
         RELEASE_LOCK(&ccp_state_lock);
     }
