@@ -105,6 +105,8 @@ struct ccp_priv_state {
     u8 num_to_return; // how many registers are used for measurements to be reported?
 
     u64 implicit_time_zero; // can be reset
+    
+    DEFINE_LOCK(lock);
    
 };
 

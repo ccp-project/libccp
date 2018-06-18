@@ -6,15 +6,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h> // for mutex
-#ifdef __APPLE__
-#include "spinlock.h"
-#endif
 #else
 #include <linux/types.h>
 #include <linux/string.h> // memcpy
 #include <linux/slab.h> // kmalloc
-#include <linux/spinlock.h> // spinlock
 #endif
 
 #define MAX_NUM_CONNECTIONS 4096
@@ -28,8 +23,6 @@ int send_conn_create(
 // array of active connections
 struct ccp_connection* ccp_active_connections;
 struct ccp_datapath* datapath;
-
-DEFINE_LOCK(ccp_state_lock);
 
 int ccp_init(struct ccp_datapath *dp) {
     // check that dp is properly filled in.
@@ -71,15 +64,12 @@ int ccp_init(struct ccp_datapath *dp) {
 
     memset(ccp_active_connections, 0, MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
 
-    INIT_LOCK(&ccp_state_lock);
-
     return 0;
 }
 
 void ccp_free(void) {
     __FREE__(ccp_active_connections);
     __FREE__(datapath);
-    DESTROY_LOCK(&ccp_state_lock);
     ccp_active_connections = NULL;
     datapath = NULL;
 }
@@ -117,8 +107,10 @@ struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info
         PRINT("failed to send create message: %d", ok);
         return conn;
     }
-        
-    get_ccp_priv_state(conn)->sent_create = true;
+    
+    struct ccp_priv_state *state = get_ccp_priv_state(conn);
+    state->sent_create = true;
+    INIT_LOCK(&state->lock);
 
     return conn;
 }
@@ -153,9 +145,9 @@ int ccp_invoke(struct ccp_connection *conn) {
         }
         return ok;
     }
-    ACQUIRE_LOCK(&ccp_state_lock);
+    ACQUIRE_LOCK(&state->lock);
     ok = state_machine(conn);
-    RELEASE_LOCK(&ccp_state_lock);
+    RELEASE_LOCK(&state->lock);
     return ok;
 }
 
@@ -184,6 +176,7 @@ void ccp_connection_free(u16 sid) {
     int msg_size, ok;
     struct ccp_connection *conn;
     char msg[REPORT_MSG_SIZE];
+    struct ccp_priv_state* state;
 
     DBG_PRINT("Entering %s\n", __FUNCTION__);
     // bounds check
@@ -205,6 +198,9 @@ void ccp_connection_free(u16 sid) {
     if (ok < 0) {
         PRINT("error sending close message: %d", ok);
     }
+
+    state = get_ccp_priv_state(conn);
+    DESTROY_LOCK(&state->lock);
 
     return;
 }
@@ -261,7 +257,7 @@ int ccp_read_msg(
         }
         msg_ptr += ok;
 
-        ACQUIRE_LOCK(&ccp_state_lock);
+        ACQUIRE_LOCK(&state->lock);
         memset(state->expressions, 0, MAX_EXPRESSIONS * sizeof(struct Expression));
         memset(state->fold_instructions, 0, MAX_INSTRUCTIONS * sizeof(struct Instruction64));
     
@@ -279,7 +275,7 @@ int ccp_read_msg(
             ok = read_instruction(&(state->fold_instructions[i]), current_instr);
             if (ok < 0) {
                 PRINT("could not read instruction # %lu: %d\n", i, ok);
-                RELEASE_LOCK(&ccp_state_lock);
+                RELEASE_LOCK(&state->lock);
                 return -8;
             }
             msg_ptr += sizeof(struct InstructionMsg);
@@ -290,7 +286,7 @@ int ccp_read_msg(
         init_register_state(state);
         reset_time(state);
         DBG_PRINT("installed new program (uid=%d) with %d expressions and %d instructions\n", state->program_uid, state->num_expressions, state->num_instructions);
-        RELEASE_LOCK(&ccp_state_lock);
+        RELEASE_LOCK(&state->lock);
 
     } else if (hdr.Type == UPDATE_FIELDS) {
         ok = check_update_fields_msg(&hdr, &num_updates, msg_ptr);
@@ -299,13 +295,13 @@ int ccp_read_msg(
             PRINT("Update fields message failed: %d\n", ok);
             return -9;
         }
-        ACQUIRE_LOCK(&ccp_state_lock);
+        ACQUIRE_LOCK(&state->lock);
         for (i=0; i<num_updates; i++) {
             current_update = (struct UpdateField*)(msg_ptr);
             update_register(conn, state, current_update);
             msg_ptr += sizeof(struct UpdateField);
         }
-        RELEASE_LOCK(&ccp_state_lock);
+        RELEASE_LOCK(&state->lock);
     }
 
     return ok;
