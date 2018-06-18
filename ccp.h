@@ -36,8 +36,8 @@
     #define __INLINE__       inline
     #define __MALLOC__(size) kmalloc(size, GFP_KERNEL)
     #define __FREE__(ptr)    kfree(ptr)
-    #define DEFINE_LOCK(l)   DEFINE_SPINLOCK(l)
-    #define INIT_LOCK(l)     
+    #define DEFINE_LOCK(l)   spinlock_t l
+    #define INIT_LOCK(l)     spin_lock_init(l)
     #define ACQUIRE_LOCK(l)  spin_lock(l)
     #define RELEASE_LOCK(l)  spin_unlock(l)
     #define DESTROY_LOCK(l)  
@@ -46,9 +46,14 @@
 #ifdef __USRLIB__
     #include <stdint.h>
     #include <stdbool.h>
+    #include <pthread.h> // for mutex
+    #ifdef __APPLE__
+    #include "spinlock.h"
+    #endif
 #else
     #include <linux/types.h>
     #include <linux/module.h>
+    #include <linux/spinlock.h> // spinlock
 #endif
 
 #include "serialize.h"
