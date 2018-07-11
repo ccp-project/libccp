@@ -48,6 +48,7 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
 #define  MEASURE       1
 #define  INSTALL_EXPR  2
 #define  UPDATE_FIELDS 3
+#define  CHANGE_PROG   4
 
 // Some messages contain strings.
 #define  BIGGEST_MSG_SIZE  32678
@@ -183,6 +184,17 @@ struct __attribute__((packed, aligned(1))) UpdateField {
 int check_update_fields_msg(
     struct CcpMsgHeader *hdr,
     u32 *num_updates,
+    char *buf
+);
+
+struct __attribute__((packed, aligned(1))) ChangeProgMsg {
+    u32 program_uid;
+    u32 num_updates;
+};
+
+int read_change_prog_msg(
+    struct CcpMsgHeader *hdr,
+    struct ChangeProgMsg *change_prog,
     char *buf
 );
 

@@ -65,6 +65,20 @@ struct Expression {
     u32 num_event_instrs;
 };
 
+/*  Entire datapath program
+ *  a set of expressions (conditions)
+ *  a set of instructions
+ */
+struct DatapathProgram {
+    u8 num_to_return;
+    u16 index; // index in array
+    u32 program_uid; // program uid assigned by CCP agent
+    u32 num_expressions;
+    u32 num_instructions;
+    struct Expression expressions[MAX_EXPRESSIONS];
+    struct Instruction64 fold_instructions[MAX_INSTRUCTIONS];
+};
+
 int read_expression(
     struct Expression *ret,
     struct ExpressionMsg *msg
@@ -85,13 +99,7 @@ void print_register(struct Register* reg);
 struct ccp_priv_state {
     bool sent_create;
 
-    u32 program_uid;
-
-    u32 num_expressions;
-    struct Expression expressions[MAX_EXPRESSIONS];
-   
-    u32 num_instructions;
-    struct Instruction64 fold_instructions[MAX_INSTRUCTIONS];
+    u16 program_index; // index into program array
 
     // report and control registers - users send a DEF for these
     u64 report_registers[MAX_REPORT_REG]; // reported variables, reset to DEF value upon report
@@ -102,8 +110,6 @@ struct ccp_priv_state {
     u64 tmp_registers[MAX_TMP_REG]; // used for temporary calculation in instructions
     u64 local_registers[MAX_LOCAL_REG]; // for local variables within a program - created in a bind in a when clause
         
-    u8 num_to_return; // how many registers are used for measurements to be reported?
-
     u64 implicit_time_zero; // can be reset
     
     DEFINE_LOCK(lock);

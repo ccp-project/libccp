@@ -345,12 +345,16 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
  */
 void reset_state(struct ccp_priv_state *state) {
     u8 i;
+    struct DatapathProgram* program = datapath_program_lookup(state->program_index);
+    if (program == NULL) {
+        PRINT("Cannot reset state because program is NULL\n");
+    }
     struct Instruction64 current_instruction;
     u8 num_to_return = 0;
 
     // go through all the DEF instructions, and reset all VOLATILE_REPORT_REG variables
-    for (i = 0; i < state->num_instructions; i++) {
-        current_instruction = state->fold_instructions[i];
+    for (i = 0; i < program->num_instructions; i++) {
+        current_instruction = program->fold_instructions[i];
         switch (current_instruction.op) {
             case DEF:
                 // This only applies to REPORT_REG.
@@ -378,7 +382,7 @@ void reset_state(struct ccp_priv_state *state) {
             default:
                 // DEF instructions are only at the beginnning
                 // Once we see a non-DEF, can stop.
-                state->num_to_return = num_to_return;
+                program->num_to_return = num_to_return;
                 return; 
         }
     }    
@@ -387,10 +391,14 @@ void reset_state(struct ccp_priv_state *state) {
 void init_register_state(struct ccp_priv_state *state) {
     u8 i;
     struct Instruction64 current_instruction;
+    struct DatapathProgram* program = datapath_program_lookup(state->program_index);
+    if (program == NULL) {
+        PRINT("Cannot init register state because program is NULL\n");
+    }
 
     // go through all the DEF instructions, and reset all CONTROL_REG and NONVOLATILE_REPORT_REG variables
-    for (i = 0; i < state->num_instructions; i++) {
-        current_instruction = state->fold_instructions[i];
+    for (i = 0; i < program->num_instructions; i++) {
+        current_instruction = program->fold_instructions[i];
         switch (current_instruction.op) {
             case DEF:
                 if (current_instruction.rLeft.type != CONTROL_REG && current_instruction.rLeft.type != NONVOLATILE_REPORT_REG) {
@@ -461,7 +469,8 @@ void print_register(struct Register* reg) {
  * Process instruction at specfied index 
  */
 int process_instruction(int instr_index, struct ccp_priv_state *state, struct ccp_primitives* primitives) {
-    struct Instruction64 current_instruction = state->fold_instructions[instr_index];
+    struct DatapathProgram* program = datapath_program_lookup(state->program_index);
+    struct Instruction64 current_instruction = program->fold_instructions[instr_index];
     u64 arg0, arg1, arg2, result; // extra arg0 for ewma, if, not if
 
     arg1 = read_reg(state, primitives, current_instruction.rLeft);
@@ -560,7 +569,8 @@ int process_instruction(int instr_index, struct ccp_priv_state *state, struct cc
  * Process a single event - check if condition is true, and execute event body if so
  */
 int process_expression(int expr_index, struct ccp_priv_state *state, struct ccp_primitives* primitives) {
-    struct Expression *expression = &(state->expressions[expr_index]);
+    struct DatapathProgram* program = datapath_program_lookup(state->program_index);
+    struct Expression *expression = &(program->expressions[expr_index]);
     u8 idx;
     int ret;
     DBG_PRINT("when #%d {\n", expr_index);
@@ -600,6 +610,15 @@ void reset_impl_registers(struct ccp_priv_state *state) {
  */
 int state_machine(struct ccp_connection *conn) {
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
+    if (state == NULL) {
+        PRINT("CCP priv state is null");
+        return -1;
+    }
+    struct DatapathProgram* program = datapath_program_lookup(state->program_index);
+    if (program == NULL) {
+        PRINT("Datapath program is null");
+        return -1;
+    }
     struct ccp_primitives* primitives = &conn->prims;
     u32 i;
     int ret;
@@ -618,7 +637,7 @@ int state_machine(struct ccp_connection *conn) {
     
     DBG_PRINT(">>> program starting <<<\n");
     // cycle through expressions, and process instructions
-    for (i=0; i < state->num_expressions; i++) {
+    for (i=0; i < program->num_expressions; i++) {
         ret = process_expression(i, state, primitives);
         if (ret < 0) {
             DBG_PRINT(">>> program finished ret=-1 <<<\n\n");
@@ -642,7 +661,7 @@ int state_machine(struct ccp_connection *conn) {
 
     // if we should report, report and reset state
     if (state->impl_registers[SHOULD_REPORT_REG]) {
-        send_measurement(conn, state->program_uid, state->report_registers, state->num_to_return);
+        send_measurement(conn, program->program_uid, state->report_registers, program->num_to_return);
         reset_state(state);
     }
 

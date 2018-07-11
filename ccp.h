@@ -208,6 +208,11 @@ void ccp_connection_free(u16 sid);
  */
 struct ccp_connection *ccp_connection_lookup(u16 sid);
 
+
+/* Lookup a datapath program, available to all flows
+ */
+struct DatapathProgram* datapath_program_lookup(u16 pid);
+
 /* Get the implementation-specific global ccp state
  */
 __INLINE__ void *ccp_get_global_impl(void);

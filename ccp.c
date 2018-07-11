@@ -14,6 +14,7 @@
 
 #define MAX_NUM_CONNECTIONS 4096
 #define CREATE_TIMEOUT_US 100000 // 100 ms
+#define MAX_NUM_PROGRAMS 10
 
 int send_conn_create(
     struct ccp_datapath *datapath,
@@ -22,7 +23,11 @@ int send_conn_create(
 
 // array of active connections
 struct ccp_connection* ccp_active_connections;
+// datapath implementation
 struct ccp_datapath* datapath;
+// datapath programs available to all flows
+struct DatapathProgram* datapath_programs;
+
 
 int ccp_init(struct ccp_datapath *dp) {
     // check that dp is properly filled in.
@@ -64,14 +69,25 @@ int ccp_init(struct ccp_datapath *dp) {
 
     memset(ccp_active_connections, 0, MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
 
+    datapath_programs = (struct DatapathProgram*)__MALLOC__(MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
+    if (!datapath_programs) {
+        __FREE__(datapath);
+        __FREE__(ccp_active_connections);
+        return -1;
+    }
+
+    memset(datapath_programs, 0, MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
+
     return 0;
 }
 
 void ccp_free(void) {
     __FREE__(ccp_active_connections);
     __FREE__(datapath);
+    __FREE__(datapath_programs);
     ccp_active_connections = NULL;
     datapath = NULL;
+    datapath_programs = NULL;
 }
 
 struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info *flow_info) {
@@ -209,19 +225,129 @@ void ccp_connection_free(u16 sid) {
     return;
 }
 
+// lookup datapath program using program ID
+// returns  NULL on error
+struct DatapathProgram* datapath_program_lookup(u16 pid) {
+    struct DatapathProgram *prog;
+    // bounds check
+    if (pid == 0 || pid > MAX_NUM_PROGRAMS) {
+        PRINT("program index out of bounds: %d\n", pid);
+        return NULL;
+    }
+
+    prog = &datapath_programs[pid-1];
+    if (prog->index != pid) {
+        PRINT("index mismatch: pid %d, index %d", pid, prog->index);
+        return NULL;
+    }
+
+    return prog;
+
+}
+
+// scan through datapath program table for the program with this UID
+int datapath_program_lookup_uid(u32 program_uid) {
+    struct DatapathProgram *prog;
+    int i;
+    for (i=0; i < MAX_NUM_PROGRAMS; i++) {
+        prog = &datapath_programs[i];
+        if (prog->index == 0) {
+            continue;
+        }
+        if (prog->program_uid == program_uid) {
+            return (int)(prog->index);
+        }
+    }
+    return -1;
+}
+
+// saves a new datapath program into the array of datapath programs
+// returns index into datapath program array where this program is stored
+// if there is no more space, returns -1
+int datapath_program_install(struct InstallExpressionMsgHdr* install_expr_msg, char* buf) {
+    u16 pid;
+    int ok;
+    int i;
+    struct DatapathProgram* program;
+    struct InstructionMsg* current_instr;
+    char* msg_ptr; // for reading from char* buf
+    msg_ptr = buf;
+    for (pid = 0; pid < MAX_NUM_PROGRAMS; pid++) {
+        program = &datapath_programs[pid];
+        if (program->index == 0) {
+            // found a free slot
+            program->index = pid + 1;
+            pid = pid + 1;
+            break;
+        }
+    }
+    if (pid >= MAX_NUM_PROGRAMS) {
+        return -1;
+    }
+
+    // copy into the program
+    program->index = pid;
+    program->program_uid = install_expr_msg->program_uid;
+    program->num_expressions = install_expr_msg->num_expressions;
+    program->num_instructions = install_expr_msg->num_instructions;
+    DBG_PRINT("Trying to install new program with (uid=%d) with %d expressions and %d instructions\n", program->program_uid, program->num_expressions, program->num_instructions);
+
+    memcpy(program->expressions, msg_ptr, program->num_expressions * sizeof(struct ExpressionMsg));
+    msg_ptr += program->num_expressions * sizeof(struct ExpressionMsg);
+
+    // parse individual instructions
+    for (i=0; i < (int)(program->num_instructions); i++) {
+        current_instr = (struct InstructionMsg*)(msg_ptr);
+        ok = read_instruction(&(program->fold_instructions[i]), current_instr);
+        if (ok < 0) {
+            PRINT("Could not read instruction # %d: %d in program with uid %u\n", i, ok, program->program_uid);
+            return ok;
+        }
+        msg_ptr += sizeof(struct InstructionMsg);
+    }
+
+    DBG_PRINT("installed new program (uid=%d) with %d expressions and %d instructions\n", program->program_uid, program->num_expressions, program->num_instructions);
+
+    return (int)pid;
+
+}
+
+// frees datapath program
+void datapath_program_free(u16 pid) {
+    struct DatapathProgram *program;
+
+    DBG_PRINT("Entering %s\n", __FUNCTION__);
+    // bounds check
+    if (pid == 0 || pid > MAX_NUM_PROGRAMS) {
+        PRINT("index out of bounds: %d", pid);
+        return;
+    }
+
+    program = &datapath_programs[pid-1];
+    if (program->index != pid) {
+        PRINT("index mismatch: pid %d, index %d", pid, program->index);
+        return;
+    }
+
+    memset(program, 0, sizeof(struct DatapathProgram));
+    program->index = 0;
+    return;
+}
+
 int ccp_read_msg(
     char *buf,
     int bufsize
 ) {
     int ok;
+    u32 num_updates;
     size_t i;
     struct ccp_connection *conn;
     struct ccp_priv_state *state;
     struct CcpMsgHeader hdr;
     struct InstallExpressionMsgHdr expr_msg_info;
-    struct InstructionMsg *current_instr; // cast message memory to this, and copy over fields
-    u32 num_updates;
+    int program_index;
     struct UpdateField *current_update;
+    struct ChangeProgMsg change_program;
     char* msg_ptr;
 
     ok = read_header(&hdr, buf);  
@@ -243,64 +369,85 @@ int ccp_read_msg(
         PRINT("message too long: %u > %d\n", hdr.Len, BIGGEST_MSG_SIZE);
         return -4;
     }
-
-    conn = ccp_connection_lookup(hdr.SocketId);
-    if (conn == NULL) {
-        PRINT("unknown connection: %u\n", hdr.SocketId);
-        return -5;
-    }
     msg_ptr = buf + ok;
 
-    state = get_ccp_priv_state(conn);
+    // INSTALL_EXPR message is for all flows, not a specific connection
+    // sock_id in this message should be disregarded (could be before any flows begin)
     if (hdr.Type == INSTALL_EXPR) {
+        DBG_PRINT("Received install message\n");
         memset(&expr_msg_info, 0, sizeof(struct InstallExpressionMsgHdr));
         ok = read_install_expr_msg_hdr(&hdr, &expr_msg_info, msg_ptr);
         if (ok < 0) {
             PRINT("could not read install expression msg header: %d\n", ok);
+            return -5;
+        }
+        // clear the datapath programs
+        // TODO: implement a system for which each ccp process has an ID corresponding to its programs
+        // as all programs are sent down separately, right now we check if its a new portus starting
+        // by checking if the ID of the program is 0
+        // TODO: remove this hack
+        if (expr_msg_info.program_uid == 0) {
+            memset(datapath_programs, 0, MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
+        }
+
+        msg_ptr += ok;
+        program_index = datapath_program_install(&expr_msg_info, msg_ptr);
+        if ( program_index < 0 ) {
+            PRINT("could not install datapath program: %d\n", program_index);
             return -6;
         }
-        msg_ptr += ok;
+        return 0; // installed program successfully
+    }
 
-        ACQUIRE_LOCK(&state->lock);
-        memset(state->expressions, 0, MAX_EXPRESSIONS * sizeof(struct Expression));
-        memset(state->fold_instructions, 0, MAX_INSTRUCTIONS * sizeof(struct Instruction64));
-    
-        state->program_uid = expr_msg_info.program_uid;
-        state->num_expressions = expr_msg_info.num_expressions;
-        state->num_instructions = expr_msg_info.num_instructions;
+    // rest of the messages must be for a specific flow
+    conn = ccp_connection_lookup(hdr.SocketId);
+    if (conn == NULL) {
+        PRINT("unknown connection: %u\n", hdr.SocketId);
+        return -7;
+    }
+    state = get_ccp_priv_state(conn);
 
-        // copy expressions directly from buffer (memory layout is the same)
-        memcpy(state->expressions, msg_ptr, state->num_expressions * sizeof(struct ExpressionMsg));
-        msg_ptr += state->num_expressions * sizeof(struct ExpressionMsg);
-
-        // parse the instructions
-        for (i=0; i<state->num_instructions; i++) {
-            current_instr = (struct InstructionMsg*)(msg_ptr);
-            ok = read_instruction(&(state->fold_instructions[i]), current_instr);
-            if (ok < 0) {
-                PRINT("could not read instruction # %lu: %d\n", i, ok);
-                RELEASE_LOCK(&state->lock);
-                return -8;
-            }
-            msg_ptr += sizeof(struct InstructionMsg);
-        }
-
-        // call reset state to initialize all variables
-        reset_state(state);
-        init_register_state(state);
-        reset_time(state);
-        DBG_PRINT("installed new program (uid=%d) with %d expressions and %d instructions\n", state->program_uid, state->num_expressions, state->num_instructions);
-        RELEASE_LOCK(&state->lock);
-
-    } else if (hdr.Type == UPDATE_FIELDS) {
+    if (hdr.Type == UPDATE_FIELDS) {
         ok = check_update_fields_msg(&hdr, &num_updates, msg_ptr);
         msg_ptr += ok;
         if (ok < 0) {
             PRINT("Update fields message failed: %d\n", ok);
-            return -9;
+            return -8;
         }
         ACQUIRE_LOCK(&state->lock);
         for (i=0; i<num_updates; i++) {
+            current_update = (struct UpdateField*)(msg_ptr);
+            update_register(conn, state, current_update);
+            msg_ptr += sizeof(struct UpdateField);
+        }
+        RELEASE_LOCK(&state->lock);
+    } else if (hdr.Type == CHANGE_PROG) {
+        // check if the program is in the program_table
+        memset(&change_program, 0, sizeof(struct ChangeProgMsg));
+        ok = read_change_prog_msg(&hdr, &change_program, msg_ptr);
+        if (ok < 0) {
+            PRINT("Change program message deserialization failed: %d\n", ok);
+            return -9;
+        }
+        msg_ptr += ok;
+        program_index = datapath_program_lookup_uid(change_program.program_uid);
+
+
+        if (program_index < 0) {
+            // TODO: is it possible there is not enough time between when the message is installed and when a flow asks to use the program?
+            PRINT("Could not find datapath program with program uid: %u\n", program_index);
+            return -10;
+        }
+
+        // change the program to this program, and reset the state
+        ACQUIRE_LOCK(&state->lock);
+        state->program_index = (u16)program_index; // index into program array for further lookup of instructions
+        reset_state(state);
+        init_register_state(state);
+        reset_time(state);
+
+        // apply any possible update fields to the initialized registers
+        for (i=0; i<change_program.num_updates; i++) {
             current_update = (struct UpdateField*)(msg_ptr);
             update_register(conn, state, current_update);
             msg_ptr += sizeof(struct UpdateField);

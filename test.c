@@ -143,6 +143,16 @@ int install_helper(char *dp, size_t dp_len) {
     return 0;
 }
 
+int change_prog_helper(char *dp, size_t dp_len) {
+    int ok = ccp_read_msg(dp, dp_len);
+    if (ok < 0) {
+        printf("read change program message error: %d\n", ok);
+        return -1;
+    }
+
+    return 0;
+}
+
 int getreport_helper(char *expected, size_t msg_len, struct ccp_connection *conn) {
     memcpy(&expected_sent_msg, expected, msg_len);
     expecting_send = msg_len;
@@ -190,10 +200,25 @@ int test_basic(struct ccp_connection *conn) {
         0x01, 0x00, 0x00, 0x00,                         // num_fields
         0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // fields
     };
+
+    char change_prog_msg[16] = {
+        4, 0,                           // type
+        12, 0,                          // length 
+        1, 0, 0, 0,                     // sock id
+        7, 0, 0, 0,                     // program_uid
+        0, 0, 0, 0,                     // extra fields
+    };
+
     printf("%s...          ", __func__);
     fflush(stdout);
 
-    ok = install_helper(dp, 104);
+    ok = install_helper(dp, 116);
+    if (ok < 0) {
+        printf("\n");
+        return -1;
+    }
+
+    ok = change_prog_helper(change_prog_msg, 16);
     if (ok < 0) {
         printf("\n");
         return -1;
@@ -232,12 +257,28 @@ int test_primitives(struct ccp_connection *conn) {
         0x01, 0x00, 0x00, 0x00,
         0xed, 0xfe, 0xfe, 0xca, 0x00, 0x00, 0x00, 0x00,
     };
+    
+    char change_prog_msg[16] = {
+        4, 0,                           // type
+        12, 0,                          // length 
+        1, 0, 0, 0,                     // sock id
+        3, 0, 0, 0,                     // program_uid
+        0, 0, 0, 0,                     // extra fields
+    };
+
     printf("%s...     ", __func__);
+
     fflush(stdout);
 
     conn->prims.rtt_sample_us = 0xcafefeed;
 
     ok = install_helper(dp, 88);
+    if (ok < 0) {
+        printf("\n");
+        return -1;
+    }
+
+    ok = change_prog_helper(change_prog_msg, 16);
     if (ok < 0) {
         printf("\n");
         return -1;
@@ -289,6 +330,15 @@ int test_multievent(struct ccp_connection *conn) {
         0x01, 0x00, 0x00, 0x00,
         0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
+    
+    char change_prog_msg[16] = {
+        4, 0,                           // type
+        12, 0,                          // length 
+        1, 0, 0, 0,                     // sock id
+        9, 0, 0, 0,                     // program_uid
+        0, 0, 0, 0,                     // extra fields
+    };
+
     printf("%s...     ", __func__);
 
     conn->prims.rtt_sample_us = 0xcafefeed;
@@ -299,6 +349,12 @@ int test_multievent(struct ccp_connection *conn) {
         return -1;
     }
     
+    ok = change_prog_helper(change_prog_msg, 16);
+    if (ok < 0) {
+        printf("\n");
+        return -1;
+    }
+
     ok = getreport_helper(first_report_msg, 24, conn);
     if (ok < 0) {
         printf("failed on first report\n");
@@ -365,6 +421,13 @@ int test_fallthrough(struct ccp_connection *conn) {
         0x01, 0x00, 0x00, 0x00,
         0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
+    char change_prog_msg[16] = {
+        4, 0,                           // type
+        12, 0,                          // length 
+        1, 0, 0, 0,                     // sock id
+        4, 0, 0, 0,                     // program_uid
+        0, 0, 0, 0,                     // extra fields
+    };
     printf("%s...    ", __func__);
 
     conn->prims.rtt_sample_us = 0xcafefeed;
@@ -375,6 +438,12 @@ int test_fallthrough(struct ccp_connection *conn) {
         return -1;
     }
     
+    ok = change_prog_helper(change_prog_msg, 16);
+    if (ok < 0) {
+        printf("\n");
+        return -1;
+    }
+
     ok = getreport_helper(first_report_msg, 24, conn);
     if (ok < 0) {
         printf("failed on first report\n");
@@ -429,6 +498,14 @@ int test_read_implicit(struct ccp_connection *conn) {
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
+    
+    char change_prog_msg[16] = {
+        4, 0,                           // type
+        12, 0,                          // length 
+        1, 0, 0, 0,                     // sock id
+        5, 0, 0, 0,                     // program_uid
+        0, 0, 0, 0,                     // extra fields
+    };
     printf("%s...  ", __func__);
     fflush(stdout);
 
@@ -438,6 +515,12 @@ int test_read_implicit(struct ccp_connection *conn) {
         return -1;
     }
     
+    ok = change_prog_helper(change_prog_msg, 16);
+    if (ok < 0) {
+        printf("\n");
+        return -1;
+    }
+
     ok = getreport_helper(report_msg, 24, conn);
     if (ok < 0) {
         printf("failed on report\n");

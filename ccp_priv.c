@@ -17,9 +17,6 @@ int init_ccp_priv_state(struct ccp_connection *conn) {
 #endif
     state = (struct ccp_priv_state*) conn->state;
     state->sent_create = false;
-    state->num_expressions = 0;
-    state->num_instructions = 0;
-    state->num_to_return = 0;
     state->implicit_time_zero = datapath->time_zero;
     return 0;
 }

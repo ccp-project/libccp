@@ -30,6 +30,8 @@ int read_header(struct CcpMsgHeader *hdr, char *buf) {
         return sizeof(struct CcpMsgHeader);
     case UPDATE_FIELDS:
         return sizeof(struct CcpMsgHeader);
+    case CHANGE_PROG:
+        return sizeof(struct CcpMsgHeader);
     default:
         return -hdr->Type;
     }
@@ -169,4 +171,21 @@ int check_update_fields_msg(
         return -2;
     }
     return sizeof(u32);
+}
+
+int read_change_prog_msg(
+    struct CcpMsgHeader *hdr,
+    struct ChangeProgMsg *change_prog,
+    char *buf
+) {
+    if (hdr->Type != CHANGE_PROG) {
+        return -1;
+    }
+
+    memcpy(change_prog, buf, sizeof(struct ChangeProgMsg));
+    if (change_prog->num_updates > MAX_MUTABLE_REG) {
+        PRINT("Too many updates sent with change prog: %u\n", change_prog->num_updates);
+        return -2;
+    }
+    return sizeof(struct ChangeProgMsg);
 }
