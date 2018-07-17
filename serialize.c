@@ -1,15 +1,15 @@
 #include "serialize.h"
 #include "ccp.h"
 
-#ifdef __USRLIB__
+#ifdef __KERNEL__
+#include <linux/types.h>
+#include <linux/string.h> // memcpy
+#include <linux/slab.h> // kmalloc
+#else
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#else
-#include <linux/types.h>
-#include <linux/string.h> // memcpy
-#include <linux/slab.h> // kmalloc
 #endif
 
 /* (type, len, socket_id) header

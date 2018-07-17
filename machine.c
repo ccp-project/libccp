@@ -1,9 +1,9 @@
 #include "ccp_priv.h"
-#ifdef __USRLIB__
+#ifdef __KERNEL__
+#define PRIu64 "llu"
+#else
 #include <inttypes.h>
 #include "stdio.h"
-#else
-#define PRIu64 "llu"
 #endif
 
 
