@@ -1,19 +1,19 @@
 #include "ccp_priv.h"
 
-#ifdef __USRLIB__
-#include <stdlib.h>
-#else
+#ifdef __KERNEL__
 #include <linux/slab.h> // kmalloc
+#else
+#include <stdlib.h>
 #endif
 
 extern struct ccp_datapath *datapath;
 
 int init_ccp_priv_state(struct ccp_connection *conn) {
     struct ccp_priv_state *state;
-#ifdef __USRLIB__
-    conn->state = malloc(sizeof(struct ccp_priv_state));
-#else
+#ifdef __KERNEL__
     conn->state = kmalloc(sizeof(struct ccp_priv_state), GFP_KERNEL);
+#else
+    conn->state = malloc(sizeof(struct ccp_priv_state));
 #endif
     state = (struct ccp_priv_state*) conn->state;
     state->sent_create = false;

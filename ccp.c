@@ -2,14 +2,14 @@
 #include "serialize.h"
 #include "ccp_priv.h"
 
-#ifdef __USRLIB__
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#else
+#ifdef __KERNEL__
 #include <linux/types.h>
 #include <linux/string.h> // memcpy
 #include <linux/slab.h> // kmalloc
+#else
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #endif
 
 #define MAX_NUM_CONNECTIONS 4096

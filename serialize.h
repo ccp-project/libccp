@@ -6,10 +6,10 @@
 #ifndef CCP_SERIALIZE_H
 #define CCP_SERIALIZE_H
 
-#ifdef __USRLIB__
-#include <stdint.h>
-#else 
+#ifdef __KERNEL__
 #include <linux/types.h>
+#else
+#include <stdint.h>
 #endif
 
 typedef uint8_t u8;
