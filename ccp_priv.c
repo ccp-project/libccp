@@ -21,6 +21,7 @@ int init_ccp_priv_state(struct ccp_connection *conn) {
     state->num_instructions = 0;
     state->num_to_return = 0;
     state->implicit_time_zero = datapath->time_zero;
+    state->num_flows = 1;
     return 0;
 }
 

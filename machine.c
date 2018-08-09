@@ -229,12 +229,14 @@ int update_register(struct ccp_connection* conn, struct ccp_priv_state *state, s
             if (update_field->reg_index == CWND_REG) {
                 state->impl_registers[CWND_REG] = update_field->new_value;
                 if (state->impl_registers[CWND_REG] != 0) {
-                    datapath->set_cwnd(datapath, conn, state->impl_registers[CWND_REG]);
+                    PRINT("update cwnd=%llu/%d = %lld", state->impl_registers[CWND_REG], state->num_flows, (state->impl_registers[CWND_REG] / state->num_flows));
+                    datapath->set_cwnd(datapath, conn, (state->impl_registers[CWND_REG] / state->num_flows));
                 }
             } else if (update_field->reg_index == RATE_REG) {
                 state->impl_registers[RATE_REG] = update_field->new_value;
                 if (state->impl_registers[RATE_REG] != 0) {
-                    datapath->set_rate_abs(datapath, conn, state->impl_registers[RATE_REG]);
+                    PRINT("update rate=%llu/%d = %lld", state->impl_registers[RATE_REG], state->num_flows, (state->impl_registers[RATE_REG] / state->num_flows));
+                    datapath->set_rate_abs(datapath, conn, (state->impl_registers[RATE_REG] / state->num_flows));
                 }
             }
             return 0;
@@ -610,7 +612,9 @@ int state_machine(struct ccp_connection *conn) {
 
     // set cwnd and rate registers to what they are in the datapath
     state->impl_registers[CWND_REG] = (u64)conn->prims.snd_cwnd;
+    u64 old_cwnd = (u64) conn->prims.snd_cwnd;
     state->impl_registers[RATE_REG] = (u64)conn->prims.snd_rate;
+    u64 old_rate = (u64) conn->prims.snd_rate;
 
     // update the US_ELAPSED registers
     implicit_now = datapath->since_usecs(state->implicit_time_zero);
@@ -633,11 +637,17 @@ int state_machine(struct ccp_connection *conn) {
     }
     // set rate and cwnd from implicit registers
     if (state->impl_registers[CWND_REG] > 0) {
-        datapath->set_cwnd(datapath, conn, state->impl_registers[CWND_REG]);
+        if (state->impl_registers[CWND_REG] != old_cwnd) {
+            PRINT("end    cwnd=%llu/%d = %lld", state->impl_registers[CWND_REG], state->num_flows, (state->impl_registers[CWND_REG] / state->num_flows));
+            datapath->set_cwnd(datapath, conn, (state->impl_registers[CWND_REG] / state->num_flows));
+        }
     }
 
     if (state->impl_registers[RATE_REG] != 0) {
-        datapath->set_rate_abs(datapath, conn, state->impl_registers[RATE_REG]);
+        if (state->impl_registers[RATE_REG] != old_rate) {
+            PRINT("end    rate=%llu/%d = %lld", state->impl_registers[RATE_REG], state->num_flows, (state->impl_registers[RATE_REG] / state->num_flows));
+            datapath->set_rate_abs(datapath, conn, (state->impl_registers[RATE_REG] / state->num_flows));
+        }
     }
 
     // if we should report, report and reset state

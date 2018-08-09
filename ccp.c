@@ -98,20 +98,28 @@ struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info
     conn->impl = impl;
     memcpy(&conn->flow_info, flow_info, sizeof(struct ccp_datapath_info));
 
-    init_ccp_priv_state(conn);
+    if (sid == 1) {
 
-    // send to CCP:
-    // index of pointer back to this sock for IPC callback
-    ok = send_conn_create(datapath, conn);
-    if (ok < 0) {
-        PRINT("failed to send create message: %d", ok);
-        return conn;
+        init_ccp_priv_state(conn);
+
+        // send to CCP:
+        // index of pointer back to this sock for IPC callback
+        ok = send_conn_create(datapath, conn);
+        if (ok < 0) {
+            PRINT("failed to send create message: %d", ok);
+            return conn;
+        }
+        
+        struct ccp_priv_state *state = get_ccp_priv_state(conn);
+        state->sent_create = true;
+        INIT_LOCK(&state->lock);
+    } else {
+        struct ccp_connection *bundle = &ccp_active_connections[0];
+        struct ccp_priv_state *state = get_ccp_priv_state(bundle);
+        conn->state = state;
+        state->num_flows++;
+        PRINT("new flow! flows=%d", state->num_flows);
     }
-    
-    struct ccp_priv_state *state = get_ccp_priv_state(conn);
-    state->sent_create = true;
-    INIT_LOCK(&state->lock);
-
     return conn;
 }
 
@@ -358,6 +366,7 @@ int send_measurement(
         ok = -1;
         return ok;
     }
+    conn = &ccp_active_connections[0];
 
     msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, conn->index, program_uid, fields, num_fields);
     DBG_PRINT("In %s\n", __FUNCTION__);
