@@ -193,7 +193,7 @@ void ccp_connection_free(u16 sid) {
 
     conn->index = 0;
 
-    msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, 0, conn->index, 0, 0);
+    msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, sid, conn->index, 0, 0);
     ok = datapath->send_msg(datapath, conn, msg, msg_size);
     if (ok < 0) {
         PRINT("error sending close message: %d", ok);
