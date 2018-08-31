@@ -25,6 +25,7 @@
     #define INIT_LOCK(l)     spin_lock_init(l)
     #define ACQUIRE_LOCK(l)  spin_lock(l)
     #define RELEASE_LOCK(l)  spin_unlock(l)
+    #define TRY_LOCK(l)      spin_trylock(l)
     #define DESTROY_LOCK(l)  
 #else
     #ifdef __DEBUG__
@@ -40,6 +41,7 @@
     #define INIT_LOCK(l)     pthread_spin_init(l, PTHREAD_PROCESS_SHARED)
     #define ACQUIRE_LOCK(l)  pthread_spin_lock(l)
     #define RELEASE_LOCK(l)  pthread_spin_unlock(l)
+    #define TRY_LOCK(l)      pthread_spin_trylock(l)
     #define DESTROY_LOCK(l)  pthread_spin_destroy(l)
 #endif
 

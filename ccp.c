@@ -29,6 +29,38 @@ struct ccp_datapath* datapath;
 struct DatapathProgram* datapath_programs;
 
 
+struct update {
+    bool control_is_pending[MAX_CONTROL_REG];
+    u64 control_registers[MAX_CONTROL_REG];
+    bool impl_is_pending[MAX_IMPLICIT_REG];
+    u64 impl_registers[MAX_IMPLICIT_REG];
+};
+
+struct update pending_update;
+
+int stage_update(struct UpdateField *update_field) {
+    // update the value for these registers
+    // for cwnd, rate; update field in datapath
+    switch(update_field->reg_type) {
+        case CONTROL_REG:
+            // set new value
+            pending_update.control_registers[update_field->reg_index] = update_field->new_value;
+            pending_update.control_is_pending[update_field->reg_index] = true;
+            return 0;
+        case IMPLICIT_REG:
+            if (update_field->reg_index == CWND_REG) {
+                pending_update.impl_registers[CWND_REG] = update_field->new_value;
+                pending_update.impl_is_pending[CWND_REG] = true;
+            } else if (update_field->reg_index == RATE_REG) {
+                pending_update.impl_registers[RATE_REG] = update_field->new_value;
+                pending_update.impl_is_pending[RATE_REG] = true;
+            }
+            return 0;
+        default:
+            return -1; // allowed only for CONTROL and CWND and RATE reg within CONTROL_REG
+    }
+}
+
 int ccp_init(struct ccp_datapath *dp) {
     // check that dp is properly filled in.
     if (
@@ -68,6 +100,7 @@ int ccp_init(struct ccp_datapath *dp) {
     }
 
     memset(ccp_active_connections, 0, MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
+    memset(&pending_update, 0, sizeof(struct update));
 
     datapath_programs = (struct DatapathProgram*)__MALLOC__(MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
     if (!datapath_programs) {
@@ -154,6 +187,7 @@ __INLINE__ int ccp_set_impl(struct ccp_connection *conn, void *ptr) {
 }
 
 int ccp_invoke(struct ccp_connection *conn) {
+    int i;
     int ok = 0;
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
     if (!(state->sent_create)) {
@@ -169,10 +203,41 @@ int ccp_invoke(struct ccp_connection *conn) {
 
         return 0;
     }
+    
+    //ok = TRY_LOCK(&state->lock);
+    //if (!ok) {
+    //    return ok;
+    //}
 
-    ACQUIRE_LOCK(&state->lock);
+    for (i = 0; i < MAX_CONTROL_REG; i++) {
+        if (pending_update.control_is_pending[i]) {
+            state->control_registers[i] = pending_update.control_registers[i];
+        }
+    }
+
+    if (pending_update.impl_is_pending[CWND_REG]) {
+        state->impl_registers[CWND_REG] = pending_update.impl_registers[CWND_REG];
+        if (state->impl_registers[CWND_REG] != 0) {
+            datapath->set_cwnd(datapath, conn, state->impl_registers[CWND_REG]);
+        }
+    }
+
+    if (pending_update.impl_is_pending[RATE_REG]) {
+        state->impl_registers[RATE_REG] = pending_update.impl_registers[RATE_REG];
+        if (state->impl_registers[RATE_REG] != 0) {
+            datapath->set_rate_abs(datapath, conn, state->impl_registers[RATE_REG]);
+        }
+    }
+
+    memset(&pending_update, 0, sizeof(struct update));
+
+    //RELEASE_LOCK(&state->lock);
+    
     ok = state_machine(conn);
-    RELEASE_LOCK(&state->lock);
+    if (!ok) {
+        return ok;
+    }
+
     return ok;
 }
 
@@ -419,13 +484,12 @@ int ccp_read_msg(
             PRINT("Update fields message failed: %d\n", ok);
             return -8;
         }
-        ACQUIRE_LOCK(&state->lock);
+
         for (i=0; i<num_updates; i++) {
             current_update = (struct UpdateField*)(msg_ptr);
-            update_register(conn, state, current_update);
+            stage_update(current_update);
             msg_ptr += sizeof(struct UpdateField);
         }
-        RELEASE_LOCK(&state->lock);
     } else if (hdr.Type == CHANGE_PROG) {
         // check if the program is in the program_table
         memset(&change_program, 0, sizeof(struct ChangeProgMsg));
