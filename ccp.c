@@ -13,7 +13,7 @@
 #endif
 
 #define MAX_NUM_CONNECTIONS 4096
-#define CREATE_TIMEOUT_US 1000000 // 1 second
+#define CREATE_TIMEOUT_US 100000 // 100 ms
 
 int send_conn_create(
     struct ccp_datapath *datapath,
@@ -104,7 +104,7 @@ struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info
     // index of pointer back to this sock for IPC callback
     ok = send_conn_create(datapath, conn);
     if (ok < 0) {
-        PRINT("failed to send create message: %d", ok);
+        PRINT("failed to send create message: %d\n", ok);
         return conn;
     }
     
@@ -141,10 +141,14 @@ int ccp_invoke(struct ccp_connection *conn) {
         // index of pointer back to this sock for IPC callback
         ok = send_conn_create(datapath, conn);
         if (ok < 0) {
-            PRINT("failed to send create message: %d", ok);
+            PRINT("failed to retx create message: %d\n", ok);
+        } else {
+            state->sent_create = true;
         }
-        return ok;
+
+        return 0;
     }
+
     ACQUIRE_LOCK(&state->lock);
     ok = state_machine(conn);
     RELEASE_LOCK(&state->lock);
@@ -315,7 +319,6 @@ int send_conn_create(
     int ok;
     char msg[REPORT_MSG_SIZE];
     int msg_size;
-    struct ccp_priv_state* state = get_ccp_priv_state(conn);
     struct CreateMsg cr = {
         .init_cwnd = conn->flow_info.init_cwnd,
         .mss = conn->flow_info.mss,
@@ -329,12 +332,16 @@ int send_conn_create(
         conn->last_create_msg_sent != 0 &&
         datapath->since_usecs(conn->last_create_msg_sent) < CREATE_TIMEOUT_US
     ) {
-        state->sent_create = true;
-        return 0;
+        DBG_PRINT("%s: %llu < %u\n", 
+            __FUNCTION__, 
+            datapath->since_usecs(conn->last_create_msg_sent), 
+            CREATE_TIMEOUT_US,
+        );
+        return -1;
     }
 
     if (conn->index < 1) {
-        return -1;
+        return -2;
     }
 
     conn->last_create_msg_sent = datapath->now();
