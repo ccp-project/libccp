@@ -90,6 +90,11 @@ void ccp_free(void) {
     datapath_programs = NULL;
 }
 
+void ccp_conn_create_success(struct ccp_priv_state *state) {
+    state->sent_create = true;
+    INIT_LOCK(&state->lock);
+}
+
 struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info *flow_info) {
     int ok;
     u16 sid;
@@ -125,8 +130,7 @@ struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info
     }
     
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
-    state->sent_create = true;
-    INIT_LOCK(&state->lock);
+    ccp_conn_create_success(state);
 
     return conn;
 }
@@ -155,11 +159,12 @@ int ccp_invoke(struct ccp_connection *conn) {
     if (!(state->sent_create)) {
         // try contacting the CCP again
         // index of pointer back to this sock for IPC callback
+        DBG_PRINT("%s retx create message\n", __FUNCTION__);
         ok = send_conn_create(datapath, conn);
         if (ok < 0) {
             PRINT("failed to retx create message: %d\n", ok);
         } else {
-            state->sent_create = true;
+            ccp_conn_create_success(state);
         }
 
         return 0;
