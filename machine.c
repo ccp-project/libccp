@@ -252,13 +252,19 @@ void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
     switch (reg.type) {
         case NONVOLATILE_REPORT_REG:
         case VOLATILE_REPORT_REG:
-            state->report_registers[reg.index] = value;
+            if (reg.index >= 0 && reg.index < MAX_REPORT_REG) {
+                state->report_registers[reg.index] = value;
+            }
             break;
         case TMP_REG:
-            state->tmp_registers[reg.index] = value;
+            if (reg.index >= 0 && reg.index < MAX_TMP_REG) {
+                state->tmp_registers[reg.index] = value;
+            }
             break;
         case LOCAL_REG:
-            state->local_registers[reg.index] = value;
+            if (reg.index >= 0 && reg.index < MAX_LOCAL_REG) {
+                state->local_registers[reg.index] = value;
+            }
             break;
         case IMPLICIT_REG: // cannot write to US_ELAPSED reg
             if (reg.index == EXPR_FLAG_REG || reg.index == CWND_REG || reg.index == RATE_REG || reg.index == SHOULD_REPORT_REG || reg.index == SHOULD_FALLTHROUGH_REG ) {
@@ -270,7 +276,9 @@ void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
             }
             break;
         case CONTROL_REG:
-            state->control_registers[reg.index] = value; 
+            if (reg.index >= 0 && reg.index < MAX_CONTROL_REG) {
+                state->control_registers[reg.index] = value; 
+            }
         default:
             break;
     }
