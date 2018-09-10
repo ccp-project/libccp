@@ -39,17 +39,17 @@ static void test_ccp_set_rate_rel(struct ccp_datapath *UNUSED(dp), struct ccp_co
 
 static int test_ccp_send_msg(struct ccp_datapath *UNUSED(dp), struct ccp_connection *UNUSED(conn), char *msg, int msg_size) {
     if (expecting_send <= 0) {
-        printf("Not expecting send");
+        printf("FAIL\nNot expecting send");
         goto fail;
     }
     
     if (msg_size != expecting_send) {
-        printf("Wrong size: expected %d got %d", expecting_send, msg_size);
+        printf("FAIL\nWrong size: expected %d got %d", expecting_send, msg_size);
         goto fail;
     }
 
     if (memcmp(&expected_sent_msg, msg, msg_size) != 0) {
-        printf("Wrong msg");
+        printf("FAIL\nWrong msg");
         goto fail;
     }
 
@@ -65,7 +65,7 @@ fail:
     }
     printf("] ");
     if (expecting_send > 0) {
-        printf("\n Expected: [");
+        printf("\n      Expected: [");
         for (int i = 0; i < expecting_send; i++) {
             printf("%02x, ", expected_sent_msg[i]);
         }
