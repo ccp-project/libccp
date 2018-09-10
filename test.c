@@ -153,6 +153,16 @@ int change_prog_helper(char *dp, size_t dp_len) {
     return 0;
 }
 
+int update_fields_helper(char *dp, size_t dp_len) {
+    int ok = ccp_read_msg(dp, dp_len);
+    if (ok < 0) {
+        printf("read update fields message error: %d\n", ok);
+        return -1;
+    }
+
+    return 0;
+}
+
 int getreport_helper(char *expected, size_t msg_len, struct ccp_connection *conn) {
     memcpy(&expected_sent_msg, expected, msg_len);
     expecting_send = msg_len;
@@ -181,6 +191,7 @@ int getreport_helper(char *expected, size_t msg_len, struct ccp_connection *conn
 #define MULTI_PROG_UID 3
 #define FALLT_PROG_UID 4
 #define IMPLI_PROG_UID 5
+#define UPDAT_PROG_UID 6
 
 int test_basic(struct ccp_connection *conn) {
     int ok;
@@ -537,6 +548,89 @@ int test_read_implicit(struct ccp_connection *conn) {
     return 0;
 }
 
+int test_update_fields(struct ccp_connection *conn) {
+    int ok;
+    char dp[116] = {
+        2, 0,                                            // INSTALL                                                            
+        116, 0,                                          // length = 0x74 = 116
+        1, 0, 0, 0,                                      // sock_id = 1                                                 
+        UPDAT_PROG_UID, 0, 0, 0,                         // program_uid
+        1, 0, 0, 0,                                      // num_events = 1                                              
+        5, 0, 0, 0,                                      // num_instrs = 5                                              
+        2, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 2, 0, 0, 0,  // event { flag-idx=2, num-flag=1, body-idx=3, num-body=2 }
+        2, 5, 0, 0, 0, 0, 5, 0, 0, 0, 0, 1, 0, 0, 0, 0,  // -------------(volatile Report.foo 0)-
+        2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 5, 0, 0, 0,  // (def (bar 5) ^^^^^^^^^^^^^^^^^^^^^^^)
+        1, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 1, 0, 0, 0,  // (when true
+        1, 5, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0,  //     (bind Report.foo bar)
+        1, 2, 2, 0, 0, 0, 2, 2, 0, 0, 0, 1, 1, 0, 0, 0   //     (bind __shouldReport true)
+    };
+    char change_prog_msg[16] = {
+        4, 0,                                            // CHANGE_PROG
+        12, 0,                                           // length 
+        1, 0, 0, 0,                                      // sock id
+        UPDAT_PROG_UID, 0, 0, 0,                         // program_uid
+        0, 0, 0, 0,                                      // extra fields
+    };
+    char update_msg[25] = {
+        3, 0,                                            // UPDATE_FIELD
+        25, 0,                                           // length = 25
+        1, 0, 0, 0,                                      // sock_id = 1
+        1, 0, 0, 0,                                      // num_fields = 1
+        0, 0, 0, 0, 0, 0x2a, 0, 0, 0, 0, 0, 0, 0,        // Reg::Control(0) <- 42
+    };
+    char init_report_msg[24] = {
+        0x01, 0x00,                                      // type 
+        0x18, 0x00,                                      // len
+        0x01, 0x00, 0x00, 0x00,                          // sockid
+        UPDAT_PROG_UID, 0x00, 0x00, 0x00,                // program_uid
+        0x01, 0x00, 0x00, 0x00,                          // num_fields
+        0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // fields
+    };
+    char postupdate_report_msg[24] = {
+        0x01, 0x00,                                      // type 
+        0x18, 0x00,                                      // len
+        0x01, 0x00, 0x00, 0x00,                          // sockid
+        UPDAT_PROG_UID, 0x00, 0x00, 0x00,                // program_uid
+        0x01, 0x00, 0x00, 0x00,                          // num_fields
+        0x2a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // fields
+    };
+    printf("%s...  ", __func__);
+    fflush(stdout);
+
+    ok = install_helper(dp, 116);
+    if (ok < 0) {
+        printf("\n");
+        return -1;
+    }
+
+    ok = change_prog_helper(change_prog_msg, 16);
+    if (ok < 0) {
+        printf("\n");
+        return -1;
+    }
+
+    ok = getreport_helper(init_report_msg, 24, conn);
+    if (ok < 0) {
+        printf("\n");
+        return -1;
+    }
+
+    ok = update_fields_helper(update_msg, 25);
+    if (ok < 0) {
+        printf("\n");
+        return -1;
+    }
+
+    ok = getreport_helper(postupdate_report_msg, 24, conn);
+    if (ok < 0) {
+        printf("\n");
+        return -1;
+    }
+
+    printf("ok\n");
+    return 0;
+}
+
 int main(int UNUSED(argc), char **UNUSED(argv)) {
     int ok = 0;
     now_us = 0;
@@ -583,6 +677,11 @@ int main(int UNUSED(argc), char **UNUSED(argv)) {
     }
     
     ok = test_read_implicit(conn);
+    if (ok < 0) {
+        goto ret;
+    }
+    
+    ok = test_update_fields(conn);
     if (ok < 0) {
         goto ret;
     }
