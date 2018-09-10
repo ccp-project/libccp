@@ -111,7 +111,6 @@ struct ccp_priv_state {
     u16 program_index; // index into program array
     u64 implicit_time_zero; // can be reset
 
-    DEFINE_LOCK(lock);
     struct register_file registers;
 };
 

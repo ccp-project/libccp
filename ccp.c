@@ -103,7 +103,6 @@ void ccp_free(void) {
 
 void ccp_conn_create_success(struct ccp_priv_state *state) {
     state->sent_create = true;
-    INIT_LOCK(&state->lock);
 }
 
 struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info *flow_info) {
@@ -255,7 +254,6 @@ void ccp_connection_free(u16 sid) {
     int msg_size, ok;
     struct ccp_connection *conn;
     char msg[REPORT_MSG_SIZE];
-    struct ccp_priv_state* state;
 
     DBG_PRINT("Entering %s\n", __FUNCTION__);
     // bounds check
@@ -277,9 +275,6 @@ void ccp_connection_free(u16 sid) {
     if (ok < 0) {
         PRINT("error sending close message: %d", ok);
     }
-
-    state = get_ccp_priv_state(conn);
-    DESTROY_LOCK(&state->lock);
 
     return;
 }
