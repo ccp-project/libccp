@@ -36,6 +36,7 @@ struct staged_update {
 };
 
 struct staged_update pending_update;
+int new_program_index;
 
 int ccp_init(struct ccp_datapath *dp) {
     // check that dp is properly filled in.
@@ -77,6 +78,7 @@ int ccp_init(struct ccp_datapath *dp) {
 
     memset(ccp_active_connections, 0, MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
     memset(&pending_update, 0, sizeof(struct staged_update));
+    new_program_index = -1;
 
     datapath_programs = (struct DatapathProgram*)__MALLOC__(MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
     if (!datapath_programs) {
@@ -179,11 +181,20 @@ int ccp_invoke(struct ccp_connection *conn) {
 
         return 0;
     }
+
+    // set cwnd and rate registers to what they are in the datapath
+    DBG_PRINT("primitives (cwnd, rate): (%u, %u)\n", conn->prims.snd_cwnd, conn->prims.snd_rate);
+    state->registers.impl_registers[CWND_REG] = (u64)conn->prims.snd_cwnd;
+    state->registers.impl_registers[RATE_REG] = (u64)conn->prims.snd_rate;
     
-    //ok = TRY_LOCK(&state->lock);
-    //if (!ok) {
-    //    return ok;
-    //}
+    if (new_program_index >= 0) {
+        // change the program to this program, and reset the state
+        state->program_index = new_program_index;
+        reset_state(state);
+        init_register_state(state);
+        reset_time(state);
+        new_program_index = -1;
+    }
 
     for (i = 0; i < MAX_CONTROL_REG; i++) {
         if (pending_update.control_is_pending[i]) {
@@ -206,8 +217,6 @@ int ccp_invoke(struct ccp_connection *conn) {
     }
 
     memset(&pending_update, 0, sizeof(struct staged_update));
-
-    //RELEASE_LOCK(&state->lock);
     
     ok = state_machine(conn);
     if (!ok) {
@@ -403,19 +412,30 @@ int stage_update(struct UpdateField *update_field) {
     }
 }
 
+int stage_multiple_updates(size_t num_updates, struct UpdateField *msg_ptr) {
+    int ok;
+    for (size_t i = 0; i < num_updates; i++) {
+        ok = stage_update(msg_ptr);
+        if (ok < 0) {
+            return ok;
+        }
+
+        msg_ptr++;
+    }
+
+    return 0;
+}
+
 int ccp_read_msg(
     char *buf,
     int bufsize
 ) {
     int ok;
     u32 num_updates;
-    size_t i;
     struct ccp_connection *conn;
-    struct ccp_priv_state *state;
     struct CcpMsgHeader hdr;
     struct InstallExpressionMsgHdr expr_msg_info;
     int program_index;
-    struct UpdateField *current_update;
     struct ChangeProgMsg change_program;
     char* msg_ptr;
 
@@ -474,7 +494,6 @@ int ccp_read_msg(
         PRINT("unknown connection: %u\n", hdr.SocketId);
         return -7;
     }
-    state = get_ccp_priv_state(conn);
 
     if (hdr.Type == UPDATE_FIELDS) {
         ok = check_update_fields_msg(&hdr, &num_updates, msg_ptr);
@@ -484,14 +503,13 @@ int ccp_read_msg(
             return -8;
         }
 
-        for (i=0; i<num_updates; i++) {
-            current_update = (struct UpdateField*)(msg_ptr);
-            stage_update(current_update);
-            msg_ptr += sizeof(struct UpdateField);
+        ok = stage_multiple_updates(num_updates, (struct UpdateField*) msg_ptr);
+        if (ok < 0) {
+            PRINT("Failed to stage updates: %d\n", ok);
+            return -11;
         }
     } else if (hdr.Type == CHANGE_PROG) {
         // check if the program is in the program_table
-        memset(&change_program, 0, sizeof(struct ChangeProgMsg));
         ok = read_change_prog_msg(&hdr, &change_program, msg_ptr);
         if (ok < 0) {
             PRINT("Change program message deserialization failed: %d\n", ok);
@@ -500,27 +518,20 @@ int ccp_read_msg(
         msg_ptr += ok;
         program_index = datapath_program_lookup_uid(change_program.program_uid);
 
-
         if (program_index < 0) {
             // TODO: is it possible there is not enough time between when the message is installed and when a flow asks to use the program?
             PRINT("Could not find datapath program with program uid: %u\n", program_index);
             return -10;
         }
 
-        // change the program to this program, and reset the state
-        ACQUIRE_LOCK(&state->lock);
-        state->program_index = (u16)program_index; // index into program array for further lookup of instructions
-        reset_state(state);
-        init_register_state(state);
-        reset_time(state);
+        new_program_index = (u16)program_index; // index into program array for further lookup of instructions
 
-        // apply any possible update fields to the initialized registers
-        for (i=0; i<change_program.num_updates; i++) {
-            current_update = (struct UpdateField*)(msg_ptr);
-            update_register(conn, state, current_update);
-            msg_ptr += sizeof(struct UpdateField);
+        // stage any possible update fields to the initialized registers
+        ok = stage_multiple_updates(change_program.num_updates, (struct UpdateField*)(msg_ptr));
+        if (ok < 0) {
+            PRINT("Failed to stage updates: %d\n", ok);
+            return -8;
         }
-        RELEASE_LOCK(&state->lock);
 
         DBG_PRINT("Switched to program %d\n", change_program.program_uid);
     }
