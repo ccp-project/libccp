@@ -38,29 +38,6 @@ struct update {
 
 struct update pending_update;
 
-int stage_update(struct UpdateField *update_field) {
-    // update the value for these registers
-    // for cwnd, rate; update field in datapath
-    switch(update_field->reg_type) {
-        case CONTROL_REG:
-            // set new value
-            pending_update.control_registers[update_field->reg_index] = update_field->new_value;
-            pending_update.control_is_pending[update_field->reg_index] = true;
-            return 0;
-        case IMPLICIT_REG:
-            if (update_field->reg_index == CWND_REG) {
-                pending_update.impl_registers[CWND_REG] = update_field->new_value;
-                pending_update.impl_is_pending[CWND_REG] = true;
-            } else if (update_field->reg_index == RATE_REG) {
-                pending_update.impl_registers[RATE_REG] = update_field->new_value;
-                pending_update.impl_is_pending[RATE_REG] = true;
-            }
-            return 0;
-        default:
-            return -1; // allowed only for CONTROL and CWND and RATE reg within CONTROL_REG
-    }
-}
-
 int ccp_init(struct ccp_datapath *dp) {
     // check that dp is properly filled in.
     if (
@@ -402,6 +379,29 @@ void datapath_program_free(u16 pid) {
     memset(program, 0, sizeof(struct DatapathProgram));
     program->index = 0;
     return;
+}
+
+int stage_update(struct UpdateField *update_field) {
+    // update the value for these registers
+    // for cwnd, rate; update field in datapath
+    switch(update_field->reg_type) {
+        case CONTROL_REG:
+            // set new value
+            pending_update.control_registers[update_field->reg_index] = update_field->new_value;
+            pending_update.control_is_pending[update_field->reg_index] = true;
+            return 0;
+        case IMPLICIT_REG:
+            if (update_field->reg_index == CWND_REG) {
+                pending_update.impl_registers[CWND_REG] = update_field->new_value;
+                pending_update.impl_is_pending[CWND_REG] = true;
+            } else if (update_field->reg_index == RATE_REG) {
+                pending_update.impl_registers[RATE_REG] = update_field->new_value;
+                pending_update.impl_is_pending[RATE_REG] = true;
+            }
+            return 0;
+        default:
+            return -1; // allowed only for CONTROL and CWND and RATE reg within CONTROL_REG
+    }
 }
 
 int ccp_read_msg(
