@@ -458,6 +458,8 @@ int ccp_read_msg(
             msg_ptr += sizeof(struct UpdateField);
         }
         RELEASE_LOCK(&state->lock);
+
+        DBG_PRINT("Switched to program %d\n", change_program.program_uid);
     }
 
     return ok;
@@ -487,7 +489,7 @@ int send_conn_create(
         DBG_PRINT("%s: %llu < %u\n", 
             __FUNCTION__, 
             datapath->since_usecs(conn->last_create_msg_sent), 
-            CREATE_TIMEOUT_US,
+            CREATE_TIMEOUT_US
         );
         return -1;
     }
