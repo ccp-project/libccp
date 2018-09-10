@@ -176,37 +176,43 @@ int getreport_helper(char *expected, size_t msg_len, struct ccp_connection *conn
 // Tests
 // ------------------------------------------
 
+#define BASIC_PROG_UID 1
+#define PRIMI_PROG_UID 2
+#define MULTI_PROG_UID 3
+#define FALLT_PROG_UID 4
+#define IMPLI_PROG_UID 5
+
 int test_basic(struct ccp_connection *conn) {
     int ok;
     char dp[116] = {
-        2, 0,                                           // INSTALL
-        0x68, 0,                                        // length = 0x68 = 104
-        1, 0, 0, 0,                                     // sock_id = 1
-        7, 0, 0, 0,                                     // program_uid = 7 (arbitrary)
-        1, 0, 0, 0,                                     // num_events = 1
-        5, 0, 0, 0,                                     // num_instrs = 5
+        2, 0,                                           // INSTALL                                                     
+        116, 0,                                         // length = 0x74 = 116
+        1, 0, 0, 0,                                     // sock_id = 1                                                 
+        BASIC_PROG_UID, 0, 0, 0,                        // program_uid
+        1, 0, 0, 0,                                     // num_events = 1                                              
+        5, 0, 0, 0,                                     // num_instrs = 5                                              
         1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, // event { flag-idx=1, num-flag=1, body-idx=2, num-body=3 }
         2, 5, 0, 0, 0, 0, 5, 0, 0, 0, 0, 1, 0, 0, 0, 0, // (def (volatile Report.foo 0))
         1, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 1, 0, 0, 0, // (when true
-        0, 6, 0, 0, 0, 0, 5, 0, 0, 0, 0, 1, 1, 0, 0, 0, //      ----------------(+ Report.foo 1)
-        1, 5, 0, 0, 0, 0, 5, 0, 0, 0, 0, 6, 0, 0, 0, 0, //     (bind Report.foo ^^^^^^^^^^^^^^^^)
+        0, 7, 0, 0, 0, 0, 5, 0, 0, 0, 0, 1, 1, 0, 0, 0, //      ----------------(+ Report.foo 1)
+        1, 5, 0, 0, 0, 0, 5, 0, 0, 0, 0, 7, 0, 0, 0, 0, //     (bind Report.foo ^^^^^^^^^^^^^^^^)
         1, 2, 2, 0, 0, 0, 2, 2, 0, 0, 0, 1, 1, 0, 0, 0, //     (bind __shouldReport true)
     };
     char report_msg[24] = {
         0x01, 0x00,                                     // type 
         0x18, 0x00,                                     // len
         0x01, 0x00, 0x00, 0x00,                         // sockid
-        0x07, 0x00, 0x00, 0x00,                         // program_uid
+        BASIC_PROG_UID, 0x00, 0x00, 0x00,               // program_uid
         0x01, 0x00, 0x00, 0x00,                         // num_fields
         0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // fields
     };
 
     char change_prog_msg[16] = {
-        4, 0,                           // type
-        12, 0,                          // length 
-        1, 0, 0, 0,                     // sock id
-        7, 0, 0, 0,                     // program_uid
-        0, 0, 0, 0,                     // extra fields
+        4, 0,                                           // type
+        12, 0,                                          // length 
+        1, 0, 0, 0,                                     // sock id
+        BASIC_PROG_UID, 0, 0, 0,                        // program_uid
+        0, 0, 0, 0,                                     // extra fields
     };
 
     printf("%s...          ", __func__);
@@ -240,7 +246,7 @@ int test_primitives(struct ccp_connection *conn) {
         2, 0,                                                    // INSTALL
         84, 0,                                                   // length = 88
         1, 0, 0, 0,                                              // sock_id = 1
-        3, 0, 0, 0,                                              // program_uid = 3 (arbitrary)
+        PRIMI_PROG_UID, 0, 0, 0,                                 // program_uid
         1, 0, 0, 0,                                              // num_events = 1
         4, 0, 0, 0,                                              // num_instrs = 2
         1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0,          // event { flag-idx=1, num-flag=1, body-idx=2, num-body=2 }
@@ -253,17 +259,17 @@ int test_primitives(struct ccp_connection *conn) {
         0x01, 0,
         0x18, 0,
         0x01, 0x00, 0x00, 0x00,
-        0x03, 0x00, 0x00, 0x00,                         // program_uid
+        PRIMI_PROG_UID, 0x00, 0x00, 0x00,                        // program_uid
         0x01, 0x00, 0x00, 0x00,
         0xed, 0xfe, 0xfe, 0xca, 0x00, 0x00, 0x00, 0x00,
     };
     
     char change_prog_msg[16] = {
-        4, 0,                           // type
-        12, 0,                          // length 
-        1, 0, 0, 0,                     // sock id
-        3, 0, 0, 0,                     // program_uid
-        0, 0, 0, 0,                     // extra fields
+        4, 0,                                                    // type
+        12, 0,                                                   // length 
+        1, 0, 0, 0,                                              // sock id
+        PRIMI_PROG_UID, 0, 0, 0,                                 // program_uid
+        0, 0, 0, 0,                                              // extra fields
     };
 
     printf("%s...     ", __func__);
@@ -300,7 +306,7 @@ int test_multievent(struct ccp_connection *conn) {
         2, 0,                                                    // INSTALL
         156, 0,                                                  // length = 156
         1, 0, 0, 0,                                              // sock_id = 1
-        9, 0, 0, 0,                                              // program_uid = 9 (arbitrary)
+        MULTI_PROG_UID, 0, 0, 0,                                 // program_uid
         2, 0, 0, 0,                                              // num_events = 2
         8, 0, 0, 0,                                              // num_instrs = 8
         2, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 2, 0, 0, 0,          // event { flag-idx=2, num-flag=1, body-idx=3, num-body=2 }
@@ -318,7 +324,7 @@ int test_multievent(struct ccp_connection *conn) {
         0x01, 0,
         0x18, 0,
         0x01, 0x00, 0x00, 0x00,
-        0x09, 0x00, 0x00, 0x00,                         // program_uid
+        MULTI_PROG_UID, 0x00, 0x00, 0x00,                        // program_uid
         0x01, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
@@ -326,17 +332,17 @@ int test_multievent(struct ccp_connection *conn) {
         0x01, 0,
         0x18, 0,
         0x01, 0x00, 0x00, 0x00,
-        0x09, 0x00, 0x00, 0x00,                         // program_uid
+        MULTI_PROG_UID, 0x00, 0x00, 0x00,                        // program_uid
         0x01, 0x00, 0x00, 0x00,
         0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
     
     char change_prog_msg[16] = {
-        4, 0,                           // type
-        12, 0,                          // length 
-        1, 0, 0, 0,                     // sock id
-        9, 0, 0, 0,                     // program_uid
-        0, 0, 0, 0,                     // extra fields
+        4, 0,                                                    // type
+        12, 0,                                                   // length 
+        1, 0, 0, 0,                                              // sock id
+        MULTI_PROG_UID, 0, 0, 0,                                 // program_uid
+        0, 0, 0, 0,                                              // extra fields
     };
 
     printf("%s...     ", __func__);
@@ -390,7 +396,7 @@ int test_fallthrough(struct ccp_connection *conn) {
         2, 0,                                                    // INSTALL
         172, 0,                                                  // length = 172
         1, 0, 0, 0,                                              // sock_id = 1
-        4, 0, 0, 0,                                              // program_uid = 4 (arbitrary)
+        FALLT_PROG_UID, 0, 0, 0,                                 // program_uid
         2, 0, 0, 0,                                              // num_events = 2
         9, 0, 0, 0,                                              // num_instrs = 9
         2, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0,          // event { flag-idx=2, num-flag=1, body-idx=3, num-body=3 }
@@ -409,7 +415,7 @@ int test_fallthrough(struct ccp_connection *conn) {
         0x01, 0,
         0x18, 0,
         0x01, 0x00, 0x00, 0x00,
-        0x04, 0x00, 0x00, 0x00,                         // program_uid
+        FALLT_PROG_UID, 0x00, 0x00, 0x00,                        // program_uid
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
@@ -417,16 +423,16 @@ int test_fallthrough(struct ccp_connection *conn) {
         0x01, 0,
         0x18, 0,
         0x01, 0x00, 0x00, 0x00,
-        0x04, 0x00, 0x00, 0x00,                         // program_uid
+        FALLT_PROG_UID, 0x00, 0x00, 0x00,                        // program_uid
         0x01, 0x00, 0x00, 0x00,
         0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
     char change_prog_msg[16] = {
-        4, 0,                           // type
-        12, 0,                          // length 
-        1, 0, 0, 0,                     // sock id
-        4, 0, 0, 0,                     // program_uid
-        0, 0, 0, 0,                     // extra fields
+        4, 0,                                                    // type
+        12, 0,                                                   // length 
+        1, 0, 0, 0,                                              // sock id
+        FALLT_PROG_UID, 0, 0, 0,                                 // program_uid
+        0, 0, 0, 0,                                              // extra fields
     };
     printf("%s...    ", __func__);
 
@@ -479,7 +485,7 @@ int test_read_implicit(struct ccp_connection *conn) {
         2, 0,                                           // INSTALL
         0x78, 0,                                        // length = 120
         1, 0, 0, 0,                                     // sock_id = 1
-        5, 0, 0, 0,                                     // program_uid = 5 (arbitrary)
+        IMPLI_PROG_UID, 0, 0, 0,                        // program_uid
         1, 0, 0, 0,                                     // num_events = 2
         6, 0, 0, 0,                                     // num_instrs = 6
         1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 4, 0, 0, 0, // event { flag-idx=2, num-flag=1, body-idx=3, num-body=2 }
@@ -494,17 +500,17 @@ int test_read_implicit(struct ccp_connection *conn) {
         0x01, 0,
         0x18, 0,
         0x01, 0x00, 0x00, 0x00,
-        0x05, 0x00, 0x00, 0x00,                         // program_uid
+        IMPLI_PROG_UID, 0x00, 0x00, 0x00,               // program_uid
         0x01, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
     
     char change_prog_msg[16] = {
-        4, 0,                           // type
-        12, 0,                          // length 
-        1, 0, 0, 0,                     // sock id
-        5, 0, 0, 0,                     // program_uid
-        0, 0, 0, 0,                     // extra fields
+        4, 0,                                           // type
+        12, 0,                                          // length 
+        1, 0, 0, 0,                                     // sock id
+        IMPLI_PROG_UID, 0, 0, 0,                        // program_uid
+        0, 0, 0, 0,                                     // extra fields
     };
     printf("%s...  ", __func__);
     fflush(stdout);
