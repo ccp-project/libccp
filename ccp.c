@@ -28,15 +28,14 @@ struct ccp_datapath* datapath;
 // datapath programs available to all flows
 struct DatapathProgram* datapath_programs;
 
-
-struct update {
+struct staged_update {
     bool control_is_pending[MAX_CONTROL_REG];
     u64 control_registers[MAX_CONTROL_REG];
     bool impl_is_pending[MAX_IMPLICIT_REG];
     u64 impl_registers[MAX_IMPLICIT_REG];
 };
 
-struct update pending_update;
+struct staged_update pending_update;
 
 int ccp_init(struct ccp_datapath *dp) {
     // check that dp is properly filled in.
@@ -77,7 +76,7 @@ int ccp_init(struct ccp_datapath *dp) {
     }
 
     memset(ccp_active_connections, 0, MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
-    memset(&pending_update, 0, sizeof(struct update));
+    memset(&pending_update, 0, sizeof(struct staged_update));
 
     datapath_programs = (struct DatapathProgram*)__MALLOC__(MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
     if (!datapath_programs) {
@@ -206,7 +205,7 @@ int ccp_invoke(struct ccp_connection *conn) {
         }
     }
 
-    memset(&pending_update, 0, sizeof(struct update));
+    memset(&pending_update, 0, sizeof(struct staged_update));
 
     //RELEASE_LOCK(&state->lock);
     
