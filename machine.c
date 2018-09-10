@@ -223,18 +223,18 @@ int update_register(struct ccp_connection* conn, struct ccp_priv_state *state, s
     switch(update_field->reg_type) {
         case CONTROL_REG:
             // set new value
-            state->control_registers[update_field->reg_index] = update_field->new_value;
+            state->registers.control_registers[update_field->reg_index] = update_field->new_value;
             return 0;
         case IMPLICIT_REG:
             if (update_field->reg_index == CWND_REG) {
-                state->impl_registers[CWND_REG] = update_field->new_value;
-                if (state->impl_registers[CWND_REG] != 0) {
-                    datapath->set_cwnd(datapath, conn, state->impl_registers[CWND_REG]);
+                state->registers.impl_registers[CWND_REG] = update_field->new_value;
+                if (state->registers.impl_registers[CWND_REG] != 0) {
+                    datapath->set_cwnd(datapath, conn, state->registers.impl_registers[CWND_REG]);
                 }
             } else if (update_field->reg_index == RATE_REG) {
-                state->impl_registers[RATE_REG] = update_field->new_value;
-                if (state->impl_registers[RATE_REG] != 0) {
-                    datapath->set_rate_abs(datapath, conn, state->impl_registers[RATE_REG]);
+                state->registers.impl_registers[RATE_REG] = update_field->new_value;
+                if (state->registers.impl_registers[RATE_REG] != 0) {
+                    datapath->set_rate_abs(datapath, conn, state->registers.impl_registers[RATE_REG]);
                 }
             }
             return 0;
@@ -253,31 +253,31 @@ void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
         case NONVOLATILE_REPORT_REG:
         case VOLATILE_REPORT_REG:
             if (reg.index >= 0 && reg.index < MAX_REPORT_REG) {
-                state->report_registers[reg.index] = value;
+                state->registers.report_registers[reg.index] = value;
             }
             break;
         case TMP_REG:
             if (reg.index >= 0 && reg.index < MAX_TMP_REG) {
-                state->tmp_registers[reg.index] = value;
+                state->registers.tmp_registers[reg.index] = value;
             }
             break;
         case LOCAL_REG:
             if (reg.index >= 0 && reg.index < MAX_LOCAL_REG) {
-                state->local_registers[reg.index] = value;
+                state->registers.local_registers[reg.index] = value;
             }
             break;
         case IMPLICIT_REG: // cannot write to US_ELAPSED reg
             if (reg.index == EXPR_FLAG_REG || reg.index == CWND_REG || reg.index == RATE_REG || reg.index == SHOULD_REPORT_REG || reg.index == SHOULD_FALLTHROUGH_REG ) {
-                state->impl_registers[reg.index] = value;
+                state->registers.impl_registers[reg.index] = value;
             } else if (reg.index == US_ELAPSED_REG) {
                 // set micros register to this value, and datapath start time to be time before now
                 state->implicit_time_zero = datapath->now() - value;
-                state->impl_registers[US_ELAPSED_REG] = value;
+                state->registers.impl_registers[US_ELAPSED_REG] = value;
             }
             break;
         case CONTROL_REG:
             if (reg.index >= 0 && reg.index < MAX_CONTROL_REG) {
-                state->control_registers[reg.index] = value; 
+                state->registers.control_registers[reg.index] = value; 
             }
         default:
             break;
@@ -293,13 +293,13 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
             return reg.value;
         case NONVOLATILE_REPORT_REG:
         case VOLATILE_REPORT_REG:
-            return state->report_registers[reg.index];
+            return state->registers.report_registers[reg.index];
         case CONTROL_REG:
-            return state->control_registers[reg.index];
+            return state->registers.control_registers[reg.index];
         case TMP_REG:
-            return state->tmp_registers[reg.index];
+            return state->registers.tmp_registers[reg.index];
         case LOCAL_REG:
-            return state->local_registers[reg.index];
+            return state->registers.local_registers[reg.index];
         case PRIMITIVE_REG:
             switch (reg.index) {
                 case ACK_BYTES_ACKED:
@@ -341,7 +341,7 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
             }
             break;
         case IMPLICIT_REG:
-            return state->impl_registers[reg.index];
+            return state->registers.impl_registers[reg.index];
             break;
         default:
             return 0;
@@ -432,7 +432,7 @@ void init_register_state(struct ccp_priv_state *state) {
 void reset_time(struct ccp_priv_state *state) {
     // reset the ns elapsed register to register now as 0
     state->implicit_time_zero = datapath->now();
-    state->impl_registers[US_ELAPSED_REG] = 0;
+    state->registers.impl_registers[US_ELAPSED_REG] = 0;
 }
 
 #ifdef __DEBUG__
@@ -588,10 +588,10 @@ int process_expression(int expr_index, struct ccp_priv_state *state, struct ccp_
          return -1;
        }
     }
-    DBG_PRINT("} => %" PRIu64 "\n", state->impl_registers[EXPR_FLAG_REG]);
+    DBG_PRINT("} => %" PRIu64 "\n", state->registers.impl_registers[EXPR_FLAG_REG]);
 
     // flag from event is promised to be stored in this implicit register
-    if (state->impl_registers[EXPR_FLAG_REG] ) {
+    if (state->registers.impl_registers[EXPR_FLAG_REG] ) {
         for (idx = expression->event_start_idx; idx<(expression->event_start_idx + expression->num_event_instrs ); idx++) {
             ret = process_instruction(idx, state, primitives);
             if (ret < 0) {
@@ -607,9 +607,9 @@ int process_expression(int expr_index, struct ccp_priv_state *state, struct ccp_
  * Before state machine, reset  some of the implicit registers
  */
 void reset_impl_registers(struct ccp_priv_state *state) {
-    state->impl_registers[EXPR_FLAG_REG] = 0;
-    state->impl_registers[SHOULD_FALLTHROUGH_REG] = 0;
-    state->impl_registers[SHOULD_REPORT_REG] = 0;
+    state->registers.impl_registers[EXPR_FLAG_REG] = 0;
+    state->registers.impl_registers[SHOULD_FALLTHROUGH_REG] = 0;
+    state->registers.impl_registers[SHOULD_REPORT_REG] = 0;
 }
 
 /*
@@ -636,12 +636,12 @@ int state_machine(struct ccp_connection *conn) {
     reset_impl_registers(state);
 
     // set cwnd and rate registers to what they are in the datapath
-    state->impl_registers[CWND_REG] = (u64)conn->prims.snd_cwnd;
-    state->impl_registers[RATE_REG] = (u64)conn->prims.snd_rate;
+    state->registers.impl_registers[CWND_REG] = (u64)conn->prims.snd_cwnd;
+    state->registers.impl_registers[RATE_REG] = (u64)conn->prims.snd_rate;
 
     // update the US_ELAPSED registers
     implicit_now = datapath->since_usecs(state->implicit_time_zero);
-    state->impl_registers[US_ELAPSED_REG] = implicit_now;
+    state->registers.impl_registers[US_ELAPSED_REG] = implicit_now;
     
     DBG_PRINT(">>> program starting <<<\n");
     // cycle through expressions, and process instructions
@@ -653,23 +653,23 @@ int state_machine(struct ccp_connection *conn) {
         }
 
         // break if the expression is true and fall through is NOT true
-        if ((state->impl_registers[EXPR_FLAG_REG]) && !(state->impl_registers[SHOULD_FALLTHROUGH_REG])) {
+        if ((state->registers.impl_registers[EXPR_FLAG_REG]) && !(state->registers.impl_registers[SHOULD_FALLTHROUGH_REG])) {
             break;
         }
         DBG_PRINT("fallthrough...\n");
     }
     // set rate and cwnd from implicit registers
-    if (state->impl_registers[CWND_REG] > 0) {
-        datapath->set_cwnd(datapath, conn, state->impl_registers[CWND_REG]);
+    if (state->registers.impl_registers[CWND_REG] > 0) {
+        datapath->set_cwnd(datapath, conn, state->registers.impl_registers[CWND_REG]);
     }
 
-    if (state->impl_registers[RATE_REG] != 0) {
-        datapath->set_rate_abs(datapath, conn, state->impl_registers[RATE_REG]);
+    if (state->registers.impl_registers[RATE_REG] != 0) {
+        datapath->set_rate_abs(datapath, conn, state->registers.impl_registers[RATE_REG]);
     }
 
     // if we should report, report and reset state
-    if (state->impl_registers[SHOULD_REPORT_REG]) {
-        send_measurement(conn, program->program_uid, state->report_registers, program->num_to_return);
+    if (state->registers.impl_registers[SHOULD_REPORT_REG]) {
+        send_measurement(conn, program->program_uid, state->registers.report_registers, program->num_to_return);
         reset_state(state);
     }
 

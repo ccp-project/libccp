@@ -211,21 +211,21 @@ int ccp_invoke(struct ccp_connection *conn) {
 
     for (i = 0; i < MAX_CONTROL_REG; i++) {
         if (pending_update.control_is_pending[i]) {
-            state->control_registers[i] = pending_update.control_registers[i];
+            state->registers.control_registers[i] = pending_update.control_registers[i];
         }
     }
 
     if (pending_update.impl_is_pending[CWND_REG]) {
-        state->impl_registers[CWND_REG] = pending_update.impl_registers[CWND_REG];
-        if (state->impl_registers[CWND_REG] != 0) {
-            datapath->set_cwnd(datapath, conn, state->impl_registers[CWND_REG]);
+        state->registers.impl_registers[CWND_REG] = pending_update.impl_registers[CWND_REG];
+        if (state->registers.impl_registers[CWND_REG] != 0) {
+            datapath->set_cwnd(datapath, conn, state->registers.impl_registers[CWND_REG]);
         }
     }
 
     if (pending_update.impl_is_pending[RATE_REG]) {
-        state->impl_registers[RATE_REG] = pending_update.impl_registers[RATE_REG];
-        if (state->impl_registers[RATE_REG] != 0) {
-            datapath->set_rate_abs(datapath, conn, state->impl_registers[RATE_REG]);
+        state->registers.impl_registers[RATE_REG] = pending_update.impl_registers[RATE_REG];
+        if (state->registers.impl_registers[RATE_REG] != 0) {
+            datapath->set_rate_abs(datapath, conn, state->registers.impl_registers[RATE_REG]);
         }
     }
 

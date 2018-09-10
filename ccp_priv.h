@@ -91,16 +91,7 @@ int read_instruction(
 
 void print_register(struct Register* reg);
 
-
-/* libccp Private State
- * struct ccp_connection has a void* state to store libccp's state
- * libccp internally casts this to a struct ccp_priv_state*.
- */
-struct ccp_priv_state {
-    bool sent_create;
-
-    u16 program_index; // index into program array
-
+struct register_file {
     // report and control registers - users send a DEF for these
     u64 report_registers[MAX_REPORT_REG]; // reported variables, reset to DEF value upon report
     u64 control_registers[MAX_CONTROL_REG]; // extra user defined variables, not reset on report
@@ -109,11 +100,19 @@ struct ccp_priv_state {
     u64 impl_registers[MAX_IMPLICIT_REG]; // stores special flags and variables
     u64 tmp_registers[MAX_TMP_REG]; // used for temporary calculation in instructions
     u64 local_registers[MAX_LOCAL_REG]; // for local variables within a program - created in a bind in a when clause
-        
+};
+
+/* libccp Private State
+ * struct ccp_connection has a void* state to store libccp's state
+ * libccp internally casts this to a struct ccp_priv_state*.
+ */
+struct ccp_priv_state {
+    bool sent_create;
+    u16 program_index; // index into program array
     u64 implicit_time_zero; // can be reset
-    
+
     DEFINE_LOCK(lock);
-   
+    struct register_file registers;
 };
 
 
