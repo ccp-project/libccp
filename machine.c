@@ -656,10 +656,12 @@ int state_machine(struct ccp_connection *conn) {
     }
     // set rate and cwnd from implicit registers
     if (state->registers.impl_registers[CWND_REG] > 0) {
+        DBG_PRINT("setting cwnd after program: %u\n", state->registers.impl_registers[CWND_REG]);
         datapath->set_cwnd(datapath, conn, state->registers.impl_registers[CWND_REG]);
     }
 
     if (state->registers.impl_registers[RATE_REG] != 0) {
+        DBG_PRINT("setting rate after program: %u\n", state->registers.impl_registers[CWND_REG]);
         datapath->set_rate_abs(datapath, conn, state->registers.impl_registers[RATE_REG]);
     }
 

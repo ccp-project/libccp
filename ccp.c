@@ -189,6 +189,7 @@ int ccp_invoke(struct ccp_connection *conn) {
     
     if (new_program_index >= 0) {
         // change the program to this program, and reset the state
+        DBG_PRINT("Applying staged program change: %d -> %d\n", state->program_index, new_program_index); 
         state->program_index = new_program_index;
         reset_state(state);
         init_register_state(state);
@@ -198,11 +199,13 @@ int ccp_invoke(struct ccp_connection *conn) {
 
     for (i = 0; i < MAX_CONTROL_REG; i++) {
         if (pending_update.control_is_pending[i]) {
+            DBG_PRINT("Applying staged field update: control reg %u\n", i);
             state->registers.control_registers[i] = pending_update.control_registers[i];
         }
     }
 
     if (pending_update.impl_is_pending[CWND_REG]) {
+        DBG_PRINT("Applying staged field update: cwnd reg <- %llu\n", pending_update.impl_registers[CWND_REG]);
         state->registers.impl_registers[CWND_REG] = pending_update.impl_registers[CWND_REG];
         if (state->registers.impl_registers[CWND_REG] != 0) {
             datapath->set_cwnd(datapath, conn, state->registers.impl_registers[CWND_REG]);
@@ -210,6 +213,7 @@ int ccp_invoke(struct ccp_connection *conn) {
     }
 
     if (pending_update.impl_is_pending[RATE_REG]) {
+        DBG_PRINT("Applying staged field update: rate reg <- %llu\n", pending_update.impl_registers[RATE_REG]);
         state->registers.impl_registers[RATE_REG] = pending_update.impl_registers[RATE_REG];
         if (state->registers.impl_registers[RATE_REG] != 0) {
             datapath->set_rate_abs(datapath, conn, state->registers.impl_registers[RATE_REG]);
@@ -395,14 +399,17 @@ int stage_update(struct UpdateField *update_field) {
     switch(update_field->reg_type) {
         case CONTROL_REG:
             // set new value
+            DBG_PRINT("%s: control %u <- %llu\n", __FUNCTION__, update_field->reg_index, update_field->new_value);
             pending_update.control_registers[update_field->reg_index] = update_field->new_value;
             pending_update.control_is_pending[update_field->reg_index] = true;
             return 0;
         case IMPLICIT_REG:
             if (update_field->reg_index == CWND_REG) {
+                DBG_PRINT("%s: cwnd <- %llu\n", __FUNCTION__, update_field->new_value);
                 pending_update.impl_registers[CWND_REG] = update_field->new_value;
                 pending_update.impl_is_pending[CWND_REG] = true;
             } else if (update_field->reg_index == RATE_REG) {
+                DBG_PRINT("%s: rate <- %llu\n", __FUNCTION__, update_field->new_value);
                 pending_update.impl_registers[RATE_REG] = update_field->new_value;
                 pending_update.impl_is_pending[RATE_REG] = true;
             }
@@ -496,6 +503,7 @@ int ccp_read_msg(
     }
 
     if (hdr.Type == UPDATE_FIELDS) {
+        DBG_PRINT("Received update_fields message");
         ok = check_update_fields_msg(&hdr, &num_updates, msg_ptr);
         msg_ptr += ok;
         if (ok < 0) {
@@ -508,7 +516,10 @@ int ccp_read_msg(
             PRINT("Failed to stage updates: %d\n", ok);
             return -11;
         }
+
+        DBG_PRINT("Staged %u updates\n", num_updates);
     } else if (hdr.Type == CHANGE_PROG) {
+        DBG_PRINT("Received change_prog message");
         // check if the program is in the program_table
         ok = read_change_prog_msg(&hdr, &change_program, msg_ptr);
         if (ok < 0) {
@@ -526,14 +537,17 @@ int ccp_read_msg(
 
         new_program_index = (u16)program_index; // index into program array for further lookup of instructions
 
+        // clear any staged but not applied updates, as they are now irrelevant
+        memset(&pending_update, 0, sizeof(struct staged_update));
         // stage any possible update fields to the initialized registers
+        // corresponding to the new program
         ok = stage_multiple_updates(change_program.num_updates, (struct UpdateField*)(msg_ptr));
         if (ok < 0) {
             PRINT("Failed to stage updates: %d\n", ok);
             return -8;
         }
 
-        DBG_PRINT("Switched to program %d\n", change_program.program_uid);
+        DBG_PRINT("Staged switch to program %d\n", change_program.program_uid);
     }
 
     return ok;
