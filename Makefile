@@ -6,7 +6,6 @@ ifeq ($(DEBUG), y)
 	CFLAGS += -D__DEBUG__
 else
 endif
-LDFLAGS = -pthread -lpthread # linking flags
 RM = rm -f  # rm command
 LIB_NAME = ccp
 TARGET_LIB = lib${LIB_NAME}.so # target lib
