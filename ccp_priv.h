@@ -102,18 +102,27 @@ struct register_file {
     u64 local_registers[MAX_LOCAL_REG]; // for local variables within a program - created in a bind in a when clause
 };
 
+struct staged_update {
+    bool control_is_pending[MAX_CONTROL_REG];
+    u64 control_registers[MAX_CONTROL_REG];
+    bool impl_is_pending[MAX_IMPLICIT_REG];
+    u64 impl_registers[MAX_IMPLICIT_REG];
+};
+
 /* libccp Private State
  * struct ccp_connection has a void* state to store libccp's state
  * libccp internally casts this to a struct ccp_priv_state*.
  */
 struct ccp_priv_state {
     bool sent_create;
-    u16 program_index; // index into program array
     u64 implicit_time_zero; // can be reset
 
-    struct register_file registers;
-};
+    u16 program_index; // index into program array
+    int staged_program_index;
 
+    struct register_file registers;
+    struct staged_update pending_update;
+};
 
 /*
  * Resets a specific register's value in response to an update field message.
