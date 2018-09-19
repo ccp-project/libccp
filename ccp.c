@@ -176,7 +176,7 @@ int ccp_invoke(struct ccp_connection *conn) {
     
     if (state->staged_program_index >= 0) {
         // change the program to this program, and reset the state
-        DBG_PRINT("Applying staged program change: %d -> %d\n", state->program_index, new_program_index); 
+        DBG_PRINT("Applying staged program change: %d -> %d\n", state->program_index, state->staged_program_index); 
         state->program_index = state->staged_program_index;
         reset_state(state);
         init_register_state(state);
