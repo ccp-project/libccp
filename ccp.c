@@ -176,7 +176,7 @@ int ccp_invoke(struct ccp_connection *conn) {
     
     if (state->staged_program_index >= 0) {
         // change the program to this program, and reset the state
-        DBG_PRINT("Applying staged program change: %d -> %d\n", state->program_index, state->staged_program_index); 
+        DBG_PRINT("[sid=%d] Applying staged program change: %d -> %d\n", conn->index, state->program_index, state->staged_program_index); 
         state->program_index = state->staged_program_index;
         reset_state(state);
         init_register_state(state);
@@ -186,13 +186,16 @@ int ccp_invoke(struct ccp_connection *conn) {
 
     for (i = 0; i < MAX_CONTROL_REG; i++) {
         if (state->pending_update.control_is_pending[i]) {
-            DBG_PRINT("Applying staged field update: control reg %u\n", i);
+            DBG_PRINT("[sid=%d] Applying staged field update: control reg %u (%d->%d) \n", conn->index, i,
+                state->registers.control_registers[i],
+                state->pending_update.control_registers[i]
+            );
             state->registers.control_registers[i] = state->pending_update.control_registers[i];
         }
     }
 
     if (state->pending_update.impl_is_pending[CWND_REG]) {
-        DBG_PRINT("Applying staged field update: cwnd reg <- %llu\n", state->pending_update.impl_registers[CWND_REG]);
+        DBG_PRINT("[sid=%d] Applying staged field update: cwnd reg <- %llu\n", conn->index, state->pending_update.impl_registers[CWND_REG]);
         state->registers.impl_registers[CWND_REG] = state->pending_update.impl_registers[CWND_REG];
         if (state->registers.impl_registers[CWND_REG] != 0) {
             datapath->set_cwnd(datapath, conn, state->registers.impl_registers[CWND_REG]);
@@ -200,7 +203,7 @@ int ccp_invoke(struct ccp_connection *conn) {
     }
 
     if (state->pending_update.impl_is_pending[RATE_REG]) {
-        DBG_PRINT("Applying staged field update: rate reg <- %llu\n", state->pending_update.impl_registers[RATE_REG]);
+        DBG_PRINT("[sid=%d] Applying staged field update: rate reg <- %llu\n", conn->index, state->pending_update.impl_registers[RATE_REG]);
         state->registers.impl_registers[RATE_REG] = state->pending_update.impl_registers[RATE_REG];
         if (state->registers.impl_registers[RATE_REG] != 0) {
             datapath->set_rate_abs(datapath, conn, state->registers.impl_registers[RATE_REG]);
@@ -223,7 +226,7 @@ struct ccp_connection *ccp_connection_lookup(u16 sid) {
     struct ccp_connection *conn;
     // bounds check
     if (sid == 0 || sid > MAX_NUM_CONNECTIONS) {
-        PRINT("index out of bounds: %d", sid);
+        PRINT("[sid=%d] index out of bounds: %d", conn->index, sid);
         return NULL;
     }
 
@@ -454,7 +457,7 @@ int ccp_read_msg(
     // INSTALL_EXPR message is for all flows, not a specific connection
     // sock_id in this message should be disregarded (could be before any flows begin)
     if (hdr.Type == INSTALL_EXPR) {
-        DBG_PRINT("Received install message\n");
+        DBG_PRINT("[sid=%d] Received install message\n", conn->index);
         memset(&expr_msg_info, 0, sizeof(struct InstallExpressionMsgHdr));
         ok = read_install_expr_msg_hdr(&hdr, &expr_msg_info, msg_ptr);
         if (ok < 0) {
@@ -488,7 +491,7 @@ int ccp_read_msg(
     }
 
     if (hdr.Type == UPDATE_FIELDS) {
-        DBG_PRINT("Received update_fields message");
+        DBG_PRINT("[sid=%d] Received update_fields message\n", conn->index);
         ok = check_update_fields_msg(&hdr, &num_updates, msg_ptr);
         msg_ptr += ok;
         if (ok < 0) {
@@ -504,7 +507,7 @@ int ccp_read_msg(
 
         DBG_PRINT("Staged %u updates\n", num_updates);
     } else if (hdr.Type == CHANGE_PROG) {
-        DBG_PRINT("Received change_prog message");
+        DBG_PRINT("[sid=%d] Received change_prog message\n", conn->index);
         // check if the program is in the program_table
         ok = read_change_prog_msg(&hdr, &change_program, msg_ptr);
         if (ok < 0) {
@@ -594,7 +597,7 @@ int send_measurement(
     }
 
     msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, conn->index, program_uid, fields, num_fields);
-    DBG_PRINT("In %s\n", __FUNCTION__);
+    DBG_PRINT("[sid=%d] In %s\n", conn->index, __FUNCTION__);
     ok = datapath->send_msg(datapath, conn, msg, msg_size);
     return ok;
 }

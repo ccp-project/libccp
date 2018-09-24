@@ -639,12 +639,12 @@ int state_machine(struct ccp_connection *conn) {
     implicit_now = datapath->since_usecs(state->implicit_time_zero);
     state->registers.impl_registers[US_ELAPSED_REG] = implicit_now;
     
-    DBG_PRINT(">>> program starting <<<\n");
+    DBG_PRINT(">>> program starting [sid=%d] <<<\n", conn->index);
     // cycle through expressions, and process instructions
     for (i=0; i < program->num_expressions; i++) {
         ret = process_expression(i, state, primitives);
         if (ret < 0) {
-            DBG_PRINT(">>> program finished ret=-1 <<<\n\n");
+            DBG_PRINT(">>> program finished [sid=%d] [ret=-1] <<<\n\n", conn->index);
             return -1;
         }
 
@@ -652,16 +652,16 @@ int state_machine(struct ccp_connection *conn) {
         if ((state->registers.impl_registers[EXPR_FLAG_REG]) && !(state->registers.impl_registers[SHOULD_FALLTHROUGH_REG])) {
             break;
         }
-        DBG_PRINT("fallthrough...\n");
+        DBG_PRINT("[sid=%d] fallthrough...\n", conn->index);
     }
     // set rate and cwnd from implicit registers
     if (state->registers.impl_registers[CWND_REG] > 0) {
-        DBG_PRINT("setting cwnd after program: %u\n", state->registers.impl_registers[CWND_REG]);
+        DBG_PRINT("[sid=%d] setting cwnd after program: %u\n", conn->index, state->registers.impl_registers[CWND_REG]);
         datapath->set_cwnd(datapath, conn, state->registers.impl_registers[CWND_REG]);
     }
 
     if (state->registers.impl_registers[RATE_REG] != 0) {
-        DBG_PRINT("setting rate after program: %u\n", state->registers.impl_registers[CWND_REG]);
+        DBG_PRINT("[sid=%d] setting rate after program: %u\n", conn->index, state->registers.impl_registers[CWND_REG]);
         datapath->set_rate_abs(datapath, conn, state->registers.impl_registers[RATE_REG]);
     }
 
@@ -671,6 +671,6 @@ int state_machine(struct ccp_connection *conn) {
         reset_state(state);
     }
 
-    DBG_PRINT(">>> program finished ret=0 <<<\n\n");
+    DBG_PRINT(">>> program finished [sid=%d] [ret=0] <<<\n\n", conn->index);
     return 0;
 }
