@@ -356,6 +356,7 @@ void reset_state(struct ccp_priv_state *state) {
     struct DatapathProgram* program = datapath_program_lookup(state->program_index);
     if (program == NULL) {
         PRINT("Cannot reset state because program is NULL\n");
+	return;
     }
     struct Instruction64 current_instruction;
     u8 num_to_return = 0;
@@ -402,6 +403,7 @@ void init_register_state(struct ccp_priv_state *state) {
     struct DatapathProgram* program = datapath_program_lookup(state->program_index);
     if (program == NULL) {
         PRINT("Cannot init register state because program is NULL\n");
+	return;
     }
 
     // go through all the DEF instructions, and reset all CONTROL_REG and NONVOLATILE_REPORT_REG variables
