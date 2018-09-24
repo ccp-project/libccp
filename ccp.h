@@ -20,6 +20,7 @@
 
     #define __INLINE__       inline
     #define __MALLOC__(size) kmalloc(size, GFP_KERNEL)
+    #define __CALLOC__(num_elements, block_size) kcalloc(num_elements, block_size, GFP_KERNEL)
     #define __FREE__(ptr)    kfree(ptr)
 #else
     #ifdef __DEBUG__
@@ -30,6 +31,7 @@
     #define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
     #define __INLINE__
     #define __MALLOC__(size) malloc(size)
+    #define __CALLOC__(num_elements, block_size) calloc(num_elements, block_size)
     #define __FREE__(ptr)    free(ptr)
 #endif
 
