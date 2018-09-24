@@ -268,14 +268,18 @@ void ccp_connection_free(u16 sid) {
         return;
     }
 
-    conn->index = 0;
+    free_ccp_priv_state(conn);
 
-    msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, sid, conn->index, 0, 0);
+    msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, sid, 0, 0, 0);
     ok = datapath->send_msg(datapath, conn, msg, msg_size);
     if (ok < 0) {
         PRINT("error sending close message: %d", ok);
     }
-
+    
+    // ccp_connection_start will look for an array entry with index 0
+    // to indicate that it's available for a new flow's information.
+    // So, we set index to 0 here to reuse the memory.
+    conn->index = 0;
     return;
 }
 

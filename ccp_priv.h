@@ -143,6 +143,10 @@ void reset_time(struct ccp_priv_state *state);
  * Called from ccp_connection_start()
  */
 int init_ccp_priv_state(struct ccp_connection *conn);
+/* Free the allocated flow memory.
+ * Call when the flow has ended.
+ */
+void free_ccp_priv_state(struct ccp_connection *conn);
 
 /* Retrieve the private state from ccp_connection.
  */
