@@ -279,7 +279,10 @@ void ccp_connection_free(u16 sid) {
 struct DatapathProgram* datapath_program_lookup(u16 pid) {
     struct DatapathProgram *prog;
     // bounds check
-    if (pid == 0 || pid > MAX_NUM_PROGRAMS) {
+    if (pid == 0) {
+        DBG_PRINT("no datapath program set\n");
+        return NULL;
+    } else if (pid > MAX_NUM_PROGRAMS) {
         PRINT("program index out of bounds: %d\n", pid);
         return NULL;
     }
@@ -357,7 +360,7 @@ int datapath_program_install(struct InstallExpressionMsgHdr* install_expr_msg, c
 
     DBG_PRINT("installed new program (uid=%d) with %d expressions and %d instructions\n", program->program_uid, program->num_expressions, program->num_instructions);
 
-    return (int)pid;
+    return 0;
 
 }
 
@@ -433,7 +436,7 @@ int ccp_read_msg(
     struct ccp_priv_state *state;
     struct CcpMsgHeader hdr;
     struct InstallExpressionMsgHdr expr_msg_info;
-    int program_index;
+    int msg_program_index;
     struct ChangeProgMsg change_program;
     char* msg_ptr;
 
@@ -478,9 +481,9 @@ int ccp_read_msg(
         }
 
         msg_ptr += ok;
-        program_index = datapath_program_install(&expr_msg_info, msg_ptr);
-        if ( program_index < 0 ) {
-            PRINT("could not install datapath program: %d\n", program_index);
+        ok = datapath_program_install(&expr_msg_info, msg_ptr);
+        if ( ok < 0 ) {
+            PRINT("could not install datapath program: %d\n", ok);
             return -6;
         }
         return 0; // installed program successfully
@@ -519,15 +522,15 @@ int ccp_read_msg(
             return -9;
         }
         msg_ptr += ok;
-        program_index = datapath_program_lookup_uid(change_program.program_uid);
 
-        if (program_index < 0) {
+        msg_program_index = datapath_program_lookup_uid(change_program.program_uid);
+        if (msg_program_index < 0) {
             // TODO: is it possible there is not enough time between when the message is installed and when a flow asks to use the program?
-            PRINT("Could not find datapath program with program uid: %u\n", program_index);
+            PRINT("Could not find datapath program with program uid: %u\n", msg_program_index);
             return -10;
         }
 
-        state->staged_program_index = (u16)program_index; // index into program array for further lookup of instructions
+        state->staged_program_index = (u16)msg_program_index; // index into program array for further lookup of instructions
 
         // clear any staged but not applied updates, as they are now irrelevant
         memset(&state->pending_update, 0, sizeof(struct staged_update));
