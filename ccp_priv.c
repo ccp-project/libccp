@@ -2,8 +2,10 @@
 
 #ifdef __KERNEL__
 #include <linux/slab.h> // kmalloc
+#include <linux/string.h> // memcpy,memset
 #else
 #include <stdlib.h>
+#include <string.h>
 #endif
 
 extern struct ccp_datapath *datapath;
@@ -14,6 +16,7 @@ int init_ccp_priv_state(struct ccp_connection *conn) {
     state = (struct ccp_priv_state*) conn->state;
     state->sent_create = false;
     state->implicit_time_zero = datapath->time_zero;
+    memset(&state->pending_update, 0, sizeof(struct staged_update));
     return 0;
 }
 
