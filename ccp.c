@@ -154,7 +154,13 @@ __INLINE__ int ccp_set_impl(struct ccp_connection *conn, void *ptr) {
 int ccp_invoke(struct ccp_connection *conn) {
     int i;
     int ok = 0;
-    struct ccp_priv_state *state = get_ccp_priv_state(conn);
+    struct ccp_priv_state *state;
+
+		if (conn == NULL) {
+			return -1;
+		}
+
+		state = get_ccp_priv_state(conn);
     if (!(state->sent_create)) {
         // try contacting the CCP again
         // index of pointer back to this sock for IPC callback
