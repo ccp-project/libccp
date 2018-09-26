@@ -17,7 +17,8 @@ int init_ccp_priv_state(struct ccp_connection *conn) {
 
     state->sent_create = false;
     state->implicit_time_zero = datapath->time_zero;
-    memset(&state->pending_update, 0, sizeof(struct staged_update));
+    state->program_index = 0;
+    state->staged_program_index = -1;
     return 0;
 }
 
