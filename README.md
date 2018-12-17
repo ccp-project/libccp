@@ -7,6 +7,10 @@ a few callback functions for modifying state internal to the datapath
 and libccp handles everything else. The instructions below detail all of the
 steps necessary to make a datapath CCP compatible.  
 
+If you do not need to create a new datapath and just want to get started using
+CCP, please see our [guide](https://ccp-project.github.io/guide).
+
+
 ## Implementation
 
 ### 0 | Include ccp.h in all relevant files
