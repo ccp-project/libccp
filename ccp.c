@@ -497,11 +497,11 @@ int ccp_read_msg(
 
     // rest of the messages must be for a specific flow
     conn = ccp_connection_lookup(hdr.SocketId);
-    state = get_ccp_priv_state(conn);
     if (conn == NULL) {
         PRINT("unknown connection: %u\n", hdr.SocketId);
         return -7;
     }
+    state = get_ccp_priv_state(conn);
 
     if (hdr.Type == UPDATE_FIELDS) {
         DBG_PRINT("[sid=%d] Received update_fields message\n", conn->index);
