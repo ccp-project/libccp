@@ -6,6 +6,7 @@ ifeq ($(DEBUG), y)
 	CFLAGS += -D__DEBUG__
 else
 endif
+LDFLAGS = -lpthread -pthread
 RM = rm -f  # rm command
 LIB_NAME = ccp
 TARGET_LIB = lib${LIB_NAME}.so # target lib
@@ -33,7 +34,7 @@ $(SRCS:.c=.d):%.d:%.c
 -include $(SRCS:.c=.d)
 
 $(TEST_TARGET): ${TARGET_LIB} ${TEST_OBJS}
-	$(CC) ${CFLAGS} -D__DEBUG__ ${TEST_SRCS} ${STATIC_TARGET} -o ${TEST_TARGET}
+	$(CC) ${CFLAGS} -D__DEBUG__ ${TEST_SRCS} -L. ${LDFLAGS} ${STATIC_TARGET} -o ${TEST_TARGET} 
 
 test: $(TEST_TARGET)
 	./libccp-test
