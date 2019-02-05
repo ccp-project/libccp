@@ -22,6 +22,12 @@
     #define __MALLOC__(size) kmalloc(size, GFP_KERNEL)
     #define __CALLOC__(num_elements, block_size) kcalloc(num_elements, block_size, GFP_KERNEL)
     #define __FREE__(ptr)    kfree(ptr)
+    #define DEFINE_LOCK(l)   spinlock_t l
+    #define INIT_LOCK(l)     spin_lock_init(l)
+    #define ACQUIRE_LOCK(l)  spin_lock(l)
+    #define RELEASE_LOCK(l)  spin_unlock(l)
+    #define TRY_LOCK(l)      spin_trylock(l)
+    #define DESTROY_LOCK(l)
 #else
     #ifdef __DEBUG__
         #define DBG_PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
@@ -33,14 +39,25 @@
     #define __MALLOC__(size) malloc(size)
     #define __CALLOC__(num_elements, block_size) calloc(num_elements, block_size)
     #define __FREE__(ptr)    free(ptr)
+    #define DEFINE_LOCK(l)   pthread_spinlock_t l
+    #define INIT_LOCK(l)     pthread_spin_init(l, PTHREAD_PROCESS_SHARED)
+    #define ACQUIRE_LOCK(l)  pthread_spin_lock(l)
+    #define RELEASE_LOCK(l)  pthread_spin_unlock(l)
+    #define TRY_LOCK(l)      pthread_spin_trylock(l)
+    #define DESTROY_LOCK(l)  pthread_spin_destroy(l)
 #endif
 
 #ifdef __KERNEL__
     #include <linux/types.h>
     #include <linux/module.h>
+    #include <linux/spinlock.h> // spinlock
+
 #else
     #include <stdbool.h>
     #include <pthread.h> // for mutex
+    #ifdef __APPLE__
+    #include "spinlock.h"
+    #endif
 #endif
 
 #include "serialize.h"
