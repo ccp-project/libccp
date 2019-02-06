@@ -22,11 +22,11 @@ int send_conn_create(
 );
 
 // array of active connections
-struct ccp_connection* ccp_active_connections;
+struct ccp_connection* ccp_active_connections = NULL;
 // datapath implementation
-struct ccp_datapath* datapath;
+struct ccp_datapath* datapath = NULL;
 // datapath programs available to all flows
-struct DatapathProgram* datapath_programs;
+struct DatapathProgram* datapath_programs = NULL;
 
 int ccp_init(struct ccp_datapath *dp) {
     // check that dp is properly filled in.
@@ -43,9 +43,14 @@ int ccp_init(struct ccp_datapath *dp) {
         return -1;
     }
 
+    // avoid memory leak
+    if (datapath != NULL || ccp_active_connections != NULL || datapath_programs != NULL) {
+        return -2;
+    }
+
     datapath = (struct ccp_datapath*)__MALLOC__(sizeof(struct ccp_datapath));
     if (!datapath) {
-        return -1;
+        return -3;
     }
 
     // copy function pointers into datapath
@@ -63,7 +68,8 @@ int ccp_init(struct ccp_datapath *dp) {
     ccp_active_connections = (struct ccp_connection*)__MALLOC__(MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
     if (!ccp_active_connections) {
         __FREE__(datapath);
-        return -1;
+        datapath = NULL;
+        return -4;
     }
 
     memset(ccp_active_connections, 0, MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
@@ -71,8 +77,10 @@ int ccp_init(struct ccp_datapath *dp) {
     datapath_programs = (struct DatapathProgram*)__MALLOC__(MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
     if (!datapath_programs) {
         __FREE__(datapath);
+        datapath = NULL;
         __FREE__(ccp_active_connections);
-        return -1;
+        ccp_active_connections = NULL;
+        return -5;
     }
 
     memset(datapath_programs, 0, MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
