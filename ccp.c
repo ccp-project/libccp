@@ -260,7 +260,17 @@ void ccp_connection_free(u16 sid) {
     struct ccp_connection *conn;
     char msg[REPORT_MSG_SIZE];
 
-    ACQUIRE_LOCK(&mu_free[sid]);
+    if (TRY_LOCK(&mu_free[sid]) != 0) {
+        if (sid == 0 || sid > MAX_NUM_CONNECTIONS) {
+            PRINT("tried to free an sid that's already being held... sid: %d", sid);
+        } else {
+            conn = &ccp_active_connections[sid-1];
+            PRINT("tried to free an sid that's already being held... sid: %d, conn: %d", sid, conn->index);
+        }
+        DUMP_STACK;
+        return; 
+    }
+
     DBG_PRINT("Entering %s\n", __FUNCTION__);
     // bounds check
     if (sid == 0 || sid > MAX_NUM_CONNECTIONS) {

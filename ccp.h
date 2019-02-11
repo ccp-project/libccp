@@ -17,6 +17,7 @@
         #define DBG_PRINT(fmt, args...)
     #endif
     #define PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
+    #define DUMP_STACK dump_stack()
 
     #define __INLINE__       inline
     #define __MALLOC__(size) kmalloc(size, GFP_KERNEL)
@@ -35,6 +36,7 @@
         #define DBG_PRINT(fmt, args...)
     #endif
     #define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
+    #define DUMP_STACK PRINT("not in the kernel, so can't print stack trace!!")
     #define __INLINE__
     #define __MALLOC__(size) malloc(size)
     #define __CALLOC__(num_elements, block_size) calloc(num_elements, block_size)
