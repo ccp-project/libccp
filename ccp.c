@@ -16,7 +16,8 @@
 #define CREATE_TIMEOUT_US 100000 // 100 ms
 #define MAX_NUM_PROGRAMS 10
 
-DEFINE_LOCK(mu_free); 
+// DEFINE_LOCK(mu_free);
+DEFINE_LOCK(mu_free[MAX_NUM_CONNECTIONS+1]);
 
 int send_conn_create(
     struct ccp_datapath *datapath,
@@ -31,8 +32,11 @@ struct ccp_datapath* datapath;
 struct DatapathProgram* datapath_programs;
 
 int ccp_init(struct ccp_datapath *dp) {
-    INIT_LOCK(&mu_free); 
-
+    for(size_t i = 0; i <= MAX_NUM_CONNECTIONS; i++)
+    {
+        INIT_LOCK(&mu_free[i]); 
+    }
+    
     // check that dp is properly filled in.
     if (
         dp                ==  NULL  ||
@@ -256,19 +260,19 @@ void ccp_connection_free(u16 sid) {
     struct ccp_connection *conn;
     char msg[REPORT_MSG_SIZE];
 
-    ACQUIRE_LOCK(&mu_free);
+    ACQUIRE_LOCK(&mu_free[sid]);
     DBG_PRINT("Entering %s\n", __FUNCTION__);
     // bounds check
     if (sid == 0 || sid > MAX_NUM_CONNECTIONS) {
         PRINT("index out of bounds: %d", sid);
-        RELEASE_LOCK(&mu_free);
+        RELEASE_LOCK(&mu_free[sid]);
         return;
     }
 
     conn = &ccp_active_connections[sid-1];
     if (conn->index != sid) {
         PRINT("index mismatch: sid %d, index %d", sid, conn->index);
-        RELEASE_LOCK(&mu_free);
+        RELEASE_LOCK(&mu_free[sid]);
         return;
     }
 
@@ -284,7 +288,7 @@ void ccp_connection_free(u16 sid) {
     // to indicate that it's available for a new flow's information.
     // So, we set index to 0 here to reuse the memory.
     conn->index = 0;
-    RELEASE_LOCK(&mu_free);
+    RELEASE_LOCK(&mu_free[sid]);
     return;
 }
 
