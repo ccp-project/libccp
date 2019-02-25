@@ -110,10 +110,9 @@ struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info
     // index = 0 means free/unused
     for (sid = 0; sid < MAX_NUM_CONNECTIONS; sid++) {
         conn = &ccp_active_connections[sid];
-        if (conn->index == 0) {
-            // found a free slot
-            conn->index = sid + 1;
+        if (CAS(&(conn->index), 0, sid+1)) {
             sid = sid + 1;
+            PRINT("starting connection %d", sid);
             break;
         }
     }
@@ -268,7 +267,7 @@ void ccp_connection_free(u16 sid) {
             PRINT("tried to free an sid that's already being held... sid: %d, conn: %d", sid, conn->index);
         }
         DUMP_STACK;
-        return; 
+        ACQUIRE_LOCK(&mu_free[sid]);
     }
 
     DBG_PRINT("Entering %s\n", __FUNCTION__);

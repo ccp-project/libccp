@@ -29,6 +29,7 @@
     #define RELEASE_LOCK(l)  spin_unlock(l)
     #define TRY_LOCK(l)      spin_trylock(l)
     #define DESTROY_LOCK(l)
+    #define CAS(a,o,n)       cmpxchg(a,o,n) == o
 #else
     #ifdef __DEBUG__
         #define DBG_PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
@@ -47,6 +48,7 @@
     #define RELEASE_LOCK(l)  pthread_spin_unlock(l)
     #define TRY_LOCK(l)      pthread_spin_trylock(l)
     #define DESTROY_LOCK(l)  pthread_spin_destroy(l)
+    #define CAS(a,o,n)       __sync_bool_compare_and_swap(a,o,n)
 #endif
 
 #ifdef __KERNEL__
