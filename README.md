@@ -50,7 +50,6 @@ callback invoked by the ccp that must have access to these sockets.
 struct ccp_datapath dp = {
 	.set_cwnd = &_set_cwnd,
         .set_rate_abs = &_set_rate_abs,
-        .set_rate_rel = &_set_rate_rel,
         .now = &_now,
         .after_usecs = &_after_usecs
         .send_msg = &_send_msg,

@@ -119,7 +119,6 @@ struct ccp_datapath {
     // control primitives
     void (*set_cwnd)(struct ccp_datapath *dp, struct ccp_connection *conn, u32 cwnd); // TODO(eventually): consider setting cwnd in packets, not bytes
     void (*set_rate_abs)(struct ccp_datapath *dp, struct ccp_connection *conn, u32 rate);
-    void (*set_rate_rel)(struct ccp_datapath *dp, struct ccp_connection *conn, u32 rate);
 
     // IPC communication
     int (*send_msg)(struct ccp_datapath *dp, struct ccp_connection *conn, char *msg, int msg_size);

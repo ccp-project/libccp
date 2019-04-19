@@ -33,10 +33,6 @@ static void test_ccp_set_rate(struct ccp_datapath *UNUSED(dp), struct ccp_connec
     c->curr_rate = rate;
 }
 
-static void test_ccp_set_rate_rel(struct ccp_datapath *UNUSED(dp), struct ccp_connection *UNUSED(conn), u32 UNUSED(cwnd)) {
-    return;
-}
-
 static int test_ccp_send_msg(struct ccp_datapath *UNUSED(dp), struct ccp_connection *UNUSED(conn), char *msg, int msg_size) {
     if (expecting_send <= 0) {
         printf("FAIL\nNot expecting send");
@@ -637,7 +633,6 @@ int main(int UNUSED(argc), char **UNUSED(argv)) {
     struct ccp_datapath dp = {
         .set_cwnd = test_ccp_set_cwnd,
         .set_rate_abs = test_ccp_set_rate,
-        .set_rate_rel = test_ccp_set_rate_rel,
         .send_msg = test_ccp_send_msg,
         .now = test_ccp_time_now,
         .since_usecs = test_ccp_since_usecs,

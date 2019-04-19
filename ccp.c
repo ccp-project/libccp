@@ -37,7 +37,6 @@ int ccp_init(struct ccp_datapath *dp) {
         dp                ==  NULL  ||
         dp->set_cwnd      ==  NULL  ||
         dp->set_rate_abs  ==  NULL  ||
-        dp->set_rate_rel  ==  NULL  ||
         dp->send_msg      ==  NULL  ||
         dp->now           ==  NULL  ||
         dp->since_usecs   ==  NULL  ||
@@ -59,7 +58,6 @@ int ccp_init(struct ccp_datapath *dp) {
     // copy function pointers into datapath
     datapath->set_cwnd           = dp->set_cwnd;
     datapath->set_rate_abs       = dp->set_rate_abs;
-    datapath->set_rate_rel       = dp->set_rate_rel;
     datapath->send_msg           = dp->send_msg;
     datapath->now                = dp->now;
     datapath->since_usecs        = dp->since_usecs;
