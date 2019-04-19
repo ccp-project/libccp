@@ -23,19 +23,19 @@ extern int send_measurement(
  * Corresponds to operations sent down in instruction messages
  * Bind, ifcnt, and ifnotcnt are directly inline
  */
-u64 myadd64(u64 a, u64 b) {
+static u64 myadd64(u64 a, u64 b) {
     return a + b;
 }
 
-u64 mydiv64(u64 a, u64 b) {
+static u64 mydiv64(u64 a, u64 b) {
     return a/b;
 }
 
-u64 myequiv64(u64 a, u64 b) {
+static u64 myequiv64(u64 a, u64 b) {
     return ( a == b );
 }
 
-u64 myewma64(u64 a, u64 b, u64 c) {
+static u64 myewma64(u64 a, u64 b, u64 c) {
     u64 num;
     u64 old = a * b;
     u64 new_val = ( CCP_FRAC_DENOM - a ) * c;
@@ -46,17 +46,17 @@ u64 myewma64(u64 a, u64 b, u64 c) {
     return num/CCP_FRAC_DENOM;
 }
 
-u64 mygt64(u64 a, u64 b) {
+static u64 mygt64(u64 a, u64 b) {
     return ( a > b );
 }
 
-u64 mylt64(u64 a, u64 b) {
+static u64 mylt64(u64 a, u64 b) {
     return ( a < b );
 }
 
 
 // raw difference from left -> right, provided you're walking in direction left -> right
-u32 dif32(u32 left, u32 right) {
+static u32 dif32(u32 left, u32 right) {
     u32 max32 = ((u32)~0U);
     if ( right > left ) {
         return ( right - left );
@@ -66,7 +66,7 @@ u32 dif32(u32 left, u32 right) {
 }
 
 /* must handle integer wraparound*/
-u64 mymax64_wrap(u64 a, u64 b) {
+static u64 mymax64_wrap(u64 a, u64 b) {
     u32 a32 = (u32)a;
     u32 b32 = (u32)b;
     u32 left_to_right = dif32(a32, b32);
@@ -86,32 +86,32 @@ u64 mymax64_wrap(u64 a, u64 b) {
     return (u64)b32;
 }
 
-u64 mymax64(u64 a, u64 b) {
+static u64 mymax64(u64 a, u64 b) {
     if ( a > b ) {
         return a;
     }
     return b;
 }
 
-u64 mymin64(u64 a, u64 b) {
+static u64 mymin64(u64 a, u64 b) {
     if ( a < b ) {
         return a;
     }
     return b;
 }
 
-u64 mymul64(u64 a, u64 b) {
+static u64 mymul64(u64 a, u64 b) {
     return a*b;
 }
 
-u64 mysub64(u64 a, u64 b) {
+static u64 mysub64(u64 a, u64 b) {
     return a - b;
 }
 
 /*
  * Read Operations from operation messages
  */
-int read_op(struct Instruction64* instr, u8 opcode) {
+static int read_op(struct Instruction64* instr, u8 opcode) {
     if (opcode >= MAX_OP) {
         return -1;
     }
@@ -123,7 +123,7 @@ int read_op(struct Instruction64* instr, u8 opcode) {
  * Deserialize registers sent down as u32
  * u32 is necessary for value as it could be an immediate register
  */
-int deserialize_register(struct Register *ret, u8 reg_type, u32 reg_value) {
+static int deserialize_register(struct Register *ret, u8 reg_type, u32 reg_value) {
     switch (reg_type) {
         case CONTROL_REG: // control register
             ret->type = (int)CONTROL_REG;
@@ -163,92 +163,11 @@ int deserialize_register(struct Register *ret, u8 reg_type, u32 reg_value) {
 }
 
 /*
- * Read instructions into an instruction struct
- */
-int read_instruction(
-    struct Instruction64 *ret,
-    struct InstructionMsg *msg
-) {
-    int ok;
-    ok = read_op(ret, msg->opcode);
-    if (ok < 0) {
-        return -1;
-    }
-    
-    // check if the reg type is IMMEDIATE or PRIMITIVE
-    if (msg->result_reg_type == IMMEDIATE_REG || msg->result_reg_type == PRIMITIVE_REG) {
-        return -2;
-    }
-
-    ok = deserialize_register(&ret->rRet, msg->result_reg_type, msg->result_register);
-    if (ok < 0) {
-        return -3;
-    }
-
-    ok = deserialize_register(&ret->rLeft, msg->left_reg_type, msg->left_register);
-    if (ok < 0) {
-        return -4;
-    }
-
-    ok = deserialize_register(&ret->rRight, msg->right_reg_type, msg->right_register);
-    if (ok < 0) {
-        return -5;
-    }
-
-    return ok;
-}
-
-/*
- * Read expression msg into expression struct
- */
-int read_expression(
-    struct Expression *expr,
-    struct ExpressionMsg *msg
-) {
-    int ok = 0;
-    expr->cond_start_idx = msg->cond_start_idx;
-    expr->num_cond_instrs = msg->num_cond_instrs;
-    expr->event_start_idx = msg->event_start_idx;
-    expr->num_event_instrs = msg->num_event_instrs;
-    return ok;
-}
-
-/*
- * Perform update in update_field struct
- * Only applicable to control registers and cwnd and rate registers
- */
-int update_register(struct ccp_connection* conn, struct ccp_priv_state *state, struct UpdateField *update_field) {
-    // update the value for these registers
-    // for cwnd, rate; update field in datapath
-    switch(update_field->reg_type) {
-        case CONTROL_REG:
-            // set new value
-            state->registers.control_registers[update_field->reg_index] = update_field->new_value;
-            return 0;
-        case IMPLICIT_REG:
-            if (update_field->reg_index == CWND_REG) {
-                state->registers.impl_registers[CWND_REG] = update_field->new_value;
-                if (state->registers.impl_registers[CWND_REG] != 0) {
-                    datapath->set_cwnd(datapath, conn, state->registers.impl_registers[CWND_REG]);
-                }
-            } else if (update_field->reg_index == RATE_REG) {
-                state->registers.impl_registers[RATE_REG] = update_field->new_value;
-                if (state->registers.impl_registers[RATE_REG] != 0) {
-                    datapath->set_rate_abs(datapath, conn, state->registers.impl_registers[RATE_REG]);
-                }
-            }
-            return 0;
-        default:
-            return 0; // allowed only for CONTROL and CWND and RATE reg within CONTROL_REG
-    }
-}
-
-/*
  * Write into specified registers
  * Only allowed to write into NONVOLATILE_REPORT_REG, VOLATILE_REPORT_REG, TMP_REG, LOCAL_REG
  * and some of the IMPL_REG: EXPR_FLAG_REG, CWND_REG, RATE_REG, SHOULD_REPORT_REG
  */
-void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
+static void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
     switch (reg.type) {
         case NONVOLATILE_REPORT_REG:
         case VOLATILE_REPORT_REG:
@@ -287,7 +206,7 @@ void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
 /*
  * Read specified register
  */
-u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, struct Register reg) {
+static u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, struct Register reg) {
     switch (reg.type) {
         case IMMEDIATE_REG:
             return reg.value;
@@ -348,97 +267,8 @@ u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, st
     }
 }
 
-/*
- * Resets all permanent registers to the DEF values
- */
-void reset_state(struct ccp_priv_state *state) {
-    u8 i;
-    struct DatapathProgram* program = datapath_program_lookup(state->program_index);
-    if (program == NULL) {
-        PRINT("Cannot reset state because program is NULL\n");
-	return;
-    }
-    struct Instruction64 current_instruction;
-    u8 num_to_return = 0;
-
-    // go through all the DEF instructions, and reset all VOLATILE_REPORT_REG variables
-    for (i = 0; i < program->num_instructions; i++) {
-        current_instruction = program->fold_instructions[i];
-        switch (current_instruction.op) {
-            case DEF:
-                // This only applies to REPORT_REG.
-                if (current_instruction.rLeft.type != NONVOLATILE_REPORT_REG && 
-                    current_instruction.rLeft.type != VOLATILE_REPORT_REG) {
-                    continue;
-                }
-                
-                // We report both NONVOLATILE_REPORT_REG and VOLATILE_REPORT_REG.
-                num_to_return += 1;
-
-                // We don't reset NONVOLATILE_REPORT_REG
-                if (current_instruction.rLeft.type == NONVOLATILE_REPORT_REG) {
-                    continue;
-                }
-
-                // set the default value of the state register
-                // check for infinity
-                if (current_instruction.rRight.value == (0x3fffffff)) {
-                    write_reg(state, ((u64)~0U), current_instruction.rLeft);
-                } else {
-                    write_reg(state, current_instruction.rRight.value, current_instruction.rLeft);
-                }
-                break;
-            default:
-                // DEF instructions are only at the beginnning
-                // Once we see a non-DEF, can stop.
-                program->num_to_return = num_to_return;
-                return; 
-        }
-    }    
-}
-
-void init_register_state(struct ccp_priv_state *state) {
-    u8 i;
-    struct Instruction64 current_instruction;
-    struct DatapathProgram* program = datapath_program_lookup(state->program_index);
-    if (program == NULL) {
-        PRINT("Cannot init register state because program is NULL\n");
-	return;
-    }
-
-    // go through all the DEF instructions, and reset all CONTROL_REG and NONVOLATILE_REPORT_REG variables
-    for (i = 0; i < program->num_instructions; i++) {
-        current_instruction = program->fold_instructions[i];
-        switch (current_instruction.op) {
-            case DEF:
-                if (current_instruction.rLeft.type != CONTROL_REG && current_instruction.rLeft.type != NONVOLATILE_REPORT_REG) {
-                    continue;
-                }
-                // set the default value of the state register
-                // check for infinity
-                if (current_instruction.rRight.value == (0x3fffffff)) {
-                    write_reg(state, ((u64)~0U), current_instruction.rLeft);
-                } else {
-                    write_reg(state, current_instruction.rRight.value, current_instruction.rLeft);
-                }
-                break;
-            default:
-                return; 
-        }
-    }    
-}
-
-/*
- * Resets implicit registers associated with US_ELAPSED
- */
-void reset_time(struct ccp_priv_state *state) {
-    // reset the ns elapsed register to register now as 0
-    state->implicit_time_zero = datapath->now();
-    state->registers.impl_registers[US_ELAPSED_REG] = 0;
-}
-
 #ifdef __DEBUG__
-void print_register(struct Register* reg) {
+static void print_register(struct Register* reg) {
     char* type;
     switch(reg->type) {
         case CONTROL_REG:
@@ -474,11 +304,10 @@ void print_register(struct Register* reg) {
 }
 #endif
 
-
 /*
  * Process instruction at specfied index 
  */
-int process_instruction(int instr_index, struct ccp_priv_state *state, struct ccp_primitives* primitives) {
+static int process_instruction(int instr_index, struct ccp_priv_state *state, struct ccp_primitives* primitives) {
     struct DatapathProgram* program = datapath_program_lookup(state->program_index);
     struct Instruction64 current_instruction = program->fold_instructions[instr_index];
     u64 arg0, arg1, arg2, result; // extra arg0 for ewma, if, not if
@@ -578,7 +407,7 @@ int process_instruction(int instr_index, struct ccp_priv_state *state, struct cc
 /*
  * Process a single event - check if condition is true, and execute event body if so
  */
-int process_expression(int expr_index, struct ccp_priv_state *state, struct ccp_primitives* primitives) {
+static int process_expression(int expr_index, struct ccp_priv_state *state, struct ccp_primitives* primitives) {
     struct DatapathProgram* program = datapath_program_lookup(state->program_index);
     struct Expression *expression = &(program->expressions[expr_index]);
     u8 idx;
@@ -606,9 +435,180 @@ int process_expression(int expr_index, struct ccp_priv_state *state, struct ccp_
 }
 
 /*
+ * Read instructions into an instruction struct
+ */
+int read_instruction(
+    struct Instruction64 *ret,
+    struct InstructionMsg *msg
+) {
+    int ok;
+    ok = read_op(ret, msg->opcode);
+    if (ok < 0) {
+        return -1;
+    }
+    
+    // check if the reg type is IMMEDIATE or PRIMITIVE
+    if (msg->result_reg_type == IMMEDIATE_REG || msg->result_reg_type == PRIMITIVE_REG) {
+        return -2;
+    }
+
+    ok = deserialize_register(&ret->rRet, msg->result_reg_type, msg->result_register);
+    if (ok < 0) {
+        return -3;
+    }
+
+    ok = deserialize_register(&ret->rLeft, msg->left_reg_type, msg->left_register);
+    if (ok < 0) {
+        return -4;
+    }
+
+    ok = deserialize_register(&ret->rRight, msg->right_reg_type, msg->right_register);
+    if (ok < 0) {
+        return -5;
+    }
+
+    return ok;
+}
+
+/*
+ * Read expression msg into expression struct
+ */
+int read_expression(
+    struct Expression *expr,
+    struct ExpressionMsg *msg
+) {
+    int ok = 0;
+    expr->cond_start_idx = msg->cond_start_idx;
+    expr->num_cond_instrs = msg->num_cond_instrs;
+    expr->event_start_idx = msg->event_start_idx;
+    expr->num_event_instrs = msg->num_event_instrs;
+    return ok;
+}
+
+/*
+ * Perform update in update_field struct
+ * Only applicable to control registers and cwnd and rate registers
+ */
+int update_register(struct ccp_connection* conn, struct ccp_priv_state *state, struct UpdateField *update_field) {
+    // update the value for these registers
+    // for cwnd, rate; update field in datapath
+    switch(update_field->reg_type) {
+        case CONTROL_REG:
+            // set new value
+            state->registers.control_registers[update_field->reg_index] = update_field->new_value;
+            return 0;
+        case IMPLICIT_REG:
+            if (update_field->reg_index == CWND_REG) {
+                state->registers.impl_registers[CWND_REG] = update_field->new_value;
+                if (state->registers.impl_registers[CWND_REG] != 0) {
+                    datapath->set_cwnd(datapath, conn, state->registers.impl_registers[CWND_REG]);
+                }
+            } else if (update_field->reg_index == RATE_REG) {
+                state->registers.impl_registers[RATE_REG] = update_field->new_value;
+                if (state->registers.impl_registers[RATE_REG] != 0) {
+                    datapath->set_rate_abs(datapath, conn, state->registers.impl_registers[RATE_REG]);
+                }
+            }
+            return 0;
+        default:
+            return 0; // allowed only for CONTROL and CWND and RATE reg within CONTROL_REG
+    }
+}
+
+
+/*
+ * Resets all permanent registers to the DEF values
+ */
+void reset_state(struct ccp_priv_state *state) {
+    u8 i;
+    struct DatapathProgram* program = datapath_program_lookup(state->program_index);
+    if (program == NULL) {
+        PRINT("Cannot reset state because program is NULL\n");
+	return;
+    }
+    struct Instruction64 current_instruction;
+    u8 num_to_return = 0;
+
+    // go through all the DEF instructions, and reset all VOLATILE_REPORT_REG variables
+    for (i = 0; i < program->num_instructions; i++) {
+        current_instruction = program->fold_instructions[i];
+        switch (current_instruction.op) {
+            case DEF:
+                // This only applies to REPORT_REG.
+                if (current_instruction.rLeft.type != NONVOLATILE_REPORT_REG && 
+                    current_instruction.rLeft.type != VOLATILE_REPORT_REG) {
+                    continue;
+                }
+                
+                // We report both NONVOLATILE_REPORT_REG and VOLATILE_REPORT_REG.
+                num_to_return += 1;
+
+                // We don't reset NONVOLATILE_REPORT_REG
+                if (current_instruction.rLeft.type == NONVOLATILE_REPORT_REG) {
+                    continue;
+                }
+
+                // set the default value of the state register
+                // check for infinity
+                if (current_instruction.rRight.value == (0x3fffffff)) {
+                    write_reg(state, ((u64)~0U), current_instruction.rLeft);
+                } else {
+                    write_reg(state, current_instruction.rRight.value, current_instruction.rLeft);
+                }
+                break;
+            default:
+                // DEF instructions are only at the beginnning
+                // Once we see a non-DEF, can stop.
+                program->num_to_return = num_to_return;
+                return; 
+        }
+    }    
+}
+
+void init_register_state(struct ccp_priv_state *state) {
+    u8 i;
+    struct Instruction64 current_instruction;
+    struct DatapathProgram* program = datapath_program_lookup(state->program_index);
+    if (program == NULL) {
+        PRINT("Cannot init register state because program is NULL\n");
+	return;
+    }
+
+    // go through all the DEF instructions, and reset all CONTROL_REG and NONVOLATILE_REPORT_REG variables
+    for (i = 0; i < program->num_instructions; i++) {
+        current_instruction = program->fold_instructions[i];
+        switch (current_instruction.op) {
+            case DEF:
+                if (current_instruction.rLeft.type != CONTROL_REG && current_instruction.rLeft.type != NONVOLATILE_REPORT_REG) {
+                    continue;
+                }
+                // set the default value of the state register
+                // check for infinity
+                if (current_instruction.rRight.value == (0x3fffffff)) {
+                    write_reg(state, ((u64)~0U), current_instruction.rLeft);
+                } else {
+                    write_reg(state, current_instruction.rRight.value, current_instruction.rLeft);
+                }
+                break;
+            default:
+                return; 
+        }
+    }    
+}
+
+/*
+ * Resets implicit registers associated with US_ELAPSED
+ */
+void reset_time(struct ccp_priv_state *state) {
+    // reset the ns elapsed register to register now as 0
+    state->implicit_time_zero = datapath->now();
+    state->registers.impl_registers[US_ELAPSED_REG] = 0;
+}
+
+/*
  * Before state machine, reset  some of the implicit registers
  */
-void reset_impl_registers(struct ccp_priv_state *state) {
+static __INLINE__ void reset_impl_registers(struct ccp_priv_state *state) {
     state->registers.impl_registers[EXPR_FLAG_REG] = 0;
     state->registers.impl_registers[SHOULD_FALLTHROUGH_REG] = 0;
     state->registers.impl_registers[SHOULD_REPORT_REG] = 0;
