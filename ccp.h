@@ -1,12 +1,3 @@
-/* CCP Datapath Connection Map
- *
- * When we receive a message from userspace CCP, we are not
- * in the flow context and need to access state (e.g. primitives) for
- * the appropriate connection.
- *
- * So, we maintain a map of ccp sock_id -> flow state information.
- * This flow state information is the API that datapaths must implement to support CCP.
- */
 #ifndef CCP_H
 #define CCP_H
 

@@ -16,7 +16,15 @@
 #define CREATE_TIMEOUT_US 100000 // 100 ms
 #define MAX_NUM_PROGRAMS 10
 
-// array of active connections
+/* CCP Datapath Connection Map
+ *
+ * When we receive a message from userspace CCP, we are not
+ * in the flow context and need to access state (e.g. primitives) for
+ * the appropriate connection.
+ *
+ * So, we maintain a map of ccp sock_id -> flow state information.
+ * This flow state information is the API that datapaths must implement to support CCP.
+ */
 struct ccp_connection* ccp_active_connections = NULL;
 // datapath implementation
 struct ccp_datapath* datapath = NULL;
