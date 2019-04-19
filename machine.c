@@ -11,13 +11,6 @@
 
 extern struct ccp_datapath *datapath;
 
-extern int send_measurement(
-    struct ccp_connection *conn,
-    u32 program_uid,
-    u64 *fields,
-    u8 num_fields
-);
-
 /*
  * Aggregator functions
  * Corresponds to operations sent down in instruction messages

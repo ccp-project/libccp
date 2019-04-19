@@ -184,6 +184,20 @@ int init_ccp_priv_state(struct ccp_connection *conn);
  */
 void free_ccp_priv_state(struct ccp_connection *conn);
 
+// send create message to CCP
+int send_conn_create(
+    struct ccp_datapath *datapath,
+    struct ccp_connection *conn
+);
+
+// send measure message to CCP
+int send_measurement(
+    struct ccp_connection *conn,
+    u32 program_uid,
+    u64 *fields,
+    u8 num_fields
+);
+
 /* Retrieve the private state from ccp_connection.
  */
 __INLINE__ struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *conn);

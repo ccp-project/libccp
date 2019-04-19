@@ -16,11 +16,6 @@
 #define CREATE_TIMEOUT_US 100000 // 100 ms
 #define MAX_NUM_PROGRAMS 10
 
-int send_conn_create(
-    struct ccp_datapath *datapath,
-    struct ccp_connection *conn
-);
-
 // array of active connections
 struct ccp_connection* ccp_active_connections = NULL;
 // datapath implementation
