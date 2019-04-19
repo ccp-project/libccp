@@ -1,5 +1,6 @@
 #include "serialize.h"
 #include "ccp.h"
+#include "ccp_priv.h"
 
 #ifdef __KERNEL__
 #include <linux/types.h>

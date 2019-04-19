@@ -4,6 +4,33 @@
 #include "ccp.h"
 #include "serialize.h"
 
+#ifdef __KERNEL__
+    #ifdef __DEBUG__
+        #define DBG_PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
+    #else
+        #define DBG_PRINT(fmt, args...)
+    #endif
+    #define PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
+
+    #define __INLINE__       inline
+    #define __MALLOC__(size) kmalloc(size, GFP_KERNEL)
+    #define __CALLOC__(num_elements, block_size) kcalloc(num_elements, block_size, GFP_KERNEL)
+    #define __FREE__(ptr)    kfree(ptr)
+    #define CAS(a,o,n)       cmpxchg(a,o,n) == o
+#else
+    #ifdef __DEBUG__
+        #define DBG_PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
+    #else
+        #define DBG_PRINT(fmt, args...)
+    #endif
+    #define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
+    #define __INLINE__
+    #define __MALLOC__(size) malloc(size)
+    #define __CALLOC__(num_elements, block_size) calloc(num_elements, block_size)
+    #define __FREE__(ptr)    free(ptr)
+    #define CAS(a,o,n)       __sync_bool_compare_and_swap(a,o,n)
+#endif
+
 /*
  * CCP Send State Machine
  * 
