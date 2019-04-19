@@ -128,6 +128,9 @@ struct ccp_datapath {
     u64 (*now)(void); // the current time in datapath time units
     u64 (*since_usecs)(u64 then); // elapsed microseconds since <then>
     u64 (*after_usecs)(u64 usecs); // <usecs> microseconds from now in datapath time units
+    
+    // private libccp state for the datapath
+    void *state;
 
     // datapath-specific global state
     void *impl;

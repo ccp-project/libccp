@@ -28,10 +28,10 @@
 struct ccp_connection* ccp_active_connections = NULL;
 // datapath implementation
 struct ccp_datapath* datapath = NULL;
-// datapath programs available to all flows
-struct DatapathProgram* datapath_programs = NULL;
 
 int ccp_init(struct ccp_datapath *dp) {
+    struct DatapathProgram *datapath_programs;
+
     // check that dp is properly filled in.
     if (
         dp                ==  NULL  ||
@@ -46,7 +46,7 @@ int ccp_init(struct ccp_datapath *dp) {
     }
 
     // avoid memory leak
-    if (datapath != NULL || ccp_active_connections != NULL || datapath_programs != NULL) {
+    if (datapath != NULL || ccp_active_connections != NULL) {
         return -2;
     }
 
@@ -85,17 +85,17 @@ int ccp_init(struct ccp_datapath *dp) {
     }
 
     memset(datapath_programs, 0, MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
+    datapath->state = (void*) datapath_programs;
 
     return 0;
 }
 
 void ccp_free(void) {
+    __FREE__(datapath->state);
     __FREE__(ccp_active_connections);
     __FREE__(datapath);
-    __FREE__(datapath_programs);
     ccp_active_connections = NULL;
     datapath = NULL;
-    datapath_programs = NULL;
 }
 
 void ccp_conn_create_success(struct ccp_priv_state *state) {
@@ -291,6 +291,9 @@ void ccp_connection_free(u16 sid) {
 // returns  NULL on error
 struct DatapathProgram* datapath_program_lookup(u16 pid) {
     struct DatapathProgram *prog;
+    struct DatapathProgram *datapath_programs;
+    datapath_programs = (struct DatapathProgram*) datapath->state;
+
     // bounds check
     if (pid == 0) {
         DBG_PRINT("no datapath program set\n");
@@ -311,9 +314,10 @@ struct DatapathProgram* datapath_program_lookup(u16 pid) {
 }
 
 // scan through datapath program table for the program with this UID
-int datapath_program_lookup_uid(u32 program_uid) {
+int datapath_program_lookup_uid(struct DatapathProgram *datapath_programs, u32 program_uid) {
     struct DatapathProgram *prog;
     int i;
+    
     for (i=0; i < MAX_NUM_PROGRAMS; i++) {
         prog = &datapath_programs[i];
         if (prog->index == 0) {
@@ -329,13 +333,13 @@ int datapath_program_lookup_uid(u32 program_uid) {
 // saves a new datapath program into the array of datapath programs
 // returns index into datapath program array where this program is stored
 // if there is no more space, returns -1
-int datapath_program_install(struct InstallExpressionMsgHdr* install_expr_msg, char* buf) {
-    u16 pid;
-    int ok;
+int datapath_program_install(struct DatapathProgram *datapath_programs, struct InstallExpressionMsgHdr* install_expr_msg, char* buf) {
     int i;
+    int ok;
+    u16 pid;
+    char* msg_ptr; // for reading from char* buf
     struct DatapathProgram* program;
     struct InstructionMsg* current_instr;
-    char* msg_ptr; // for reading from char* buf
     msg_ptr = buf;
     for (pid = 0; pid < MAX_NUM_PROGRAMS; pid++) {
         program = &datapath_programs[pid];
@@ -379,8 +383,10 @@ int datapath_program_install(struct InstallExpressionMsgHdr* install_expr_msg, c
 
 // frees datapath program
 void datapath_program_free(u16 pid) {
+    struct DatapathProgram *datapath_programs;
     struct DatapathProgram *program;
 
+    datapath_programs = (struct DatapathProgram*) datapath->state;
     DBG_PRINT("Entering %s\n", __FUNCTION__);
     // bounds check
     if (pid == 0 || pid > MAX_NUM_PROGRAMS) {
@@ -444,14 +450,20 @@ int ccp_read_msg(
     int bufsize
 ) {
     int ok;
+    int msg_program_index;
     u32 num_updates;
+    char* msg_ptr;
+    struct CcpMsgHeader hdr;
     struct ccp_connection *conn;
     struct ccp_priv_state *state;
-    struct CcpMsgHeader hdr;
     struct InstallExpressionMsgHdr expr_msg_info;
-    int msg_program_index;
     struct ChangeProgMsg change_program;
-    char* msg_ptr;
+    struct DatapathProgram *datapath_programs;
+    datapath_programs = (struct DatapathProgram*) datapath->state;
+    if (datapath_programs == NULL) {
+        PRINT("datapath state not initialized\n");
+        return -1;
+    }
 
     ok = read_header(&hdr, buf);  
     if (ok < 0) {
@@ -494,7 +506,7 @@ int ccp_read_msg(
         }
 
         msg_ptr += ok;
-        ok = datapath_program_install(&expr_msg_info, msg_ptr);
+        ok = datapath_program_install(datapath_programs, &expr_msg_info, msg_ptr);
         if ( ok < 0 ) {
             PRINT("could not install datapath program: %d\n", ok);
             return -6;
@@ -536,7 +548,7 @@ int ccp_read_msg(
         }
         msg_ptr += ok;
 
-        msg_program_index = datapath_program_lookup_uid(change_program.program_uid);
+        msg_program_index = datapath_program_lookup_uid(datapath_programs, change_program.program_uid);
         if (msg_program_index < 0) {
             // TODO: is it possible there is not enough time between when the message is installed and when a flow asks to use the program?
             PRINT("Could not find datapath program with program uid: %u\n", msg_program_index);
