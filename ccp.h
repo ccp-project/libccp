@@ -100,6 +100,13 @@ struct ccp_connection {
     void *impl;
 };
 
+enum ccp_log_level {
+    TRACE,
+    DEBUG,
+    INFO,
+    WARN,
+    ERROR,
+};
 
 /*
  * Global CCP state provided by the datapath
@@ -122,6 +129,9 @@ struct ccp_datapath {
 
     // IPC communication
     int (*send_msg)(struct ccp_datapath *dp, struct ccp_connection *conn, char *msg, int msg_size);
+
+    // logging
+    void (*log)(struct ccp_datapath *dp, enum ccp_log_level level, const char* msg, int msg_size);
 
     // time management
     u64 time_zero;

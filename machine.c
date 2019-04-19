@@ -1,11 +1,4 @@
 #include "ccp_priv.h"
-#ifdef __KERNEL__
-#define PRIu64 "llu"
-#else
-#include <inttypes.h>
-#include "stdio.h"
-#endif
-
 
 #define CCP_FRAC_DENOM 10
 
@@ -260,43 +253,6 @@ static u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primiti
     }
 }
 
-#ifdef __DEBUG__
-static void print_register(struct Register* reg) {
-    char* type;
-    switch(reg->type) {
-        case CONTROL_REG:
-            type = "CONTROL";
-            break;
-        case IMMEDIATE_REG:
-            type = "IMMEDIATE";
-            break;
-        case LOCAL_REG:
-            type = "LOCAL";
-            break;
-        case PRIMITIVE_REG:
-            type = "PRIMITIVE";
-            break;
-        case VOLATILE_REPORT_REG:
-            type = "VOL_REPORT";
-            break;
-        case NONVOLATILE_REPORT_REG:
-            type = "NONVOL_REPORT";
-            break;
-        case TMP_REG:
-            type = "TMP";
-            break;
-        case IMPLICIT_REG:
-            type = "IMPLICIT";
-            break;
-        default:
-            type = "INVALID";
-            break;
-    }
-
-    DBG_PRINT("Register{%s(%u), ind: %d, val: %" PRIu64 "}\n", type, reg->type, reg->index, reg->value);
-}
-#endif
-
 /*
  * Process instruction at specfied index 
  */
@@ -309,26 +265,26 @@ static int process_instruction(int instr_index, struct ccp_priv_state *state, st
     arg2 = read_reg(state, primitives, current_instruction.rRight);
     switch (current_instruction.op) {
         case ADD:
-            DBG_PRINT("ADD  %" PRIu64 " + %" PRIu64 " = %" PRIu64 "\n", arg1, arg2, myadd64(arg1, arg2)); 
+            trace("ADD  " FMT_U64 " + " FMT_U64 " = " FMT_U64 "\n", arg1, arg2, myadd64(arg1, arg2)); 
             result = myadd64(arg1, arg2);
             if (result < arg1) {
-                PRINT("ERROR! Integer overflow: %" PRIu64 " + %" PRIu64 "\n", arg1, arg2);
+                warn("ERROR! Integer overflow: " FMT_U64 " + " FMT_U64 "\n", arg1, arg2);
                 return -1;
             }
             write_reg(state, result, current_instruction.rRet);
             break;
         case DIV:
-            DBG_PRINT("DIV  %" PRIu64 " / %" PRIu64 " = ", arg1, arg2);
+            trace("DIV  " FMT_U64 " / " FMT_U64 " = ", arg1, arg2);
             if (arg2 == 0) {
-                PRINT("ERROR! Attempt to divide by 0: %" PRIu64 " / %" PRIu64 "\n", arg1, arg2);
+                warn("ERROR! Attempt to divide by 0: " FMT_U64 " / " FMT_U64 "\n", arg1, arg2);
                 return -1;
             } else {
-                DBG_PRINT("%" PRIu64 "\n", mydiv64(arg1, arg2));
+                trace("" FMT_U64 "\n", mydiv64(arg1, arg2));
                 write_reg(state, mydiv64(arg1, arg2), current_instruction.rRet);
             }
             break;
         case EQUIV:
-            DBG_PRINT("EQV  %" PRIu64 " == %" PRIu64 " => %" PRIu64 "\n", arg1, arg2, myequiv64(arg1, arg2));
+            trace("EQV  " FMT_U64 " == " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, myequiv64(arg1, arg2));
             write_reg(state, myequiv64(arg1, arg2), current_instruction.rRet);
             break;
         case EWMA: // arg0 = current, arg2 = new, arg1 = constant
@@ -336,61 +292,61 @@ static int process_instruction(int instr_index, struct ccp_priv_state *state, st
             write_reg(state, myewma64(arg1, arg0, arg2), current_instruction.rRet);
             break;
         case GT:
-            DBG_PRINT("GT   %" PRIu64 " > %" PRIu64 " => %" PRIu64 "\n", arg1, arg2, mygt64(arg1, arg2));
+            trace("GT   " FMT_U64 " > " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mygt64(arg1, arg2));
             write_reg(state, mygt64(arg1, arg2), current_instruction.rRet);
             break;
         case LT:
-            DBG_PRINT("LT   %" PRIu64 " > %" PRIu64 " => %" PRIu64 "\n", arg1, arg2, mylt64(arg1, arg2));
+            trace("LT   " FMT_U64 " > " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mylt64(arg1, arg2));
             write_reg(state, mylt64(arg1, arg2), current_instruction.rRet);
             break;
         case MAX:
-            DBG_PRINT("MAX  %" PRIu64 " , %" PRIu64 " => %" PRIu64 "\n", arg1, arg2, mymax64(arg1, arg2));
+            trace("MAX  " FMT_U64 " , " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mymax64(arg1, arg2));
             write_reg(state, mymax64(arg1, arg2), current_instruction.rRet);
             break;
         case MIN:
-            DBG_PRINT("MIN  %" PRIu64 " , %" PRIu64 " => %" PRIu64 "\n", arg1, arg2, mymin64(arg1, arg2));
+            trace("MIN  " FMT_U64 " , " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mymin64(arg1, arg2));
             write_reg(state, mymin64(arg1, arg2), current_instruction.rRet);
             break;
         case MUL:
-            DBG_PRINT("MUL  %" PRIu64 " * %" PRIu64 " = %" PRIu64 "\n", arg1, arg2, mymul64(arg1, arg2));
+            trace("MUL  " FMT_U64 " * " FMT_U64 " = " FMT_U64 "\n", arg1, arg2, mymul64(arg1, arg2));
             result = mymul64(arg1, arg2);
             if (result < arg1 && arg2 > 0) {
-                PRINT("ERROR! Integer overflow: %" PRIu64 " * %" PRIu64 "\n", arg1, arg2);
+                error("ERROR! Integer overflow: " FMT_U64 " * " FMT_U64 "\n", arg1, arg2);
                 return -1;
             }
             write_reg(state, result, current_instruction.rRet);
             break;
         case SUB:
-            DBG_PRINT("SUB  %" PRIu64 " - %" PRIu64 " = %" PRIu64 "\n", arg1, arg2, mysub64(arg1, arg2));
+            trace("SUB  " FMT_U64 " - " FMT_U64 " = " FMT_U64 "\n", arg1, arg2, mysub64(arg1, arg2));
             result = mysub64(arg1, arg2);
             if (result > arg1) {
-                PRINT("ERROR! Integer underflow: %" PRIu64 " - %" PRIu64 "\n", arg1, arg2);
+                error("ERROR! Integer underflow: " FMT_U64 " - " FMT_U64 "\n", arg1, arg2);
                 return -1;
             }
             write_reg(state, result, current_instruction.rRet);
             break;
         case MAXWRAP:
-            DBG_PRINT("MAXW %" PRIu64 " , %" PRIu64 " => %" PRIu64 "\n", arg1, arg2, mymax64_wrap(arg1, arg2));
+            trace("MAXW " FMT_U64 " , " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mymax64_wrap(arg1, arg2));
             write_reg(state, mymax64_wrap(arg1, arg2), current_instruction.rRet);
             break;
         case IF: // if arg1 (rLeft), stores rRight in rRet
-            DBG_PRINT("IF   %" PRIu64 " : r%" PRIu64 " -> r%" PRIu64 "\n", arg1, arg2, current_instruction.rRet.value);
+            trace("IF   " FMT_U64 " : r" FMT_U64 " -> r" FMT_U64 "\n", arg1, arg2, current_instruction.rRet.value);
             if (arg1) {
                 write_reg(state, arg2, current_instruction.rRet);
             }
             break;
         case NOTIF:
-            DBG_PRINT("!IF  %" PRIu64 " : r%" PRIu64 " -> r%" PRIu64 "\n", arg1, arg2, current_instruction.rRet.value);
+            trace("!IF  " FMT_U64 " : r" FMT_U64 " -> r" FMT_U64 "\n", arg1, arg2, current_instruction.rRet.value);
             if (arg1 == 0) {
                 write_reg(state, arg2, current_instruction.rRet);
             }
             break;
         case BIND: // take arg2, and put it in rRet
-            DBG_PRINT("BIND r%" PRIu64 " -> r%" PRIu64 "\n", arg2, current_instruction.rRet.value);
+            trace("BIND r" FMT_U64 " -> r" FMT_U64 "\n", arg2, current_instruction.rRet.value);
             write_reg(state, arg2, current_instruction.rRet);
             break;
         default:
-            DBG_PRINT("UNKNOWN OP %d\n", current_instruction.op);
+            debug("UNKNOWN OP %d\n", current_instruction.op);
             break;
     }
     return 0;
@@ -405,14 +361,14 @@ static int process_expression(int expr_index, struct ccp_priv_state *state, stru
     struct Expression *expression = &(program->expressions[expr_index]);
     u8 idx;
     int ret;
-    DBG_PRINT("when #%d {\n", expr_index);
+    trace("when #%d {\n", expr_index);
     for (idx=expression->cond_start_idx; idx<(expression->cond_start_idx + expression->num_cond_instrs); idx++) {
        ret = process_instruction(idx, state, primitives);
        if (ret < 0) {
          return -1;
        }
     }
-    DBG_PRINT("} => %" PRIu64 "\n", state->registers.impl_registers[EXPR_FLAG_REG]);
+    trace("} => " FMT_U64 "\n", state->registers.impl_registers[EXPR_FLAG_REG]);
 
     // flag from event is promised to be stored in this implicit register
     if (state->registers.impl_registers[EXPR_FLAG_REG] ) {
@@ -516,7 +472,7 @@ void reset_state(struct ccp_priv_state *state) {
     u8 i;
     struct DatapathProgram* program = datapath_program_lookup(state->program_index);
     if (program == NULL) {
-        PRINT("Cannot reset state because program is NULL\n");
+        info("Cannot reset state because program is NULL\n");
 	return;
     }
     struct Instruction64 current_instruction;
@@ -563,7 +519,7 @@ void init_register_state(struct ccp_priv_state *state) {
     struct Instruction64 current_instruction;
     struct DatapathProgram* program = datapath_program_lookup(state->program_index);
     if (program == NULL) {
-        PRINT("Cannot init register state because program is NULL\n");
+        info("Cannot init register state because program is NULL\n");
 	return;
     }
 
@@ -614,12 +570,12 @@ static __INLINE__ void reset_impl_registers(struct ccp_priv_state *state) {
 int state_machine(struct ccp_connection *conn) {
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
     if (state == NULL) {
-        PRINT("CCP priv state is null");
+        warn("CCP priv state is null");
         return -1;
     }
     struct DatapathProgram* program = datapath_program_lookup(state->program_index);
     if (program == NULL) {
-        PRINT("Datapath program is null");
+        warn("Datapath program is null");
         return -1;
     }
     struct ccp_primitives* primitives = &conn->prims;
@@ -634,12 +590,12 @@ int state_machine(struct ccp_connection *conn) {
     implicit_now = datapath->since_usecs(state->implicit_time_zero);
     state->registers.impl_registers[US_ELAPSED_REG] = implicit_now;
     
-    DBG_PRINT(">>> program starting [sid=%d] <<<\n", conn->index);
+    trace(">>> program starting [sid=%d] <<<\n", conn->index);
     // cycle through expressions, and process instructions
     for (i=0; i < program->num_expressions; i++) {
         ret = process_expression(i, state, primitives);
         if (ret < 0) {
-            DBG_PRINT(">>> program finished [sid=%d] [ret=-1] <<<\n\n", conn->index);
+            trace(">>> program finished [sid=%d] [ret=-1] <<<\n\n", conn->index);
             return -1;
         }
 
@@ -647,16 +603,16 @@ int state_machine(struct ccp_connection *conn) {
         if ((state->registers.impl_registers[EXPR_FLAG_REG]) && !(state->registers.impl_registers[SHOULD_FALLTHROUGH_REG])) {
             break;
         }
-        DBG_PRINT("[sid=%d] fallthrough...\n", conn->index);
+        trace("[sid=%d] fallthrough...\n", conn->index);
     }
     // set rate and cwnd from implicit registers
     if (state->registers.impl_registers[CWND_REG] > 0) {
-        DBG_PRINT("[sid=%d] setting cwnd after program: %u\n", conn->index, state->registers.impl_registers[CWND_REG]);
+        debug("[sid=%d] setting cwnd after program: " FMT_U64 "\n", conn->index, state->registers.impl_registers[CWND_REG]);
         datapath->set_cwnd(datapath, conn, state->registers.impl_registers[CWND_REG]);
     }
 
     if (state->registers.impl_registers[RATE_REG] != 0) {
-        DBG_PRINT("[sid=%d] setting rate after program: %u\n", conn->index, state->registers.impl_registers[CWND_REG]);
+        debug("[sid=%d] setting rate after program: " FMT_U64 "\n", conn->index, state->registers.impl_registers[CWND_REG]);
         datapath->set_rate_abs(datapath, conn, state->registers.impl_registers[RATE_REG]);
     }
 
@@ -666,6 +622,6 @@ int state_machine(struct ccp_connection *conn) {
         reset_state(state);
     }
 
-    DBG_PRINT(">>> program finished [sid=%d] [ret=0] <<<\n\n", conn->index);
+    trace(">>> program finished [sid=%d] [ret=0] <<<\n\n", conn->index);
     return 0;
 }

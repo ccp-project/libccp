@@ -13,6 +13,9 @@
 #include <string.h>
 #endif
 
+// datapath implementation
+extern struct ccp_datapath* datapath;
+
 /* (type, len, socket_id) header
  * -----------------------------------
  * | Msg Type | Len (2B) | Uint32    |
@@ -144,12 +147,12 @@ int read_install_expr_msg_hdr(
     } 
 
     if (expr_msg_info->num_expressions > MAX_EXPRESSIONS) {
-        PRINT("Program to install has too many expressions: %u\n", expr_msg_info->num_expressions);
+        warn("Program to install has too many expressions: %u\n", expr_msg_info->num_expressions);
         return -2;
     }
 
     if (expr_msg_info->num_instructions > MAX_INSTRUCTIONS) {
-        PRINT("Program to install has too many instructions: %u\n", expr_msg_info->num_instructions);
+        warn("Program to install has too many instructions: %u\n", expr_msg_info->num_instructions);
         return -2;
     }
     memcpy(expr_msg_info, buf, sizeof(struct InstallExpressionMsgHdr));
@@ -168,7 +171,7 @@ int check_update_fields_msg(
 
     *num_updates = (u32)*buf;
     if (*num_updates > MAX_MUTABLE_REG) {
-        PRINT("Too many updates!: %u\n", *num_updates);
+        warn("Too many updates!: %u\n", *num_updates);
         return -2;
     }
     return sizeof(u32);
@@ -185,7 +188,7 @@ int read_change_prog_msg(
 
     memcpy(change_prog, buf, sizeof(struct ChangeProgMsg));
     if (change_prog->num_updates > MAX_MUTABLE_REG) {
-        PRINT("Too many updates sent with change prog: %u\n", change_prog->num_updates);
+        warn("Too many updates sent with change prog: %u\n", change_prog->num_updates);
         return -2;
     }
     return sizeof(struct ChangeProgMsg);

@@ -29,6 +29,10 @@ struct ccp_connection* ccp_active_connections = NULL;
 // datapath implementation
 struct ccp_datapath* datapath = NULL;
 
+/* Drop log messages if no log output is defined.
+ */
+void __INLINE__ null_log() {}
+
 int ccp_init(struct ccp_datapath *dp) {
     struct DatapathProgram *datapath_programs;
 
@@ -43,6 +47,10 @@ int ccp_init(struct ccp_datapath *dp) {
         dp->after_usecs   ==  NULL
     ) {
         return -1;
+    }
+
+    if (dp->log == NULL) {
+        dp->log = &null_log;
     }
 
     // avoid memory leak
@@ -62,6 +70,7 @@ int ccp_init(struct ccp_datapath *dp) {
     datapath->now                = dp->now;
     datapath->since_usecs        = dp->since_usecs;
     datapath->after_usecs        = dp->after_usecs;
+    datapath->log                = dp->log;
     datapath->impl               = dp->impl;
 
     datapath->time_zero = datapath->now();
@@ -130,7 +139,7 @@ struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info
     // index of pointer back to this sock for IPC callback
     ok = send_conn_create(datapath, conn);
     if (ok < 0) {
-        PRINT("failed to send create message: %d\n", ok);
+        warn("failed to send create message: %d\n", ok);
         return conn;
     }
     
@@ -171,10 +180,10 @@ int ccp_invoke(struct ccp_connection *conn) {
     if (!(state->sent_create)) {
         // try contacting the CCP again
         // index of pointer back to this sock for IPC callback
-        DBG_PRINT("%s retx create message\n", __FUNCTION__);
+        debug("%s retx create message\n", __FUNCTION__);
         ok = send_conn_create(datapath, conn);
         if (ok < 0) {
-            PRINT("failed to retx create message: %d\n", ok);
+            warn("failed to retx create message: %d\n", ok);
         } else {
             ccp_conn_create_success(state);
         }
@@ -183,13 +192,13 @@ int ccp_invoke(struct ccp_connection *conn) {
     }
 
     // set cwnd and rate registers to what they are in the datapath
-    DBG_PRINT("primitives (cwnd, rate): (%u, %u)\n", conn->prims.snd_cwnd, conn->prims.snd_rate);
+    trace("primitives (cwnd, rate): (" FMT_U32 ", " FMT_U64 ")\n", conn->prims.snd_cwnd, conn->prims.snd_rate);
     state->registers.impl_registers[CWND_REG] = (u64)conn->prims.snd_cwnd;
     state->registers.impl_registers[RATE_REG] = (u64)conn->prims.snd_rate;
     
     if (state->staged_program_index >= 0) {
         // change the program to this program, and reset the state
-        DBG_PRINT("[sid=%d] Applying staged program change: %d -> %d\n", conn->index, state->program_index, state->staged_program_index); 
+        debug("[sid=%d] Applying staged program change: %d -> %d\n", conn->index, state->program_index, state->staged_program_index); 
         state->program_index = state->staged_program_index;
         reset_state(state);
         init_register_state(state);
@@ -199,7 +208,8 @@ int ccp_invoke(struct ccp_connection *conn) {
 
     for (i = 0; i < MAX_CONTROL_REG; i++) {
         if (state->pending_update.control_is_pending[i]) {
-            DBG_PRINT("[sid=%d] Applying staged field update: control reg %u (%d->%d) \n", conn->index, i,
+            debug("[sid=%d] Applying staged field update: control reg %u (" FMT_U64 "->" FMT_U64 ") \n", 
+                conn->index, i,
                 state->registers.control_registers[i],
                 state->pending_update.control_registers[i]
             );
@@ -208,7 +218,7 @@ int ccp_invoke(struct ccp_connection *conn) {
     }
 
     if (state->pending_update.impl_is_pending[CWND_REG]) {
-        DBG_PRINT("[sid=%d] Applying staged field update: cwnd reg <- %llu\n", conn->index, state->pending_update.impl_registers[CWND_REG]);
+        debug("[sid=%d] Applying staged field update: cwnd reg <- " FMT_U64 "\n", conn->index, state->pending_update.impl_registers[CWND_REG]);
         state->registers.impl_registers[CWND_REG] = state->pending_update.impl_registers[CWND_REG];
         if (state->registers.impl_registers[CWND_REG] != 0) {
             datapath->set_cwnd(datapath, conn, state->registers.impl_registers[CWND_REG]);
@@ -216,7 +226,7 @@ int ccp_invoke(struct ccp_connection *conn) {
     }
 
     if (state->pending_update.impl_is_pending[RATE_REG]) {
-        DBG_PRINT("[sid=%d] Applying staged field update: rate reg <- %llu\n", conn->index, state->pending_update.impl_registers[RATE_REG]);
+        debug("[sid=%d] Applying staged field update: rate reg <- " FMT_U64 "\n", conn->index, state->pending_update.impl_registers[RATE_REG]);
         state->registers.impl_registers[RATE_REG] = state->pending_update.impl_registers[RATE_REG];
         if (state->registers.impl_registers[RATE_REG] != 0) {
             datapath->set_rate_abs(datapath, conn, state->registers.impl_registers[RATE_REG]);
@@ -239,13 +249,13 @@ struct ccp_connection *ccp_connection_lookup(u16 sid) {
     struct ccp_connection *conn;
     // bounds check
     if (sid == 0 || sid > MAX_NUM_CONNECTIONS) {
-        PRINT("index out of bounds: %d", sid);
+        warn("index out of bounds: %d", sid);
         return NULL;
     }
 
     conn = &ccp_active_connections[sid-1];
     if (conn->index != sid) {
-        PRINT("index mismatch: sid %d, index %d", sid, conn->index);
+        warn("index mismatch: sid %d, index %d", sid, conn->index);
         return NULL;
     }
 
@@ -259,16 +269,16 @@ void ccp_connection_free(u16 sid) {
     struct ccp_connection *conn;
     char msg[REPORT_MSG_SIZE];
 
-    DBG_PRINT("Entering %s\n", __FUNCTION__);
+    trace("Entering %s\n", __FUNCTION__);
     // bounds check
     if (sid == 0 || sid > MAX_NUM_CONNECTIONS) {
-        PRINT("index out of bounds: %d", sid);
+        warn("index out of bounds: %d", sid);
         return;
     }
 
     conn = &ccp_active_connections[sid-1];
     if (conn->index != sid) {
-        PRINT("index mismatch: sid %d, index %d", sid, conn->index);
+        warn("index mismatch: sid %d, index %d", sid, conn->index);
         return;
     }
 
@@ -277,7 +287,7 @@ void ccp_connection_free(u16 sid) {
     msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, sid, 0, 0, 0);
     ok = datapath->send_msg(datapath, conn, msg, msg_size);
     if (ok < 0) {
-        PRINT("error sending close message: %d", ok);
+        warn("error sending close message: %d", ok);
     }
     
     // ccp_connection_start will look for an array entry with index 0
@@ -296,16 +306,16 @@ struct DatapathProgram* datapath_program_lookup(u16 pid) {
 
     // bounds check
     if (pid == 0) {
-        DBG_PRINT("no datapath program set\n");
+        warn("no datapath program set\n");
         return NULL;
     } else if (pid > MAX_NUM_PROGRAMS) {
-        PRINT("program index out of bounds: %d\n", pid);
+        warn("program index out of bounds: %d\n", pid);
         return NULL;
     }
 
     prog = &datapath_programs[pid-1];
     if (prog->index != pid) {
-        PRINT("index mismatch: pid %d, index %d", pid, prog->index);
+        warn("index mismatch: pid %d, index %d", pid, prog->index);
         return NULL;
     }
 
@@ -359,7 +369,7 @@ int datapath_program_install(struct DatapathProgram *datapath_programs, struct I
     program->program_uid = install_expr_msg->program_uid;
     program->num_expressions = install_expr_msg->num_expressions;
     program->num_instructions = install_expr_msg->num_instructions;
-    DBG_PRINT("Trying to install new program with (uid=%d) with %d expressions and %d instructions\n", program->program_uid, program->num_expressions, program->num_instructions);
+    trace("Trying to install new program with (uid=%d) with %d expressions and %d instructions\n", program->program_uid, program->num_expressions, program->num_instructions);
 
     memcpy(program->expressions, msg_ptr, program->num_expressions * sizeof(struct ExpressionMsg));
     msg_ptr += program->num_expressions * sizeof(struct ExpressionMsg);
@@ -369,13 +379,13 @@ int datapath_program_install(struct DatapathProgram *datapath_programs, struct I
         current_instr = (struct InstructionMsg*)(msg_ptr);
         ok = read_instruction(&(program->fold_instructions[i]), current_instr);
         if (ok < 0) {
-            PRINT("Could not read instruction # %d: %d in program with uid %u\n", i, ok, program->program_uid);
+            warn("Could not read instruction # %d: %d in program with uid %u\n", i, ok, program->program_uid);
             return ok;
         }
         msg_ptr += sizeof(struct InstructionMsg);
     }
 
-    DBG_PRINT("installed new program (uid=%d) with %d expressions and %d instructions\n", program->program_uid, program->num_expressions, program->num_instructions);
+    debug("installed new program (uid=%d) with %d expressions and %d instructions\n", program->program_uid, program->num_expressions, program->num_instructions);
 
     return 0;
 
@@ -387,16 +397,16 @@ void datapath_program_free(u16 pid) {
     struct DatapathProgram *program;
 
     datapath_programs = (struct DatapathProgram*) datapath->state;
-    DBG_PRINT("Entering %s\n", __FUNCTION__);
+    trace("Entering %s\n", __FUNCTION__);
     // bounds check
     if (pid == 0 || pid > MAX_NUM_PROGRAMS) {
-        PRINT("index out of bounds: %d", pid);
+        warn("index out of bounds: %d", pid);
         return;
     }
 
     program = &datapath_programs[pid-1];
     if (program->index != pid) {
-        PRINT("index mismatch: pid %d, index %d", pid, program->index);
+        warn("index mismatch: pid %d, index %d", pid, program->index);
         return;
     }
 
@@ -411,17 +421,17 @@ int stage_update(struct staged_update *pending_update, struct UpdateField *updat
     switch(update_field->reg_type) {
         case CONTROL_REG:
             // set new value
-            DBG_PRINT("%s: control %u <- %llu\n", __FUNCTION__, update_field->reg_index, update_field->new_value);
+            trace(("%s: control " FMT_U32 " <- " FMT_U64 "\n"), __FUNCTION__, update_field->reg_index, update_field->new_value);
             pending_update->control_registers[update_field->reg_index] = update_field->new_value;
             pending_update->control_is_pending[update_field->reg_index] = true;
             return 0;
         case IMPLICIT_REG:
             if (update_field->reg_index == CWND_REG) {
-                DBG_PRINT("%s: cwnd <- %llu\n", __FUNCTION__, update_field->new_value);
+                trace("%s: cwnd <- " FMT_U64 "\n", __FUNCTION__, update_field->new_value);
                 pending_update->impl_registers[CWND_REG] = update_field->new_value;
                 pending_update->impl_is_pending[CWND_REG] = true;
             } else if (update_field->reg_index == RATE_REG) {
-                DBG_PRINT("%s: rate <- %llu\n", __FUNCTION__, update_field->new_value);
+                trace("%s: rate <- " FMT_U64 "\n", __FUNCTION__, update_field->new_value);
                 pending_update->impl_registers[RATE_REG] = update_field->new_value;
                 pending_update->impl_is_pending[RATE_REG] = true;
             }
@@ -461,27 +471,27 @@ int ccp_read_msg(
     struct DatapathProgram *datapath_programs;
     datapath_programs = (struct DatapathProgram*) datapath->state;
     if (datapath_programs == NULL) {
-        PRINT("datapath state not initialized\n");
+        warn("datapath state not initialized\n");
         return -1;
     }
 
     ok = read_header(&hdr, buf);  
     if (ok < 0) {
-        PRINT("read header failed: %d", ok);
+        warn("read header failed: %d", ok);
         return -1;
     }
 
     if (bufsize < 0) {
-        PRINT("negative bufsize: %d", bufsize);
+        warn("negative bufsize: %d", bufsize);
         return -2;
     }
     if (hdr.Len > ((u32) bufsize)) {
-        PRINT("message size wrong: %u > %d\n", hdr.Len, bufsize);
+        warn("message size wrong: %u > %d\n", hdr.Len, bufsize);
         return -3;
     }
 
     if (hdr.Len > BIGGEST_MSG_SIZE) {
-        PRINT("message too long: %u > %d\n", hdr.Len, BIGGEST_MSG_SIZE);
+        warn("message too long: %u > %d\n", hdr.Len, BIGGEST_MSG_SIZE);
         return -4;
     }
     msg_ptr = buf + ok;
@@ -489,11 +499,11 @@ int ccp_read_msg(
     // INSTALL_EXPR message is for all flows, not a specific connection
     // sock_id in this message should be disregarded (could be before any flows begin)
     if (hdr.Type == INSTALL_EXPR) {
-        DBG_PRINT("Received install message\n");
+        trace("Received install message\n");
         memset(&expr_msg_info, 0, sizeof(struct InstallExpressionMsgHdr));
         ok = read_install_expr_msg_hdr(&hdr, &expr_msg_info, msg_ptr);
         if (ok < 0) {
-            PRINT("could not read install expression msg header: %d\n", ok);
+            warn("could not read install expression msg header: %d\n", ok);
             return -5;
         }
         // clear the datapath programs
@@ -508,7 +518,7 @@ int ccp_read_msg(
         msg_ptr += ok;
         ok = datapath_program_install(datapath_programs, &expr_msg_info, msg_ptr);
         if ( ok < 0 ) {
-            PRINT("could not install datapath program: %d\n", ok);
+            warn("could not install datapath program: %d\n", ok);
             return -6;
         }
         return 0; // installed program successfully
@@ -517,33 +527,33 @@ int ccp_read_msg(
     // rest of the messages must be for a specific flow
     conn = ccp_connection_lookup(hdr.SocketId);
     if (conn == NULL) {
-        PRINT("unknown connection: %u\n", hdr.SocketId);
+        warn("unknown connection: %u\n", hdr.SocketId);
         return -7;
     }
     state = get_ccp_priv_state(conn);
 
     if (hdr.Type == UPDATE_FIELDS) {
-        DBG_PRINT("[sid=%d] Received update_fields message\n", conn->index);
+        debug("[sid=%d] Received update_fields message\n", conn->index);
         ok = check_update_fields_msg(&hdr, &num_updates, msg_ptr);
         msg_ptr += ok;
         if (ok < 0) {
-            PRINT("Update fields message failed: %d\n", ok);
+            warn("Update fields message failed: %d\n", ok);
             return -8;
         }
 
         ok = stage_multiple_updates(&state->pending_update, num_updates, (struct UpdateField*) msg_ptr);
         if (ok < 0) {
-            PRINT("Failed to stage updates: %d\n", ok);
+            warn("Failed to stage updates: %d\n", ok);
             return -11;
         }
 
-        DBG_PRINT("Staged %u updates\n", num_updates);
+        debug("Staged %u updates\n", num_updates);
     } else if (hdr.Type == CHANGE_PROG) {
-        DBG_PRINT("[sid=%d] Received change_prog message\n", conn->index);
+        debug("[sid=%d] Received change_prog message\n", conn->index);
         // check if the program is in the program_table
         ok = read_change_prog_msg(&hdr, &change_program, msg_ptr);
         if (ok < 0) {
-            PRINT("Change program message deserialization failed: %d\n", ok);
+            warn("Change program message deserialization failed: %d\n", ok);
             return -9;
         }
         msg_ptr += ok;
@@ -551,7 +561,7 @@ int ccp_read_msg(
         msg_program_index = datapath_program_lookup_uid(datapath_programs, change_program.program_uid);
         if (msg_program_index < 0) {
             // TODO: is it possible there is not enough time between when the message is installed and when a flow asks to use the program?
-            PRINT("Could not find datapath program with program uid: %u\n", msg_program_index);
+            info("Could not find datapath program with program uid: %u\n", msg_program_index);
             return -10;
         }
 
@@ -563,11 +573,11 @@ int ccp_read_msg(
         // corresponding to the new program
         ok = stage_multiple_updates(&state->pending_update, change_program.num_updates, (struct UpdateField*)(msg_ptr));
         if (ok < 0) {
-            PRINT("Failed to stage updates: %d\n", ok);
+            warn("Failed to stage updates: %d\n", ok);
             return -8;
         }
 
-        DBG_PRINT("Staged switch to program %d\n", change_program.program_uid);
+        debug("Staged switch to program %d\n", change_program.program_uid);
     }
 
     return ok;
@@ -594,7 +604,7 @@ int send_conn_create(
         conn->last_create_msg_sent != 0 &&
         datapath->since_usecs(conn->last_create_msg_sent) < CREATE_TIMEOUT_US
     ) {
-        DBG_PRINT("%s: %llu < %u\n", 
+        trace("%s: " FMT_U64 " < " FMT_U32 "\n", 
             __FUNCTION__, 
             datapath->since_usecs(conn->last_create_msg_sent), 
             CREATE_TIMEOUT_US
@@ -629,7 +639,7 @@ int send_measurement(
     }
 
     msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, conn->index, program_uid, fields, num_fields);
-    DBG_PRINT("[sid=%d] In %s\n", conn->index, __FUNCTION__);
+    trace("[sid=%d] In %s\n", conn->index, __FUNCTION__);
     ok = datapath->send_msg(datapath, conn, msg, msg_size);
     return ok;
 }

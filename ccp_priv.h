@@ -5,30 +5,69 @@
 #include "serialize.h"
 
 #ifdef __KERNEL__
-    #ifdef __DEBUG__
-        #define DBG_PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
-    #else
-        #define DBG_PRINT(fmt, args...)
-    #endif
-    #define PRINT(fmt, args...) printk(KERN_INFO "libccp: " fmt, ## args)
+#include <linux/kernel.h>
+#else
+#include <stdio.h>
+#endif
 
+#ifdef __KERNEL__
+#define FMT_U64 "%llu"
+#define FMT_U32 "%lu"
+#else
+#define FMT_U64 "%lu"
+#define FMT_U32 "%u"
+#endif
+
+#ifdef __KERNEL__
     #define __INLINE__       inline
     #define __MALLOC__(size) kmalloc(size, GFP_KERNEL)
     #define __CALLOC__(num_elements, block_size) kcalloc(num_elements, block_size, GFP_KERNEL)
     #define __FREE__(ptr)    kfree(ptr)
     #define CAS(a,o,n)       cmpxchg(a,o,n) == o
 #else
-    #ifdef __DEBUG__
-        #define DBG_PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
-    #else
-        #define DBG_PRINT(fmt, args...)
-    #endif
-    #define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
     #define __INLINE__
     #define __MALLOC__(size) malloc(size)
     #define __CALLOC__(num_elements, block_size) calloc(num_elements, block_size)
     #define __FREE__(ptr)    free(ptr)
     #define CAS(a,o,n)       __sync_bool_compare_and_swap(a,o,n)
+#endif
+
+#define log_fmt(level, fmt, args...) {\
+    char msg[120]; \
+    int __ok = snprintf((char*) &msg, 120, fmt, ## args); \
+    if (__ok >= 0) { \
+        datapath->log(datapath, level, (const char*) &msg, __ok); \
+    } \
+}
+
+// __LOG_INFO__ is default
+#define trace(fmt, args...) 
+#define debug(fmt, args...) 
+#define info(fmt, args...) log_fmt(INFO, fmt, ## args)
+#define warn(fmt, args...) log_fmt(WARN, fmt, ## args)
+#define error(fmt, args...) log_fmt(ERROR, fmt, ## args)
+
+#ifdef __LOG_TRACE__
+#undef trace
+#define trace(fmt, args...) log_fmt(TRACE, fmt, ## args)
+#undef debug
+#define debug(fmt, args...) log_fmt(DEBUG, fmt, ## args)
+#endif
+
+#ifdef __LOG_DEBUG__
+#undef debug
+#define debug(fmt, args...) log_fmt(DEBUG, fmt, ## args)
+#endif
+
+#ifdef __LOG_WARN__
+#undef info
+#define info(fmt, args...) 
+#endif
+#ifdef __LOG_ERROR__
+#undef info
+#define info(fmt, args...) 
+#undef warn
+#define warn(fmt, args...)
 #endif
 
 /*
@@ -115,8 +154,6 @@ int read_instruction(
     struct Instruction64 *ret,
     struct InstructionMsg *msg
 );
-
-void print_register(struct Register* reg);
 
 struct register_file {
     // report and control registers - users send a DEF for these

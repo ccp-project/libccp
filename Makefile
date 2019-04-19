@@ -1,12 +1,31 @@
 #CC = ${CC} # C compiler
 DEBUG = n
-CFLAGS = -fPIC -Wall -Wextra -O2 -g # C flags
+LOGLEVEL = info
+
+CFLAGS = -fPIC -Wall -Wextra -g # C flags
 CFLAGS += -std=gnu99 -Wno-declaration-after-statement -fgnu89-inline
+
 ifeq ($(DEBUG), y)
-	CFLAGS += -D__DEBUG__
+	CFLAGS += -O0
 else
+	CFLAGS += -O2
 endif
+
+# logging level
+ifeq ($(LOGLEVEL), trace)
+	CFLAGS += -D__LOG_TRACE__
+else ifeq ($(LOGLEVEL), debug)
+	CFLAGS += -D__LOG_DEBUG__
+else ifeq ($(LOGLEVEL), info)
+	CFLAGS += -D__LOG_INFO__
+else ifeq ($(LOGLEVEL), warn)
+	CFLAGS += -D__LOG_WARN__
+else ifeq ($(LOGLEVEL), err)
+	CFLAGS += -D__LOG_ERROR__
+endif
+
 RM = rm -f  # rm command
+
 LIB_NAME = ccp
 TARGET_LIB = lib${LIB_NAME}.so # target lib
 STATIC_TARGET = lib${LIB_NAME}.a
@@ -33,7 +52,7 @@ $(SRCS:.c=.d):%.d:%.c
 -include $(SRCS:.c=.d)
 
 $(TEST_TARGET): ${TARGET_LIB} ${TEST_OBJS}
-	$(CC) ${CFLAGS} -D__DEBUG__ ${TEST_SRCS} ${STATIC_TARGET} -o ${TEST_TARGET}
+	$(CC) ${CFLAGS} ${TEST_SRCS} ${STATIC_TARGET} -o ${TEST_TARGET}
 
 test: $(TEST_TARGET)
 	./libccp-test
