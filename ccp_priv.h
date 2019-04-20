@@ -70,32 +70,6 @@
 #define warn(fmt, args...)
 #endif
 
-/*
- * CCP Send State Machine
- * 
- * Userspace CCP algorithms specify "expressions", e.g.:
- * (def (Report.loss 0) (Control.bottle_rate 1000))
- * (when (> Micros 0)
- *      (bind Rate (* Control.bottle_rate 3))
- *      (fallthrough)
- *  )
- * (when (> Micros 2000)
- *       (report)
- *       (bind Rate (* Control.bottle_rate 2))
- *       (fallthrough)
- *  )
- * (when (> Micros 8000)
- *       (report)
- *       (reset)
- *       (fallthrough)
- * )
- * (when true
- *       (bind Report.loss (+ Flow.loss Pkt.lost_pkts_sample))
- *       (bind Rate (max Rate (min Pkt.rate_outgoing Pkt.rate_incoming)))
- * )
- * Expressions are conditions (a series of instructions that evaluate to a boolean expression)
- * followed by a set of instructions to execute if that event is true
- */
 #ifdef __CPLUSPLUS__
 extern "C" {
 #endif

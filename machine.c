@@ -1,4 +1,11 @@
 #include "ccp_priv.h"
+/*
+ * CCP Send State Machine
+ *
+ * Userspace CCP algorithms specify "expressions".
+ * Expressions are conditions (a series of instructions that evaluate to a boolean expression)
+ * followed by a set of instructions to execute if that event is true
+ */
 
 #define CCP_FRAC_DENOM 10
 
