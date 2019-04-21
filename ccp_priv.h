@@ -33,8 +33,8 @@
 #endif
 
 #define log_fmt(level, fmt, args...) {\
-    char msg[120]; \
-    int __ok = snprintf((char*) &msg, 120, fmt, ## args); \
+    char msg[80]; \
+    int __ok = snprintf((char*) &msg, 80, fmt, ## args); \
     if (__ok >= 0) { \
         datapath->log(datapath, level, (const char*) &msg, __ok); \
     } \
