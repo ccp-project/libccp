@@ -31,7 +31,12 @@ struct ccp_datapath* datapath = NULL;
 
 /* Drop log messages if no log output is defined.
  */
-void __INLINE__ null_log() {}
+void __INLINE__ null_log(struct ccp_datapath *dp, enum ccp_log_level level, const char* msg, int msg_size) {
+    (void)(dp);
+    (void)(level);
+    (void)(msg);
+    (void)(msg_size);
+}
 
 int ccp_init(struct ccp_datapath *dp) {
     struct DatapathProgram *datapath_programs;
