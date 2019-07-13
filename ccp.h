@@ -9,7 +9,7 @@
     #include <pthread.h> // for mutex
 #endif
 
-#include "serialize.h"
+#include "types.h"
 
 #ifdef __CPLUSPLUS__
 extern "C" {
@@ -98,6 +98,9 @@ struct ccp_connection {
 
     // datapath-specific per-connection state
     void *impl;
+
+    // pointer back to parent datapath that owns this connection
+    struct ccp_datapath *datapath;
 };
 
 enum ccp_log_level {
@@ -124,11 +127,11 @@ enum ccp_log_level {
  */
 struct ccp_datapath {
     // control primitives
-    void (*set_cwnd)(struct ccp_datapath *dp, struct ccp_connection *conn, u32 cwnd); // TODO(eventually): consider setting cwnd in packets, not bytes
-    void (*set_rate_abs)(struct ccp_datapath *dp, struct ccp_connection *conn, u32 rate);
+    void (*set_cwnd)(struct ccp_connection *conn, u32 cwnd); // TODO(eventually): consider setting cwnd in packets, not bytes
+    void (*set_rate_abs)(struct ccp_connection *conn, u32 rate);
 
     // IPC communication
-    int (*send_msg)(struct ccp_datapath *dp, struct ccp_connection *conn, char *msg, int msg_size);
+    int (*send_msg)(struct ccp_connection *conn, char *msg, int msg_size);
 
     // logging
     void (*log)(struct ccp_datapath *dp, enum ccp_log_level level, const char* msg, int msg_size);
@@ -144,6 +147,9 @@ struct ccp_datapath {
 
     // datapath-specific global state
     void *impl;
+
+    // list of active connections this datapath is handling
+    struct ccp_connection* ccp_active_connections;
 };
 
 /* 
@@ -151,11 +157,11 @@ struct ccp_datapath {
  *
  * return -1 on allocation failure, should abort loading module
  */
-int ccp_init(struct ccp_datapath *dp);
+struct ccp_datapath *ccp_init(struct ccp_datapath *dp);
 
 /* Free the global struct and map for ccp connections upon module unload.
  */
-void ccp_free(void);
+void ccp_free(struct ccp_datapath *datapath);
 
 /* Upon a new flow starting,
  * put a new connection into the active connections list
@@ -163,29 +169,30 @@ void ccp_free(void);
  * returns the index at which the connection was placed; this index shall be used as the CCP socket id
  * return 0 on error
  */
-struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info *flow_info);
+struct ccp_connection *ccp_connection_start(struct ccp_datapath *datapath, void *impl, struct ccp_datapath_info *flow_info);
 
 /* Upon a connection ending,
  * free its slot in the connection map.
  */
-void ccp_connection_free(u16 sid);
+void ccp_connection_free(struct ccp_datapath *datapath, u16 sid);
 
 /* While a flow is active, look up its CCP connection information.
  */
-struct ccp_connection *ccp_connection_lookup(u16 sid);
+struct ccp_connection *ccp_connection_lookup(struct ccp_datapath *datapath, u16 sid);
 
 
 /* Lookup a datapath program, available to all flows
  */
-struct DatapathProgram* datapath_program_lookup(u16 pid);
+struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u16 pid);
 
-/* Get the implementation-specific global ccp state
- */
+/* TODO dont see where these are being used, trying to remove for now
+// Get the implementation-specific global ccp state
 void *ccp_get_global_impl(void);
 
 int ccp_set_global_impl(
     void *ptr
 );
+*/
 
 /* Get the implementation-specific state of the ccp_connection.
  */
@@ -202,6 +209,7 @@ int ccp_set_impl(
  * buf: the received message, of size bufsize.
  */
 int ccp_read_msg(
+    struct ccp_datapath *datapath, 
     char *buf,
     int bufsize
 );

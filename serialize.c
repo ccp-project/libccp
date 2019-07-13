@@ -13,9 +13,6 @@
 #include <string.h>
 #endif
 
-// datapath implementation
-extern struct ccp_datapath* datapath;
-
 /* (type, len, socket_id) header
  * -----------------------------------
  * | Msg Type | Len (2B) | Uint32    |
@@ -138,6 +135,7 @@ int write_measure_msg(
 }
 
 int read_install_expr_msg_hdr(
+    struct ccp_datapath *datapath,
     struct CcpMsgHeader *hdr,
     struct InstallExpressionMsgHdr *expr_msg_info,
     char *buf
@@ -161,6 +159,7 @@ int read_install_expr_msg_hdr(
 }
 
 int check_update_fields_msg(
+    struct ccp_datapath *datapath,
     struct CcpMsgHeader *hdr,
     u32 *num_updates,
     char *buf
@@ -178,6 +177,7 @@ int check_update_fields_msg(
 }
 
 int read_change_prog_msg(
+    struct ccp_datapath *datapath,
     struct CcpMsgHeader *hdr,
     struct ChangeProgMsg *change_prog,
     char *buf
