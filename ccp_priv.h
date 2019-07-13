@@ -14,7 +14,11 @@
 #define FMT_U64 "%llu"
 #define FMT_U32 "%lu"
 #else
+#if defined(__APPLE__)
+#define FMT_U64 "%llu"
+#else
 #define FMT_U64 "%lu"
+#endif
 #define FMT_U32 "%u"
 #endif
 
