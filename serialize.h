@@ -6,16 +6,8 @@
 #ifndef CCP_SERIALIZE_H
 #define CCP_SERIALIZE_H
 
-#ifdef __KERNEL__
-#include <linux/types.h>
-#else
-#include <stdint.h>
-#endif
-
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
+#include "types.h"
+#include "ccp.h"
 
 #ifdef __CPLUSPLUS__
 extern "C" {
@@ -161,6 +153,7 @@ struct __attribute__((packed, aligned(4))) InstallExpressionMsgHdr {
  * }
  */
 int read_install_expr_msg_hdr(
+    struct ccp_datapath *datapath,
     struct CcpMsgHeader *hdr,
     struct InstallExpressionMsgHdr *expr_msg_info,
     char *buf
@@ -182,6 +175,7 @@ struct __attribute__((packed, aligned(1))) UpdateField {
  * }
  */
 int check_update_fields_msg(
+    struct ccp_datapath *datapath,
     struct CcpMsgHeader *hdr,
     u32 *num_updates,
     char *buf
@@ -193,6 +187,7 @@ struct __attribute__((packed, aligned(1))) ChangeProgMsg {
 };
 
 int read_change_prog_msg(
+    struct ccp_datapath *datapath,
     struct CcpMsgHeader *hdr,
     struct ChangeProgMsg *change_prog,
     char *buf

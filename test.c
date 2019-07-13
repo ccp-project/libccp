@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "ccp.h"
+#include "serialize.h"
 
 #ifdef __GNUC__
     #define UNUSED(x) UNUSED_ ## x __attribute__((__unused__))
@@ -23,17 +24,17 @@ struct test_conn {
     u32 curr_rate;
 };
 
-static void test_ccp_set_cwnd(struct ccp_datapath *UNUSED(dp), struct ccp_connection *conn, u32 cwnd) {
+static void test_ccp_set_cwnd(struct ccp_connection *conn, u32 cwnd) {
     struct test_conn *c = (struct test_conn*) ccp_get_impl(conn);
     c->curr_cwnd = cwnd;
 }
 
-static void test_ccp_set_rate(struct ccp_datapath *UNUSED(dp), struct ccp_connection *conn, u32 rate) {
+static void test_ccp_set_rate(struct ccp_connection *conn, u32 rate) {
     struct test_conn *c = (struct test_conn*) ccp_get_impl(conn);
     c->curr_rate = rate;
 }
 
-static int test_ccp_send_msg(struct ccp_datapath *UNUSED(dp), struct ccp_connection *UNUSED(conn), char *msg, int msg_size) {
+static int test_ccp_send_msg(struct ccp_connection *UNUSED(conn), char *msg, int msg_size) {
     if (expecting_send <= 0) {
         printf("FAIL\nNot expecting send");
         goto fail;
@@ -86,15 +87,7 @@ static u64 test_ccp_after_usecs(u64 usecs) {
 // Test Initialization and Helpers
 //===========================================
 
-int test_init(struct ccp_connection **conn, struct test_conn *my_conn, struct ccp_datapath *dp) {
-    int ok;
-    printf("initializing libccp... ");
-    ok = ccp_init(dp);
-    if (ok < 0) {
-        printf("ccp_init error: %d\n", ok);
-        return -1;
-    }
-
+int test_init(struct ccp_datapath *datapath, struct ccp_connection **conn, struct test_conn *my_conn) {
     // a fake flow arrives!
     struct ccp_datapath_info info = {
         .init_cwnd = 100,
@@ -119,7 +112,7 @@ int test_init(struct ccp_connection **conn, struct test_conn *my_conn, struct cc
 
     memcpy(&expected_sent_msg, &create_msg, 32);
     expecting_send = 32;
-    *conn = ccp_connection_start((void*) &my_conn, &info);
+    *conn = ccp_connection_start(datapath, (void*) &my_conn, &info);
     if (expecting_send != 0) {
         printf("err: did not send\n");
         return -2;
@@ -129,8 +122,8 @@ int test_init(struct ccp_connection **conn, struct test_conn *my_conn, struct cc
     }
 }
 
-int install_helper(char *dp, size_t dp_len) {
-    int ok = ccp_read_msg(dp, dp_len);
+int install_helper(struct ccp_datapath *datapath, char *install_msg, size_t msg_len) {
+    int ok = ccp_read_msg(datapath, install_msg, msg_len);
     if (ok < 0) {
         printf("read install message error: %d", ok);
         return -1;
@@ -139,8 +132,8 @@ int install_helper(char *dp, size_t dp_len) {
     return 0;
 }
 
-int change_prog_helper(char *dp, size_t dp_len) {
-    int ok = ccp_read_msg(dp, dp_len);
+int change_prog_helper(struct ccp_datapath *datapath, char *change_prog_msg, size_t msg_len) {
+    int ok = ccp_read_msg(datapath, change_prog_msg, msg_len);
     if (ok < 0) {
         printf("read change program message error: %d\n", ok);
         return -1;
@@ -149,8 +142,8 @@ int change_prog_helper(char *dp, size_t dp_len) {
     return 0;
 }
 
-int update_fields_helper(char *dp, size_t dp_len) {
-    int ok = ccp_read_msg(dp, dp_len);
+int update_fields_helper(struct ccp_datapath *datapath, char *update_fields_msg, size_t msg_len) {
+    int ok = ccp_read_msg(datapath, update_fields_msg, msg_len);
     if (ok < 0) {
         printf("read update fields message error: %d\n", ok);
         return -1;
@@ -189,9 +182,9 @@ int getreport_helper(char *expected, size_t msg_len, struct ccp_connection *conn
 #define IMPLI_PROG_UID 5
 #define UPDAT_PROG_UID 6
 
-int test_basic(struct ccp_connection *conn) {
+int test_basic(struct ccp_datapath *datapath, struct ccp_connection *conn) {
     int ok;
-    char dp[116] = {
+    char install_msg[116] = {
         2, 0,                                           // INSTALL                                                     
         116, 0,                                         // length = 0x74 = 116
         1, 0, 0, 0,                                     // sock_id = 1                                                 
@@ -225,13 +218,13 @@ int test_basic(struct ccp_connection *conn) {
     printf("%s...          ", __func__);
     fflush(stdout);
 
-    ok = install_helper(dp, 116);
+    ok = install_helper(datapath, install_msg, 116);
     if (ok < 0) {
         printf("\n");
         return -1;
     }
 
-    ok = change_prog_helper(change_prog_msg, 16);
+    ok = change_prog_helper(datapath, change_prog_msg, 16);
     if (ok < 0) {
         printf("\n");
         return -1;
@@ -247,9 +240,9 @@ int test_basic(struct ccp_connection *conn) {
     return 0;
 }
 
-int test_primitives(struct ccp_connection *conn) {
+int test_primitives(struct ccp_datapath *datapath, struct ccp_connection *conn) {
     int ok;
-    char dp[100] = {
+    char install_msg[100] = {
         2, 0,                                                    // INSTALL
         84, 0,                                                   // length = 88
         1, 0, 0, 0,                                              // sock_id = 1
@@ -285,13 +278,13 @@ int test_primitives(struct ccp_connection *conn) {
 
     conn->prims.rtt_sample_us = 0xcafefeed;
 
-    ok = install_helper(dp, 88);
+    ok = install_helper(datapath, install_msg, 88);
     if (ok < 0) {
         printf("\n");
         return -1;
     }
 
-    ok = change_prog_helper(change_prog_msg, 16);
+    ok = change_prog_helper(datapath, change_prog_msg, 16);
     if (ok < 0) {
         printf("\n");
         return -1;
@@ -307,9 +300,9 @@ int test_primitives(struct ccp_connection *conn) {
     return 0;
 }
 
-int test_multievent(struct ccp_connection *conn) {
+int test_multievent(struct ccp_datapath *datapath, struct ccp_connection *conn) {
     int ok;
-    char dp[180] = {
+    char install_msg[180] = {
         2, 0,                                                    // INSTALL
         156, 0,                                                  // length = 156
         1, 0, 0, 0,                                              // sock_id = 1
@@ -356,13 +349,13 @@ int test_multievent(struct ccp_connection *conn) {
 
     conn->prims.rtt_sample_us = 0xcafefeed;
     fflush(stdout);
-    ok = install_helper(dp, 156);
+    ok = install_helper(datapath, install_msg, 156);
     if (ok < 0) {
         printf("install\n");
         return -1;
     }
     
-    ok = change_prog_helper(change_prog_msg, 16);
+    ok = change_prog_helper(datapath, change_prog_msg, 16);
     if (ok < 0) {
         printf("\n");
         return -1;
@@ -397,9 +390,9 @@ int test_multievent(struct ccp_connection *conn) {
     return 0;
 }
 
-int test_fallthrough(struct ccp_connection *conn) {
+int test_fallthrough(struct ccp_datapath *datapath, struct ccp_connection *conn) {
     int ok;
-    char dp[196] = {
+    char install_msg[196] = {
         2, 0,                                                    // INSTALL
         172, 0,                                                  // length = 172
         1, 0, 0, 0,                                              // sock_id = 1
@@ -445,13 +438,13 @@ int test_fallthrough(struct ccp_connection *conn) {
 
     conn->prims.rtt_sample_us = 0xcafefeed;
     fflush(stdout);
-    ok = install_helper(dp, 172);
+    ok = install_helper(datapath, install_msg, 172);
     if (ok < 0) {
         printf("install\n");
         return -1;
     }
     
-    ok = change_prog_helper(change_prog_msg, 16);
+    ok = change_prog_helper(datapath, change_prog_msg, 16);
     if (ok < 0) {
         printf("\n");
         return -1;
@@ -486,9 +479,9 @@ int test_fallthrough(struct ccp_connection *conn) {
     return 0;
 }
 
-int test_read_implicit(struct ccp_connection *conn) {
+int test_read_implicit(struct ccp_datapath *datapath, struct ccp_connection *conn) {
     int ok;
-    char dp[132] = {
+    char install_msg[132] = {
         2, 0,                                           // INSTALL
         0x78, 0,                                        // length = 120
         1, 0, 0, 0,                                     // sock_id = 1
@@ -522,13 +515,13 @@ int test_read_implicit(struct ccp_connection *conn) {
     printf("%s...  ", __func__);
     fflush(stdout);
 
-    ok = install_helper(dp, 120);
+    ok = install_helper(datapath, install_msg, 120);
     if (ok < 0) {
         printf("install failed\n");
         return -1;
     }
     
-    ok = change_prog_helper(change_prog_msg, 16);
+    ok = change_prog_helper(datapath, change_prog_msg, 16);
     if (ok < 0) {
         printf("\n");
         return -1;
@@ -544,9 +537,9 @@ int test_read_implicit(struct ccp_connection *conn) {
     return 0;
 }
 
-int test_update_fields(struct ccp_connection *conn) {
+int test_update_fields(struct ccp_datapath *datapath, struct ccp_connection *conn) {
     int ok;
-    char dp[116] = {
+    char install_msg[116] = {
         2, 0,                                            // INSTALL                                                            
         116, 0,                                          // length = 0x74 = 116
         1, 0, 0, 0,                                      // sock_id = 1                                                 
@@ -593,13 +586,13 @@ int test_update_fields(struct ccp_connection *conn) {
     printf("%s...  ", __func__);
     fflush(stdout);
 
-    ok = install_helper(dp, 116);
+    ok = install_helper(datapath, install_msg, 116);
     if (ok < 0) {
         printf("\n");
         return -1;
     }
 
-    ok = change_prog_helper(change_prog_msg, 16);
+    ok = change_prog_helper(datapath, change_prog_msg, 16);
     if (ok < 0) {
         printf("\n");
         return -1;
@@ -611,7 +604,7 @@ int test_update_fields(struct ccp_connection *conn) {
         return -1;
     }
 
-    ok = update_fields_helper(update_msg, 25);
+    ok = update_fields_helper(datapath, update_msg, 25);
     if (ok < 0) {
         printf("\n");
         return -1;
@@ -630,6 +623,11 @@ int test_update_fields(struct ccp_connection *conn) {
 int main(int UNUSED(argc), char **UNUSED(argv)) {
     int ok = 0;
     now_us = 0;
+
+    struct ccp_datapath *datapath;
+    struct ccp_connection *conn;
+
+    printf("initializing libccp... ");
     struct ccp_datapath dp = {
         .set_cwnd = test_ccp_set_cwnd,
         .set_rate_abs = test_ccp_set_rate,
@@ -638,45 +636,49 @@ int main(int UNUSED(argc), char **UNUSED(argv)) {
         .since_usecs = test_ccp_since_usecs,
         .after_usecs = test_ccp_after_usecs,
     };
+    datapath = ccp_init(&dp);
+    if (!datapath) {
+        printf("ccp_init error: %d\n", ok);
+        goto ret;
+    }
 
     struct test_conn my_conn = {
         .curr_cwnd = 0,
         .curr_rate = 0,
     };
 
-    struct ccp_connection *conn;
 
-    ok = test_init(&conn, &my_conn, &dp);
-    if (ok < 0) {
-        goto ret;
-    }
-
-    ok = test_basic(conn);
+    ok = test_init(datapath, &conn, &my_conn);
     if (ok < 0) {
         goto ret;
     }
 
-    ok = test_primitives(conn);
+    ok = test_basic(datapath, conn);
+    if (ok < 0) {
+        goto ret;
+    }
+
+    ok = test_primitives(datapath, conn);
     if (ok < 0) {
         goto ret;
     }
     
-    ok = test_multievent(conn);
+    ok = test_multievent(datapath, conn);
     if (ok < 0) {
         goto ret;
     }
     
-    ok = test_fallthrough(conn);
+    ok = test_fallthrough(datapath, conn);
     if (ok < 0) {
         goto ret;
     }
     
-    ok = test_read_implicit(conn);
+    ok = test_read_implicit(datapath, conn);
     if (ok < 0) {
         goto ret;
     }
     
-    ok = test_update_fields(conn);
+    ok = test_update_fields(datapath, conn);
     if (ok < 0) {
         goto ret;
     }
@@ -692,9 +694,9 @@ int main(int UNUSED(argc), char **UNUSED(argv)) {
     };
     memcpy(&expected_sent_msg, &close_msg, 16);
     expecting_send = 16;
-    ccp_connection_free(conn->index);
+    ccp_connection_free(datapath, conn->index);
     printf("ok\n");
   ret:
-    ccp_free();
+    ccp_free(datapath);
     return 0;
 }

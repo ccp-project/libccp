@@ -25,9 +25,9 @@
  * So, we maintain a map of ccp sock_id -> flow state information.
  * This flow state information is the API that datapaths must implement to support CCP.
  */
-struct ccp_connection* ccp_active_connections = NULL;
+// struct ccp_connection* ccp_active_connections = NULL;
 // datapath implementation
-struct ccp_datapath* datapath = NULL;
+// struct ccp_datapath* datapath = NULL;
 
 /* Drop log messages if no log output is defined.
  */
@@ -38,77 +38,92 @@ void __INLINE__ null_log(struct ccp_datapath *dp, enum ccp_log_level level, cons
     (void)(msg_size);
 }
 
-int ccp_init(struct ccp_datapath *dp) {
+/* 
+ * Return value points to a ccp_datapath with allocated memory. Caller is responsible for 
+ * later freeing this memory with ccp_free. 
+ *
+ * Currently, this return value is a deep copy of the parameter struct with some additional things
+ * Once this works, we should switch back to returning an int and just re-use the struct the caller
+ * passes in so that we can retain return error codes.
+ */
+struct ccp_datapath *ccp_init(struct ccp_datapath *user_dp) {
+    struct ccp_datapath *datapath;
     struct DatapathProgram *datapath_programs;
 
     // check that dp is properly filled in.
     if (
-        dp                ==  NULL  ||
-        dp->set_cwnd      ==  NULL  ||
-        dp->set_rate_abs  ==  NULL  ||
-        dp->send_msg      ==  NULL  ||
-        dp->now           ==  NULL  ||
-        dp->since_usecs   ==  NULL  ||
-        dp->after_usecs   ==  NULL
+        user_dp                ==  NULL  ||
+        user_dp->set_cwnd      ==  NULL  ||
+        user_dp->set_rate_abs  ==  NULL  ||
+        user_dp->send_msg      ==  NULL  ||
+        user_dp->now           ==  NULL  ||
+        user_dp->since_usecs   ==  NULL  ||
+        user_dp->after_usecs   ==  NULL
     ) {
-        return -1;
+        //TODO undo
+        //return -1;
+        return NULL;
     }
 
-    if (dp->log == NULL) {
-        dp->log = &null_log;
-    }
-
-    // avoid memory leak
-    if (datapath != NULL || ccp_active_connections != NULL) {
-        return -2;
+    if (user_dp->log == NULL) {
+        user_dp->log = &null_log;
     }
 
     datapath = (struct ccp_datapath*)__MALLOC__(sizeof(struct ccp_datapath));
     if (!datapath) {
-        return -3;
+        //TODO undo
+        //return -3;
+        return NULL;
     }
 
-    // copy function pointers into datapath
-    datapath->set_cwnd           = dp->set_cwnd;
-    datapath->set_rate_abs       = dp->set_rate_abs;
-    datapath->send_msg           = dp->send_msg;
-    datapath->now                = dp->now;
-    datapath->since_usecs        = dp->since_usecs;
-    datapath->after_usecs        = dp->after_usecs;
-    datapath->log                = dp->log;
-    datapath->impl               = dp->impl;
+    // TODO why copy from here instead of just using it directly???
+    // copy function pointers from user into actual datapath
+    datapath->set_cwnd           = user_dp->set_cwnd;
+    datapath->set_rate_abs       = user_dp->set_rate_abs;
+    datapath->send_msg           = user_dp->send_msg;
+    datapath->now                = user_dp->now;
+    datapath->since_usecs        = user_dp->since_usecs;
+    datapath->after_usecs        = user_dp->after_usecs;
+    datapath->log                = user_dp->log;
+    datapath->impl               = user_dp->impl;
+    // (not copied)
+    datapath->time_zero          = datapath->now();
 
-    datapath->time_zero = datapath->now();
-
+    struct ccp_connection *ccp_active_connections;
     ccp_active_connections = (struct ccp_connection*)__MALLOC__(MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
     if (!ccp_active_connections) {
         __FREE__(datapath);
         datapath = NULL;
-        return -4;
+        //TODO undo
+        //return -4;
+        return NULL;
     }
-
     memset(ccp_active_connections, 0, MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
+
+    datapath->ccp_active_connections = ccp_active_connections;
 
     datapath_programs = (struct DatapathProgram*)__MALLOC__(MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
     if (!datapath_programs) {
         __FREE__(datapath);
         datapath = NULL;
         __FREE__(ccp_active_connections);
-        ccp_active_connections = NULL;
-        return -5;
+        datapath->ccp_active_connections = NULL;
+        //TODO undo
+        //return -5;
+        return NULL;
     }
 
     memset(datapath_programs, 0, MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
     datapath->state = (void*) datapath_programs;
 
-    return 0;
+    return datapath;
 }
 
-void ccp_free(void) {
+void ccp_free(struct ccp_datapath *datapath) {
     __FREE__(datapath->state);
-    __FREE__(ccp_active_connections);
+    __FREE__(datapath->ccp_active_connections);
     __FREE__(datapath);
-    ccp_active_connections = NULL;
+    //datapath->ccp_active_connections = NULL;
     datapath = NULL;
 }
 
@@ -116,7 +131,7 @@ void ccp_conn_create_success(struct ccp_priv_state *state) {
     state->sent_create = true;
 }
 
-struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info *flow_info) {
+struct ccp_connection *ccp_connection_start(struct ccp_datapath *datapath, void *impl, struct ccp_datapath_info *flow_info) {
     int ok;
     u16 sid;
     struct ccp_connection *conn;
@@ -124,7 +139,7 @@ struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info
     // scan to find empty place
     // index = 0 means free/unused
     for (sid = 0; sid < MAX_NUM_CONNECTIONS; sid++) {
-        conn = &ccp_active_connections[sid];
+        conn = &datapath->ccp_active_connections[sid];
         if (CAS(&(conn->index), 0, sid+1)) {
             sid = sid + 1;
             break;
@@ -138,7 +153,7 @@ struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info
     conn->impl = impl;
     memcpy(&conn->flow_info, flow_info, sizeof(struct ccp_datapath_info));
 
-    init_ccp_priv_state(conn);
+    init_ccp_priv_state(datapath, conn);
 
     // send to CCP:
     // index of pointer back to this sock for IPC callback
@@ -154,6 +169,7 @@ struct ccp_connection *ccp_connection_start(void *impl, struct ccp_datapath_info
     return conn;
 }
 
+/* TODO dont see where these are being used, trying to remove for now
 __INLINE__ void *ccp_get_global_impl(void) {
     return datapath->impl;
 }
@@ -162,6 +178,7 @@ __INLINE__ int ccp_set_global_impl(void *ptr) {
     datapath->impl = ptr;
     return 0;
 }
+*/
 
 __INLINE__ void *ccp_get_impl(struct ccp_connection *conn) {
     return conn->impl;
@@ -176,10 +193,11 @@ int ccp_invoke(struct ccp_connection *conn) {
     int i;
     int ok = 0;
     struct ccp_priv_state *state;
+    struct ccp_datapath *datapath = conn->datapath;
 
-		if (conn == NULL) {
-			return -1;
-		}
+    if (conn == NULL) {
+        return -1;
+    }
 
 		state = get_ccp_priv_state(conn);
     if (!(state->sent_create)) {
@@ -205,9 +223,9 @@ int ccp_invoke(struct ccp_connection *conn) {
         // change the program to this program, and reset the state
         debug("[sid=%d] Applying staged program change: %d -> %d\n", conn->index, state->program_index, state->staged_program_index); 
         state->program_index = state->staged_program_index;
-        reset_state(state);
-        init_register_state(state);
-        reset_time(state);
+        reset_state(conn->datapath, state);
+        init_register_state(conn->datapath, state);
+        reset_time(conn->datapath, state);
         state->staged_program_index = -1;
     }
 
@@ -226,7 +244,7 @@ int ccp_invoke(struct ccp_connection *conn) {
         debug("[sid=%d] Applying staged field update: cwnd reg <- " FMT_U64 "\n", conn->index, state->pending_update.impl_registers[CWND_REG]);
         state->registers.impl_registers[CWND_REG] = state->pending_update.impl_registers[CWND_REG];
         if (state->registers.impl_registers[CWND_REG] != 0) {
-            datapath->set_cwnd(datapath, conn, state->registers.impl_registers[CWND_REG]);
+            conn->datapath->set_cwnd(conn, state->registers.impl_registers[CWND_REG]);
         }
     }
 
@@ -234,7 +252,7 @@ int ccp_invoke(struct ccp_connection *conn) {
         debug("[sid=%d] Applying staged field update: rate reg <- " FMT_U64 "\n", conn->index, state->pending_update.impl_registers[RATE_REG]);
         state->registers.impl_registers[RATE_REG] = state->pending_update.impl_registers[RATE_REG];
         if (state->registers.impl_registers[RATE_REG] != 0) {
-            datapath->set_rate_abs(datapath, conn, state->registers.impl_registers[RATE_REG]);
+            conn->datapath->set_rate_abs(conn, state->registers.impl_registers[RATE_REG]);
         }
     }
 
@@ -250,7 +268,7 @@ int ccp_invoke(struct ccp_connection *conn) {
 
 // lookup existing connection by its ccp socket id
 // return NULL on error
-struct ccp_connection *ccp_connection_lookup(u16 sid) {
+struct ccp_connection *ccp_connection_lookup(struct ccp_datapath *datapath, u16 sid) {
     struct ccp_connection *conn;
     // bounds check
     if (sid == 0 || sid > MAX_NUM_CONNECTIONS) {
@@ -258,7 +276,7 @@ struct ccp_connection *ccp_connection_lookup(u16 sid) {
         return NULL;
     }
 
-    conn = &ccp_active_connections[sid-1];
+    conn = &datapath->ccp_active_connections[sid-1];
     if (conn->index != sid) {
         warn("index mismatch: sid %d, index %d", sid, conn->index);
         return NULL;
@@ -269,7 +287,7 @@ struct ccp_connection *ccp_connection_lookup(u16 sid) {
 
 // after connection ends, free its slot in the ccp table
 // also free slot in ccp instruction table
-void ccp_connection_free(u16 sid) {
+void ccp_connection_free(struct ccp_datapath *datapath, u16 sid) {
     int msg_size, ok;
     struct ccp_connection *conn;
     char msg[REPORT_MSG_SIZE];
@@ -281,7 +299,7 @@ void ccp_connection_free(u16 sid) {
         return;
     }
 
-    conn = &ccp_active_connections[sid-1];
+    conn = &datapath->ccp_active_connections[sid-1];
     if (conn->index != sid) {
         warn("index mismatch: sid %d, index %d", sid, conn->index);
         return;
@@ -290,7 +308,7 @@ void ccp_connection_free(u16 sid) {
     free_ccp_priv_state(conn);
 
     msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, sid, 0, 0, 0);
-    ok = datapath->send_msg(datapath, conn, msg, msg_size);
+    ok = datapath->send_msg(conn, msg, msg_size);
     if (ok < 0) {
         warn("error sending close message: %d", ok);
     }
@@ -304,7 +322,7 @@ void ccp_connection_free(u16 sid) {
 
 // lookup datapath program using program ID
 // returns  NULL on error
-struct DatapathProgram* datapath_program_lookup(u16 pid) {
+struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u16 pid) {
     struct DatapathProgram *prog;
     struct DatapathProgram *datapath_programs;
     datapath_programs = (struct DatapathProgram*) datapath->state;
@@ -348,7 +366,7 @@ int datapath_program_lookup_uid(struct DatapathProgram *datapath_programs, u32 p
 // saves a new datapath program into the array of datapath programs
 // returns index into datapath program array where this program is stored
 // if there is no more space, returns -1
-int datapath_program_install(struct DatapathProgram *datapath_programs, struct InstallExpressionMsgHdr* install_expr_msg, char* buf) {
+int datapath_program_install(struct ccp_datapath *datapath, struct DatapathProgram *datapath_programs, struct InstallExpressionMsgHdr* install_expr_msg, char* buf) {
     int i;
     int ok;
     u16 pid;
@@ -396,6 +414,7 @@ int datapath_program_install(struct DatapathProgram *datapath_programs, struct I
 
 }
 
+/* TODO unused? testing removal
 // frees datapath program
 void datapath_program_free(u16 pid) {
     struct DatapathProgram *datapath_programs;
@@ -419,6 +438,7 @@ void datapath_program_free(u16 pid) {
     program->index = 0;
     return;
 }
+*/ 
 
 int stage_update(struct staged_update *pending_update, struct UpdateField *update_field) {
     // update the value for these registers
@@ -461,6 +481,7 @@ int stage_multiple_updates(struct staged_update *pending_update, size_t num_upda
 }
 
 int ccp_read_msg(
+    struct ccp_datapath *datapath,
     char *buf,
     int bufsize
 ) {
@@ -506,7 +527,7 @@ int ccp_read_msg(
     if (hdr.Type == INSTALL_EXPR) {
         trace("Received install message\n");
         memset(&expr_msg_info, 0, sizeof(struct InstallExpressionMsgHdr));
-        ok = read_install_expr_msg_hdr(&hdr, &expr_msg_info, msg_ptr);
+        ok = read_install_expr_msg_hdr(datapath, &hdr, &expr_msg_info, msg_ptr);
         if (ok < 0) {
             warn("could not read install expression msg header: %d\n", ok);
             return -5;
@@ -521,7 +542,7 @@ int ccp_read_msg(
         }
 
         msg_ptr += ok;
-        ok = datapath_program_install(datapath_programs, &expr_msg_info, msg_ptr);
+        ok = datapath_program_install(datapath, datapath_programs, &expr_msg_info, msg_ptr);
         if ( ok < 0 ) {
             warn("could not install datapath program: %d\n", ok);
             return -6;
@@ -530,7 +551,7 @@ int ccp_read_msg(
     }
 
     // rest of the messages must be for a specific flow
-    conn = ccp_connection_lookup(hdr.SocketId);
+    conn = ccp_connection_lookup(datapath, hdr.SocketId);
     if (conn == NULL) {
         warn("unknown connection: %u\n", hdr.SocketId);
         return -7;
@@ -539,7 +560,7 @@ int ccp_read_msg(
 
     if (hdr.Type == UPDATE_FIELDS) {
         debug("[sid=%d] Received update_fields message\n", conn->index);
-        ok = check_update_fields_msg(&hdr, &num_updates, msg_ptr);
+        ok = check_update_fields_msg(datapath, &hdr, &num_updates, msg_ptr);
         msg_ptr += ok;
         if (ok < 0) {
             warn("Update fields message failed: %d\n", ok);
@@ -556,7 +577,7 @@ int ccp_read_msg(
     } else if (hdr.Type == CHANGE_PROG) {
         debug("[sid=%d] Received change_prog message\n", conn->index);
         // check if the program is in the program_table
-        ok = read_change_prog_msg(&hdr, &change_program, msg_ptr);
+        ok = read_change_prog_msg(datapath, &hdr, &change_program, msg_ptr);
         if (ok < 0) {
             warn("Change program message deserialization failed: %d\n", ok);
             return -9;
@@ -623,7 +644,7 @@ int send_conn_create(
 
     conn->last_create_msg_sent = datapath->now();
     msg_size = write_create_msg(msg, REPORT_MSG_SIZE, conn->index, cr);
-    ok = datapath->send_msg(datapath, conn, msg, msg_size);
+    ok = datapath->send_msg(conn, msg, msg_size);
     return ok;
 }
 
@@ -645,6 +666,6 @@ int send_measurement(
 
     msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, conn->index, program_uid, fields, num_fields);
     trace("[sid=%d] In %s\n", conn->index, __FUNCTION__);
-    ok = datapath->send_msg(datapath, conn, msg, msg_size);
+    ok = conn->datapath->send_msg(conn, msg, msg_size);
     return ok;
 }

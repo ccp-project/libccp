@@ -8,10 +8,9 @@
 #include <string.h>
 #endif
 
-extern struct ccp_datapath *datapath;
-
-int init_ccp_priv_state(struct ccp_connection *conn) {
+int init_ccp_priv_state(struct ccp_datapath *datapath, struct ccp_connection *conn) {
     struct ccp_priv_state *state;
+
     conn->state = __CALLOC__(1, sizeof(struct ccp_priv_state));
     state = (struct ccp_priv_state*) conn->state;
 
@@ -19,6 +18,9 @@ int init_ccp_priv_state(struct ccp_connection *conn) {
     state->implicit_time_zero = datapath->time_zero;
     state->program_index = 0;
     state->staged_program_index = -1;
+
+    conn->datapath = datapath;
+
     return 0;
 }
 

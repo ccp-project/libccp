@@ -9,8 +9,6 @@
 
 #define CCP_FRAC_DENOM 10
 
-extern struct ccp_datapath *datapath;
-
 /*
  * Aggregator functions
  * Corresponds to operations sent down in instruction messages
@@ -160,7 +158,7 @@ static int deserialize_register(struct Register *ret, u8 reg_type, u32 reg_value
  * Only allowed to write into NONVOLATILE_REPORT_REG, VOLATILE_REPORT_REG, TMP_REG, LOCAL_REG
  * and some of the IMPL_REG: EXPR_FLAG_REG, CWND_REG, RATE_REG, SHOULD_REPORT_REG
  */
-static void write_reg(struct ccp_priv_state *state, u64 value, struct Register reg) {
+static void write_reg(struct ccp_datapath *datapath, struct ccp_priv_state *state, u64 value, struct Register reg) {
     switch (reg.type) {
         case NONVOLATILE_REPORT_REG:
         case VOLATILE_REPORT_REG:
@@ -199,7 +197,7 @@ static void write_reg(struct ccp_priv_state *state, u64 value, struct Register r
 /*
  * Read specified register
  */
-static u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primitives, struct Register reg) {
+static u64 read_reg(struct ccp_datapath *datapath, struct ccp_priv_state *state, struct ccp_primitives* primitives, struct Register reg) {
     switch (reg.type) {
         case IMMEDIATE_REG:
             return reg.value;
@@ -263,13 +261,13 @@ static u64 read_reg(struct ccp_priv_state *state, struct ccp_primitives* primiti
 /*
  * Process instruction at specfied index 
  */
-static int process_instruction(int instr_index, struct ccp_priv_state *state, struct ccp_primitives* primitives) {
-    struct DatapathProgram* program = datapath_program_lookup(state->program_index);
+static int process_instruction(struct ccp_datapath *datapath, struct DatapathProgram *program, int instr_index, struct ccp_priv_state *state, struct ccp_primitives* primitives) {
+    //struct DatapathProgram* program = datapath_program_lookup(state->program_index);
     struct Instruction64 current_instruction = program->fold_instructions[instr_index];
     u64 arg0, arg1, arg2, result; // extra arg0 for ewma, if, not if
 
-    arg1 = read_reg(state, primitives, current_instruction.rLeft);
-    arg2 = read_reg(state, primitives, current_instruction.rRight);
+    arg1 = read_reg(datapath, state, primitives, current_instruction.rLeft);
+    arg2 = read_reg(datapath, state, primitives, current_instruction.rRight);
     switch (current_instruction.op) {
         case ADD:
             trace("ADD  " FMT_U64 " + " FMT_U64 " = " FMT_U64 "\n", arg1, arg2, myadd64(arg1, arg2)); 
@@ -278,7 +276,7 @@ static int process_instruction(int instr_index, struct ccp_priv_state *state, st
                 warn("ERROR! Integer overflow: " FMT_U64 " + " FMT_U64 "\n", arg1, arg2);
                 return -1;
             }
-            write_reg(state, result, current_instruction.rRet);
+            write_reg(datapath, state, result, current_instruction.rRet);
             break;
         case DIV:
             trace("DIV  " FMT_U64 " / " FMT_U64 " = ", arg1, arg2);
@@ -287,32 +285,32 @@ static int process_instruction(int instr_index, struct ccp_priv_state *state, st
                 return -1;
             } else {
                 trace("" FMT_U64 "\n", mydiv64(arg1, arg2));
-                write_reg(state, mydiv64(arg1, arg2), current_instruction.rRet);
+                write_reg(datapath, state, mydiv64(arg1, arg2), current_instruction.rRet);
             }
             break;
         case EQUIV:
             trace("EQV  " FMT_U64 " == " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, myequiv64(arg1, arg2));
-            write_reg(state, myequiv64(arg1, arg2), current_instruction.rRet);
+            write_reg(datapath, state, myequiv64(arg1, arg2), current_instruction.rRet);
             break;
         case EWMA: // arg0 = current, arg2 = new, arg1 = constant
-            arg0 = read_reg(state, primitives, current_instruction.rRet); // current state
-            write_reg(state, myewma64(arg1, arg0, arg2), current_instruction.rRet);
+            arg0 = read_reg(datapath, state, primitives, current_instruction.rRet); // current state
+            write_reg(datapath, state, myewma64(arg1, arg0, arg2), current_instruction.rRet);
             break;
         case GT:
             trace("GT   " FMT_U64 " > " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mygt64(arg1, arg2));
-            write_reg(state, mygt64(arg1, arg2), current_instruction.rRet);
+            write_reg(datapath, state, mygt64(arg1, arg2), current_instruction.rRet);
             break;
         case LT:
             trace("LT   " FMT_U64 " > " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mylt64(arg1, arg2));
-            write_reg(state, mylt64(arg1, arg2), current_instruction.rRet);
+            write_reg(datapath, state, mylt64(arg1, arg2), current_instruction.rRet);
             break;
         case MAX:
             trace("MAX  " FMT_U64 " , " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mymax64(arg1, arg2));
-            write_reg(state, mymax64(arg1, arg2), current_instruction.rRet);
+            write_reg(datapath, state, mymax64(arg1, arg2), current_instruction.rRet);
             break;
         case MIN:
             trace("MIN  " FMT_U64 " , " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mymin64(arg1, arg2));
-            write_reg(state, mymin64(arg1, arg2), current_instruction.rRet);
+            write_reg(datapath, state, mymin64(arg1, arg2), current_instruction.rRet);
             break;
         case MUL:
             trace("MUL  " FMT_U64 " * " FMT_U64 " = " FMT_U64 "\n", arg1, arg2, mymul64(arg1, arg2));
@@ -321,7 +319,7 @@ static int process_instruction(int instr_index, struct ccp_priv_state *state, st
                 error("ERROR! Integer overflow: " FMT_U64 " * " FMT_U64 "\n", arg1, arg2);
                 return -1;
             }
-            write_reg(state, result, current_instruction.rRet);
+            write_reg(datapath, state, result, current_instruction.rRet);
             break;
         case SUB:
             trace("SUB  " FMT_U64 " - " FMT_U64 " = " FMT_U64 "\n", arg1, arg2, mysub64(arg1, arg2));
@@ -330,27 +328,27 @@ static int process_instruction(int instr_index, struct ccp_priv_state *state, st
                 error("ERROR! Integer underflow: " FMT_U64 " - " FMT_U64 "\n", arg1, arg2);
                 return -1;
             }
-            write_reg(state, result, current_instruction.rRet);
+            write_reg(datapath, state, result, current_instruction.rRet);
             break;
         case MAXWRAP:
             trace("MAXW " FMT_U64 " , " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mymax64_wrap(arg1, arg2));
-            write_reg(state, mymax64_wrap(arg1, arg2), current_instruction.rRet);
+            write_reg(datapath, state, mymax64_wrap(arg1, arg2), current_instruction.rRet);
             break;
         case IF: // if arg1 (rLeft), stores rRight in rRet
             trace("IF   " FMT_U64 " : r" FMT_U64 " -> r" FMT_U64 "\n", arg1, arg2, current_instruction.rRet.value);
             if (arg1) {
-                write_reg(state, arg2, current_instruction.rRet);
+                write_reg(datapath, state, arg2, current_instruction.rRet);
             }
             break;
         case NOTIF:
             trace("!IF  " FMT_U64 " : r" FMT_U64 " -> r" FMT_U64 "\n", arg1, arg2, current_instruction.rRet.value);
             if (arg1 == 0) {
-                write_reg(state, arg2, current_instruction.rRet);
+                write_reg(datapath, state, arg2, current_instruction.rRet);
             }
             break;
         case BIND: // take arg2, and put it in rRet
             trace("BIND r" FMT_U64 " -> r" FMT_U64 "\n", arg2, current_instruction.rRet.value);
-            write_reg(state, arg2, current_instruction.rRet);
+            write_reg(datapath, state, arg2, current_instruction.rRet);
             break;
         default:
             debug("UNKNOWN OP %d\n", current_instruction.op);
@@ -363,14 +361,14 @@ static int process_instruction(int instr_index, struct ccp_priv_state *state, st
 /*
  * Process a single event - check if condition is true, and execute event body if so
  */
-static int process_expression(int expr_index, struct ccp_priv_state *state, struct ccp_primitives* primitives) {
-    struct DatapathProgram* program = datapath_program_lookup(state->program_index);
+static int process_expression(struct ccp_datapath *datapath, struct DatapathProgram *program, int expr_index, struct ccp_priv_state *state, struct ccp_primitives* primitives) {
+    //struct DatapathProgram* program = datapath_program_lookup(state->program_index);
     struct Expression *expression = &(program->expressions[expr_index]);
     u8 idx;
     int ret;
     trace("when #%d {\n", expr_index);
     for (idx=expression->cond_start_idx; idx<(expression->cond_start_idx + expression->num_cond_instrs); idx++) {
-       ret = process_instruction(idx, state, primitives);
+       ret = process_instruction(datapath, program, idx, state, primitives);
        if (ret < 0) {
          return -1;
        }
@@ -380,7 +378,7 @@ static int process_expression(int expr_index, struct ccp_priv_state *state, stru
     // flag from event is promised to be stored in this implicit register
     if (state->registers.impl_registers[EXPR_FLAG_REG] ) {
         for (idx = expression->event_start_idx; idx<(expression->event_start_idx + expression->num_event_instrs ); idx++) {
-            ret = process_instruction(idx, state, primitives);
+            ret = process_instruction(datapath, program, idx, state, primitives);
             if (ret < 0) {
                 return -1;
             }
@@ -445,6 +443,7 @@ int read_expression(
  * Perform update in update_field struct
  * Only applicable to control registers and cwnd and rate registers
  */
+/* TODO don't think this is being used, try remove
 int update_register(struct ccp_connection* conn, struct ccp_priv_state *state, struct UpdateField *update_field) {
     // update the value for these registers
     // for cwnd, rate; update field in datapath
@@ -457,12 +456,12 @@ int update_register(struct ccp_connection* conn, struct ccp_priv_state *state, s
             if (update_field->reg_index == CWND_REG) {
                 state->registers.impl_registers[CWND_REG] = update_field->new_value;
                 if (state->registers.impl_registers[CWND_REG] != 0) {
-                    datapath->set_cwnd(datapath, conn, state->registers.impl_registers[CWND_REG]);
+                    datapath->set_cwnd(conn, state->registers.impl_registers[CWND_REG]);
                 }
             } else if (update_field->reg_index == RATE_REG) {
                 state->registers.impl_registers[RATE_REG] = update_field->new_value;
                 if (state->registers.impl_registers[RATE_REG] != 0) {
-                    datapath->set_rate_abs(datapath, conn, state->registers.impl_registers[RATE_REG]);
+                    datapath->set_rate_abs(conn, state->registers.impl_registers[RATE_REG]);
                 }
             }
             return 0;
@@ -470,14 +469,15 @@ int update_register(struct ccp_connection* conn, struct ccp_priv_state *state, s
             return 0; // allowed only for CONTROL and CWND and RATE reg within CONTROL_REG
     }
 }
+*/
 
 
 /*
  * Resets all permanent registers to the DEF values
  */
-void reset_state(struct ccp_priv_state *state) {
+void reset_state(struct ccp_datapath *datapath, struct ccp_priv_state *state) {
     u8 i;
-    struct DatapathProgram* program = datapath_program_lookup(state->program_index);
+    struct DatapathProgram* program = datapath_program_lookup(datapath, state->program_index);
     if (program == NULL) {
         info("Cannot reset state because program is NULL\n");
 	return;
@@ -507,9 +507,9 @@ void reset_state(struct ccp_priv_state *state) {
                 // set the default value of the state register
                 // check for infinity
                 if (current_instruction.rRight.value == (0x3fffffff)) {
-                    write_reg(state, ((u64)~0U), current_instruction.rLeft);
+                    write_reg(datapath, state, ((u64)~0U), current_instruction.rLeft);
                 } else {
-                    write_reg(state, current_instruction.rRight.value, current_instruction.rLeft);
+                    write_reg(datapath, state, current_instruction.rRight.value, current_instruction.rLeft);
                 }
                 break;
             default:
@@ -521,10 +521,10 @@ void reset_state(struct ccp_priv_state *state) {
     }    
 }
 
-void init_register_state(struct ccp_priv_state *state) {
+void init_register_state(struct ccp_datapath *datapath, struct ccp_priv_state *state) {
     u8 i;
     struct Instruction64 current_instruction;
-    struct DatapathProgram* program = datapath_program_lookup(state->program_index);
+    struct DatapathProgram* program = datapath_program_lookup(datapath, state->program_index);
     if (program == NULL) {
         info("Cannot init register state because program is NULL\n");
 	return;
@@ -541,9 +541,9 @@ void init_register_state(struct ccp_priv_state *state) {
                 // set the default value of the state register
                 // check for infinity
                 if (current_instruction.rRight.value == (0x3fffffff)) {
-                    write_reg(state, ((u64)~0U), current_instruction.rLeft);
+                    write_reg(datapath, state, ((u64)~0U), current_instruction.rLeft);
                 } else {
-                    write_reg(state, current_instruction.rRight.value, current_instruction.rLeft);
+                    write_reg(datapath, state, current_instruction.rRight.value, current_instruction.rLeft);
                 }
                 break;
             default:
@@ -555,7 +555,7 @@ void init_register_state(struct ccp_priv_state *state) {
 /*
  * Resets implicit registers associated with US_ELAPSED
  */
-void reset_time(struct ccp_priv_state *state) {
+void reset_time(struct ccp_datapath *datapath, struct ccp_priv_state *state) {
     // reset the ns elapsed register to register now as 0
     state->implicit_time_zero = datapath->now();
     state->registers.impl_registers[US_ELAPSED_REG] = 0;
@@ -576,11 +576,12 @@ static __INLINE__ void reset_impl_registers(struct ccp_priv_state *state) {
  */
 int state_machine(struct ccp_connection *conn) {
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
+    struct ccp_datapath *datapath = conn->datapath;
     if (state == NULL) {
         warn("CCP priv state is null");
         return -1;
     }
-    struct DatapathProgram* program = datapath_program_lookup(state->program_index);
+    struct DatapathProgram* program = datapath_program_lookup(conn->datapath, state->program_index);
     if (program == NULL) {
         warn("Datapath program is null");
         return -1;
@@ -600,7 +601,7 @@ int state_machine(struct ccp_connection *conn) {
     trace(">>> program starting [sid=%d] <<<\n", conn->index);
     // cycle through expressions, and process instructions
     for (i=0; i < program->num_expressions; i++) {
-        ret = process_expression(i, state, primitives);
+        ret = process_expression(datapath, program, i, state, primitives);
         if (ret < 0) {
             trace(">>> program finished [sid=%d] [ret=-1] <<<\n\n", conn->index);
             return -1;
@@ -615,18 +616,18 @@ int state_machine(struct ccp_connection *conn) {
     // set rate and cwnd from implicit registers
     if (state->registers.impl_registers[CWND_REG] > 0) {
         debug("[sid=%d] setting cwnd after program: " FMT_U64 "\n", conn->index, state->registers.impl_registers[CWND_REG]);
-        datapath->set_cwnd(datapath, conn, state->registers.impl_registers[CWND_REG]);
+        datapath->set_cwnd(conn, state->registers.impl_registers[CWND_REG]);
     }
 
     if (state->registers.impl_registers[RATE_REG] != 0) {
         debug("[sid=%d] setting rate after program: " FMT_U64 "\n", conn->index, state->registers.impl_registers[CWND_REG]);
-        datapath->set_rate_abs(datapath, conn, state->registers.impl_registers[RATE_REG]);
+        datapath->set_rate_abs(conn, state->registers.impl_registers[RATE_REG]);
     }
 
     // if we should report, report and reset state
     if (state->registers.impl_registers[SHOULD_REPORT_REG]) {
         send_measurement(conn, program->program_uid, state->registers.report_registers, program->num_to_return);
-        reset_state(state);
+        reset_state(conn->datapath, state);
     }
 
     trace(">>> program finished [sid=%d] [ret=0] <<<\n\n", conn->index);

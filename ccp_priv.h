@@ -175,21 +175,21 @@ int update_register(
 /* Reset the output state registers to their default values
  * according to the DEF instruction preamble.
  */
-void reset_state(struct ccp_priv_state *state);
+void reset_state(struct ccp_datapath *datapath, struct ccp_priv_state *state);
 
 /* Initializes the control registers to their default values
  * according to the DEF instruction preamble.
  */
-void init_register_state(struct ccp_priv_state *state);
+void init_register_state(struct ccp_datapath *datapath, struct ccp_priv_state *state);
 
 /* Reset the implicit time registers to count from datapath->now()
  */
-void reset_time(struct ccp_priv_state *state);
+void reset_time(struct ccp_datapath *datapath, struct ccp_priv_state *state);
 
 /* Initialize send machine and measurement machine state in ccp_connection.
  * Called from ccp_connection_start()
  */
-int init_ccp_priv_state(struct ccp_connection *conn);
+int init_ccp_priv_state(struct ccp_datapath *datapath, struct ccp_connection *conn);
 /* Free the allocated flow memory.
  * Call when the flow has ended.
  */
