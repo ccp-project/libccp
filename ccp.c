@@ -537,7 +537,7 @@ int ccp_read_msg(
         // as all programs are sent down separately, right now we check if its a new portus starting
         // by checking if the ID of the program is 0
         // TODO: remove this hack
-        if (expr_msg_info.program_uid == 0) {
+        if (expr_msg_info.program_uid == 1) {
             memset(datapath_programs, 0, MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
         }
 
