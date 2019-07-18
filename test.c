@@ -1,7 +1,9 @@
 #include "stdio.h"
 #include <string.h>
+#include <stdlib.h>
 
 #include "ccp.h"
+#include "ccp_priv.h"
 #include "serialize.h"
 
 #ifdef __GNUC__
@@ -10,6 +12,7 @@
     #define UNUSED(x) x
 #endif
 
+#define __MALLOC__(a,b) calloc(a,b)
 //===========================================
 // Mock Datapath
 //===========================================
@@ -620,28 +623,56 @@ int test_update_fields(struct ccp_datapath *datapath, struct ccp_connection *con
     return 0;
 }
 
+#define MAX_CONNECTIONS 1024
+#define MAX_PROGRAMS 10
+struct ccp_datapath *create_datapath() {
+    printf("initializing libccp... ");
+
+    struct ccp_datapath *datapath;
+    datapath = (struct ccp_datapath*)__MALLOC__(1, sizeof(struct ccp_datapath));
+    if (!datapath) {
+        printf("error: failed to allocate memory for datapath\n");
+        return NULL;
+    }
+    datapath->max_connections = MAX_CONNECTIONS;
+    datapath->ccp_active_connections = (struct ccp_connection*)__MALLOC__(MAX_CONNECTIONS, sizeof(struct ccp_connection));
+    if (!datapath->ccp_active_connections) {
+        printf("error: failed to allocate memory for ccp_active_connections\n");
+        return NULL;
+    }
+    datapath->max_programs = MAX_PROGRAMS;
+    datapath->state = __MALLOC__(MAX_PROGRAMS, sizeof(struct DatapathProgram));
+    if (!datapath->state) {
+        printf("error: failed to allocate memory for datapath programs\n");
+        return NULL;
+    }
+    datapath->set_cwnd = test_ccp_set_cwnd;
+    datapath->set_rate_abs = test_ccp_set_rate;
+    datapath->send_msg = test_ccp_send_msg;
+    datapath->now = test_ccp_time_now;
+    datapath->since_usecs = test_ccp_since_usecs;
+    datapath->after_usecs = test_ccp_after_usecs;
+
+    return datapath;
+}
+
 int main(int UNUSED(argc), char **UNUSED(argv)) {
     int ok = 0;
     now_us = 0;
 
-    struct ccp_datapath *datapath;
-    struct ccp_connection *conn;
-
-    printf("initializing libccp... ");
-    struct ccp_datapath dp = {
-        .set_cwnd = test_ccp_set_cwnd,
-        .set_rate_abs = test_ccp_set_rate,
-        .send_msg = test_ccp_send_msg,
-        .now = test_ccp_time_now,
-        .since_usecs = test_ccp_since_usecs,
-        .after_usecs = test_ccp_after_usecs,
-    };
-    datapath = ccp_init(&dp);
-    if (!datapath) {
-        printf("ccp_init error: %d\n", ok);
+    struct ccp_datapath *datapath = create_datapath();
+    if(!datapath) {
         goto ret;
     }
 
+    ok = ccp_init(datapath);
+    if (ok < 0 ) {
+        printf("ccp_init error: %d\n", ok);
+        goto ret;
+    }
+    printf("ccp_datapath structure initialized correctly\n");
+
+    struct ccp_connection *conn;
     struct test_conn my_conn = {
         .curr_cwnd = 0,
         .curr_rate = 0,

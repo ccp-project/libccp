@@ -12,9 +12,7 @@
 #include <string.h>
 #endif
 
-#define MAX_NUM_CONNECTIONS 4096
 #define CREATE_TIMEOUT_US 100000 // 100 ms
-#define MAX_NUM_PROGRAMS 10
 
 /* CCP Datapath Connection Map
  *
@@ -25,9 +23,6 @@
  * So, we maintain a map of ccp sock_id -> flow state information.
  * This flow state information is the API that datapaths must implement to support CCP.
  */
-// struct ccp_connection* ccp_active_connections = NULL;
-// datapath implementation
-// struct ccp_datapath* datapath = NULL;
 
 /* Drop log messages if no log output is defined.
  */
@@ -38,93 +33,53 @@ void __INLINE__ null_log(struct ccp_datapath *dp, enum ccp_log_level level, cons
     (void)(msg_size);
 }
 
-/* 
- * Return value points to a ccp_datapath with allocated memory. Caller is responsible for 
- * later freeing this memory with ccp_free. 
+/*
+ * All calls to libccp require a ccp_datapath structure. This function should be called before any
+ * other libccp functions and ensures (as much as possible) that the datapath structure has been
+ * initialized correctly. A valid ccp_datapath must contain:
+ *   1. 6 callback functions: set_cwnd, set_rate_abs, send_msg, now, since_users, after_usecs
+ *   2. an optional callback function for logging
+ *   3. a pointer to memory allocated for a list of datapath programs 
+ *      (as well as the number of datapath programs it can hold
+ *   4. a pointer to memory allocated for a list of ccp_connection objects
+ *      (as well as the number of connections it can hold)
  *
- * Currently, this return value is a deep copy of the parameter struct with some additional things
- * Once this works, we should switch back to returning an int and just re-use the struct the caller
- * passes in so that we can retain return error codes.
+ * This function returns 0 if the structure has been initialized correctly and a negative value
+ * with an error code otherwise. 
  */
-struct ccp_datapath *ccp_init(struct ccp_datapath *user_dp) {
-    struct ccp_datapath *datapath;
-    struct DatapathProgram *datapath_programs;
-
-    // check that dp is properly filled in.
+int ccp_init(struct ccp_datapath *datapath) {
     if (
-        user_dp                ==  NULL  ||
-        user_dp->set_cwnd      ==  NULL  ||
-        user_dp->set_rate_abs  ==  NULL  ||
-        user_dp->send_msg      ==  NULL  ||
-        user_dp->now           ==  NULL  ||
-        user_dp->since_usecs   ==  NULL  ||
-        user_dp->after_usecs   ==  NULL
+        datapath                         ==  NULL  ||
+        datapath->set_cwnd               ==  NULL  ||
+        datapath->set_rate_abs           ==  NULL  ||
+        datapath->send_msg               ==  NULL  ||
+        datapath->now                    ==  NULL  ||
+        datapath->since_usecs            ==  NULL  ||
+        datapath->after_usecs            ==  NULL  ||
+        datapath->state                  ==  NULL  ||
+        datapath->ccp_active_connections ==  NULL
     ) {
-        //TODO undo
-        //return -1;
-        return NULL;
+        return -1;
     }
 
-    if (user_dp->log == NULL) {
-        user_dp->log = &null_log;
+    if (datapath->max_connections == 0 || datapath->max_programs == 0) {
+        return -2;
     }
 
-    datapath = (struct ccp_datapath*)__MALLOC__(sizeof(struct ccp_datapath));
-    if (!datapath) {
-        //TODO undo
-        //return -3;
-        return NULL;
+    if (datapath->log == NULL) {
+        // TODO maybe warn in this case? 
+        datapath->log = &null_log;
     }
 
-    // TODO why copy from here instead of just using it directly???
-    // copy function pointers from user into actual datapath
-    datapath->set_cwnd           = user_dp->set_cwnd;
-    datapath->set_rate_abs       = user_dp->set_rate_abs;
-    datapath->send_msg           = user_dp->send_msg;
-    datapath->now                = user_dp->now;
-    datapath->since_usecs        = user_dp->since_usecs;
-    datapath->after_usecs        = user_dp->after_usecs;
-    datapath->log                = user_dp->log;
-    datapath->impl               = user_dp->impl;
-    // (not copied)
     datapath->time_zero          = datapath->now();
 
-    struct ccp_connection *ccp_active_connections;
-    ccp_active_connections = (struct ccp_connection*)__MALLOC__(MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
-    if (!ccp_active_connections) {
-        __FREE__(datapath);
-        datapath = NULL;
-        //TODO undo
-        //return -4;
-        return NULL;
-    }
-    memset(ccp_active_connections, 0, MAX_NUM_CONNECTIONS * sizeof(struct ccp_connection));
-
-    datapath->ccp_active_connections = ccp_active_connections;
-
-    datapath_programs = (struct DatapathProgram*)__MALLOC__(MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
-    if (!datapath_programs) {
-        __FREE__(datapath);
-        datapath = NULL;
-        __FREE__(ccp_active_connections);
-        datapath->ccp_active_connections = NULL;
-        //TODO undo
-        //return -5;
-        return NULL;
-    }
-
-    memset(datapath_programs, 0, MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
-    datapath->state = (void*) datapath_programs;
-
-    return datapath;
+    return 0;
 }
 
 void ccp_free(struct ccp_datapath *datapath) {
     __FREE__(datapath->state);
     __FREE__(datapath->ccp_active_connections);
     __FREE__(datapath);
-    //datapath->ccp_active_connections = NULL;
-    datapath = NULL;
 }
 
 void ccp_conn_create_success(struct ccp_priv_state *state) {
@@ -138,7 +93,7 @@ struct ccp_connection *ccp_connection_start(struct ccp_datapath *datapath, void 
 
     // scan to find empty place
     // index = 0 means free/unused
-    for (sid = 0; sid < MAX_NUM_CONNECTIONS; sid++) {
+    for (sid = 0; sid < datapath->max_connections; sid++) {
         conn = &datapath->ccp_active_connections[sid];
         if (CAS(&(conn->index), 0, sid+1)) {
             sid = sid + 1;
@@ -146,7 +101,7 @@ struct ccp_connection *ccp_connection_start(struct ccp_datapath *datapath, void 
         }
     }
     
-    if (sid >= MAX_NUM_CONNECTIONS) {
+    if (sid >= datapath->max_connections) {
         return NULL;
     }
 
@@ -271,7 +226,7 @@ int ccp_invoke(struct ccp_connection *conn) {
 struct ccp_connection *ccp_connection_lookup(struct ccp_datapath *datapath, u16 sid) {
     struct ccp_connection *conn;
     // bounds check
-    if (sid == 0 || sid > MAX_NUM_CONNECTIONS) {
+    if (sid == 0 || sid > datapath->max_connections) {
         warn("index out of bounds: %d", sid);
         return NULL;
     }
@@ -294,7 +249,7 @@ void ccp_connection_free(struct ccp_datapath *datapath, u16 sid) {
 
     trace("Entering %s\n", __FUNCTION__);
     // bounds check
-    if (sid == 0 || sid > MAX_NUM_CONNECTIONS) {
+    if (sid == 0 || sid > datapath->max_connections) {
         warn("index out of bounds: %d", sid);
         return;
     }
@@ -331,7 +286,7 @@ struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u
     if (pid == 0) {
         warn("no datapath program set\n");
         return NULL;
-    } else if (pid > MAX_NUM_PROGRAMS) {
+    } else if (pid > datapath->max_programs) {
         warn("program index out of bounds: %d\n", pid);
         return NULL;
     }
@@ -347,11 +302,11 @@ struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u
 }
 
 // scan through datapath program table for the program with this UID
-int datapath_program_lookup_uid(struct DatapathProgram *datapath_programs, u32 program_uid) {
+int datapath_program_lookup_uid(struct DatapathProgram *datapath_programs, size_t max_programs, u32 program_uid) {
     struct DatapathProgram *prog;
-    int i;
+    size_t i;
     
-    for (i=0; i < MAX_NUM_PROGRAMS; i++) {
+    for (i=0; i < max_programs; i++) {
         prog = &datapath_programs[i];
         if (prog->index == 0) {
             continue;
@@ -374,7 +329,7 @@ int datapath_program_install(struct ccp_datapath *datapath, struct DatapathProgr
     struct DatapathProgram* program;
     struct InstructionMsg* current_instr;
     msg_ptr = buf;
-    for (pid = 0; pid < MAX_NUM_PROGRAMS; pid++) {
+    for (pid = 0; pid < datapath->max_programs; pid++) {
         program = &datapath_programs[pid];
         if (program->index == 0) {
             // found a free slot
@@ -383,7 +338,7 @@ int datapath_program_install(struct ccp_datapath *datapath, struct DatapathProgr
             break;
         }
     }
-    if (pid >= MAX_NUM_PROGRAMS) {
+    if (pid >= datapath->max_programs) {
         return -1;
     }
 
@@ -413,32 +368,6 @@ int datapath_program_install(struct ccp_datapath *datapath, struct DatapathProgr
     return 0;
 
 }
-
-/* TODO unused? testing removal
-// frees datapath program
-void datapath_program_free(u16 pid) {
-    struct DatapathProgram *datapath_programs;
-    struct DatapathProgram *program;
-
-    datapath_programs = (struct DatapathProgram*) datapath->state;
-    trace("Entering %s\n", __FUNCTION__);
-    // bounds check
-    if (pid == 0 || pid > MAX_NUM_PROGRAMS) {
-        warn("index out of bounds: %d", pid);
-        return;
-    }
-
-    program = &datapath_programs[pid-1];
-    if (program->index != pid) {
-        warn("index mismatch: pid %d, index %d", pid, program->index);
-        return;
-    }
-
-    memset(program, 0, sizeof(struct DatapathProgram));
-    program->index = 0;
-    return;
-}
-*/ 
 
 int stage_update(struct staged_update *pending_update, struct UpdateField *update_field) {
     // update the value for these registers
@@ -538,7 +467,7 @@ int ccp_read_msg(
         // by checking if the ID of the program is 0
         // TODO: remove this hack
         if (expr_msg_info.program_uid == 1) {
-            memset(datapath_programs, 0, MAX_NUM_PROGRAMS * sizeof(struct DatapathProgram));
+            memset(datapath_programs, 0, datapath->max_programs * sizeof(struct DatapathProgram));
         }
 
         msg_ptr += ok;
@@ -584,7 +513,7 @@ int ccp_read_msg(
         }
         msg_ptr += ok;
 
-        msg_program_index = datapath_program_lookup_uid(datapath_programs, change_program.program_uid);
+        msg_program_index = datapath_program_lookup_uid(datapath_programs, datapath->max_programs, change_program.program_uid);
         if (msg_program_index < 0) {
             // TODO: is it possible there is not enough time between when the message is installed and when a flow asks to use the program?
             info("Could not find datapath program with program uid: %u\n", msg_program_index);

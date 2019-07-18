@@ -115,19 +115,21 @@ enum ccp_log_level {
  * Global CCP state provided by the datapath
  *
  * Callbacks:
- * 1. set the congestion window
- * 2. set the rate
- * 3. set a multiplicative modifier to the rate
+ * 1. set_cwnd(): set the congestion window
+ * 2. set_rate_abs(): set the rate
  *
- * Utility functions 
- * 4. send_msg(): send a message from datapath -> userspace CCP.
- * 5. now(): return a notion of time.
- * 6. since_usecs(u32 then): elapsed microseconds since <then>.
- * 6. after_usecs(u32 usecs): return a time <usecs> microseconds in the future.
+ * Time functions 
+ * 3. now(): return a notion of time.
+ * 4. since_usecs(u32 then): elapsed microseconds since <then>.
+ * 5. after_usecs(u32 usecs): return a time <usecs> microseconds in the future.
+ *
+ * Utility functions
+ * 6.  send_msg(): send a message from datapath -> userspace CCP.
+ * 7.  log(): (optional)
  */
 struct ccp_datapath {
     // control primitives
-    void (*set_cwnd)(struct ccp_connection *conn, u32 cwnd); // TODO(eventually): consider setting cwnd in packets, not bytes
+    void (*set_cwnd)(struct ccp_connection *conn, u32 cwnd); 
     void (*set_rate_abs)(struct ccp_connection *conn, u32 rate);
 
     // IPC communication
@@ -142,12 +144,15 @@ struct ccp_datapath {
     u64 (*since_usecs)(u64 then); // elapsed microseconds since <then>
     u64 (*after_usecs)(u64 usecs); // <usecs> microseconds from now in datapath time units
     
-    // private libccp state for the datapath
-    void *state;
-
     // datapath-specific global state
     void *impl;
 
+    size_t max_programs;
+    // list of datapath programs
+    void *state; // TODO why is this void rather than an explicit list of datapath programs since
+                 // we always cast it to that anyway?
+
+    size_t max_connections;
     // list of active connections this datapath is handling
     struct ccp_connection* ccp_active_connections;
 };
@@ -157,7 +162,7 @@ struct ccp_datapath {
  *
  * return -1 on allocation failure, should abort loading module
  */
-struct ccp_datapath *ccp_init(struct ccp_datapath *dp);
+int ccp_init(struct ccp_datapath *dp);
 
 /* Free the global struct and map for ccp connections upon module unload.
  */
