@@ -270,26 +270,26 @@ static int process_instruction(struct ccp_datapath *datapath, struct DatapathPro
     arg2 = read_reg(datapath, state, primitives, current_instruction.rRight);
     switch (current_instruction.op) {
         case ADD:
-            trace("ADD  " FMT_U64 " + " FMT_U64 " = " FMT_U64 "\n", arg1, arg2, myadd64(arg1, arg2)); 
+            libccp_trace("ADD  " FMT_U64 " + " FMT_U64 " = " FMT_U64 "\n", arg1, arg2, myadd64(arg1, arg2)); 
             result = myadd64(arg1, arg2);
             if (result < arg1) {
-                warn("ERROR! Integer overflow: " FMT_U64 " + " FMT_U64 "\n", arg1, arg2);
+                libccp_warn("ERROR! Integer overflow: " FMT_U64 " + " FMT_U64 "\n", arg1, arg2);
                 return -1;
             }
             write_reg(datapath, state, result, current_instruction.rRet);
             break;
         case DIV:
-            trace("DIV  " FMT_U64 " / " FMT_U64 " = ", arg1, arg2);
+            libccp_trace("DIV  " FMT_U64 " / " FMT_U64 " = ", arg1, arg2);
             if (arg2 == 0) {
-                warn("ERROR! Attempt to divide by 0: " FMT_U64 " / " FMT_U64 "\n", arg1, arg2);
+                libccp_warn("ERROR! Attempt to divide by 0: " FMT_U64 " / " FMT_U64 "\n", arg1, arg2);
                 return -1;
             } else {
-                trace("" FMT_U64 "\n", mydiv64(arg1, arg2));
+                libccp_trace("" FMT_U64 "\n", mydiv64(arg1, arg2));
                 write_reg(datapath, state, mydiv64(arg1, arg2), current_instruction.rRet);
             }
             break;
         case EQUIV:
-            trace("EQV  " FMT_U64 " == " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, myequiv64(arg1, arg2));
+            libccp_trace("EQV  " FMT_U64 " == " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, myequiv64(arg1, arg2));
             write_reg(datapath, state, myequiv64(arg1, arg2), current_instruction.rRet);
             break;
         case EWMA: // arg0 = current, arg2 = new, arg1 = constant
@@ -297,61 +297,61 @@ static int process_instruction(struct ccp_datapath *datapath, struct DatapathPro
             write_reg(datapath, state, myewma64(arg1, arg0, arg2), current_instruction.rRet);
             break;
         case GT:
-            trace("GT   " FMT_U64 " > " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mygt64(arg1, arg2));
+            libccp_trace("GT   " FMT_U64 " > " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mygt64(arg1, arg2));
             write_reg(datapath, state, mygt64(arg1, arg2), current_instruction.rRet);
             break;
         case LT:
-            trace("LT   " FMT_U64 " > " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mylt64(arg1, arg2));
+            libccp_trace("LT   " FMT_U64 " > " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mylt64(arg1, arg2));
             write_reg(datapath, state, mylt64(arg1, arg2), current_instruction.rRet);
             break;
         case MAX:
-            trace("MAX  " FMT_U64 " , " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mymax64(arg1, arg2));
+            libccp_trace("MAX  " FMT_U64 " , " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mymax64(arg1, arg2));
             write_reg(datapath, state, mymax64(arg1, arg2), current_instruction.rRet);
             break;
         case MIN:
-            trace("MIN  " FMT_U64 " , " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mymin64(arg1, arg2));
+            libccp_trace("MIN  " FMT_U64 " , " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mymin64(arg1, arg2));
             write_reg(datapath, state, mymin64(arg1, arg2), current_instruction.rRet);
             break;
         case MUL:
-            trace("MUL  " FMT_U64 " * " FMT_U64 " = " FMT_U64 "\n", arg1, arg2, mymul64(arg1, arg2));
+            libccp_trace("MUL  " FMT_U64 " * " FMT_U64 " = " FMT_U64 "\n", arg1, arg2, mymul64(arg1, arg2));
             result = mymul64(arg1, arg2);
             if (result < arg1 && arg2 > 0) {
-                error("ERROR! Integer overflow: " FMT_U64 " * " FMT_U64 "\n", arg1, arg2);
+                libccp_error("ERROR! Integer overflow: " FMT_U64 " * " FMT_U64 "\n", arg1, arg2);
                 return -1;
             }
             write_reg(datapath, state, result, current_instruction.rRet);
             break;
         case SUB:
-            trace("SUB  " FMT_U64 " - " FMT_U64 " = " FMT_U64 "\n", arg1, arg2, mysub64(arg1, arg2));
+            libccp_trace("SUB  " FMT_U64 " - " FMT_U64 " = " FMT_U64 "\n", arg1, arg2, mysub64(arg1, arg2));
             result = mysub64(arg1, arg2);
             if (result > arg1) {
-                error("ERROR! Integer underflow: " FMT_U64 " - " FMT_U64 "\n", arg1, arg2);
+                libccp_error("ERROR! Integer underflow: " FMT_U64 " - " FMT_U64 "\n", arg1, arg2);
                 return -1;
             }
             write_reg(datapath, state, result, current_instruction.rRet);
             break;
         case MAXWRAP:
-            trace("MAXW " FMT_U64 " , " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mymax64_wrap(arg1, arg2));
+            libccp_trace("MAXW " FMT_U64 " , " FMT_U64 " => " FMT_U64 "\n", arg1, arg2, mymax64_wrap(arg1, arg2));
             write_reg(datapath, state, mymax64_wrap(arg1, arg2), current_instruction.rRet);
             break;
         case IF: // if arg1 (rLeft), stores rRight in rRet
-            trace("IF   " FMT_U64 " : r" FMT_U64 " -> r" FMT_U64 "\n", arg1, arg2, current_instruction.rRet.value);
+            libccp_trace("IF   " FMT_U64 " : r" FMT_U64 " -> r" FMT_U64 "\n", arg1, arg2, current_instruction.rRet.value);
             if (arg1) {
                 write_reg(datapath, state, arg2, current_instruction.rRet);
             }
             break;
         case NOTIF:
-            trace("!IF  " FMT_U64 " : r" FMT_U64 " -> r" FMT_U64 "\n", arg1, arg2, current_instruction.rRet.value);
+            libccp_trace("!IF  " FMT_U64 " : r" FMT_U64 " -> r" FMT_U64 "\n", arg1, arg2, current_instruction.rRet.value);
             if (arg1 == 0) {
                 write_reg(datapath, state, arg2, current_instruction.rRet);
             }
             break;
         case BIND: // take arg2, and put it in rRet
-            trace("BIND r" FMT_U64 " -> r" FMT_U64 "\n", arg2, current_instruction.rRet.value);
+            libccp_trace("BIND r" FMT_U64 " -> r" FMT_U64 "\n", arg2, current_instruction.rRet.value);
             write_reg(datapath, state, arg2, current_instruction.rRet);
             break;
         default:
-            debug("UNKNOWN OP %d\n", current_instruction.op);
+            libccp_debug("UNKNOWN OP %d\n", current_instruction.op);
             break;
     }
     return 0;
@@ -366,14 +366,14 @@ static int process_expression(struct ccp_datapath *datapath, struct DatapathProg
     struct Expression *expression = &(program->expressions[expr_index]);
     u8 idx;
     int ret;
-    trace("when #%d {\n", expr_index);
+    libccp_trace("when #%d {\n", expr_index);
     for (idx=expression->cond_start_idx; idx<(expression->cond_start_idx + expression->num_cond_instrs); idx++) {
        ret = process_instruction(datapath, program, idx, state, primitives);
        if (ret < 0) {
          return -1;
        }
     }
-    trace("} => " FMT_U64 "\n", state->registers.impl_registers[EXPR_FLAG_REG]);
+    libccp_trace("} => " FMT_U64 "\n", state->registers.impl_registers[EXPR_FLAG_REG]);
 
     // flag from event is promised to be stored in this implicit register
     if (state->registers.impl_registers[EXPR_FLAG_REG] ) {
@@ -479,7 +479,7 @@ void reset_state(struct ccp_datapath *datapath, struct ccp_priv_state *state) {
     u8 i;
     struct DatapathProgram* program = datapath_program_lookup(datapath, state->program_index);
     if (program == NULL) {
-        info("Cannot reset state because program is NULL\n");
+        libccp_info("Cannot reset state because program is NULL\n");
 	return;
     }
     struct Instruction64 current_instruction;
@@ -526,7 +526,7 @@ void init_register_state(struct ccp_datapath *datapath, struct ccp_priv_state *s
     struct Instruction64 current_instruction;
     struct DatapathProgram* program = datapath_program_lookup(datapath, state->program_index);
     if (program == NULL) {
-        info("Cannot init register state because program is NULL\n");
+        libccp_info("Cannot init register state because program is NULL\n");
 	return;
     }
 
@@ -578,12 +578,12 @@ int state_machine(struct ccp_connection *conn) {
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
     struct ccp_datapath *datapath = conn->datapath;
     if (state == NULL) {
-        warn("CCP priv state is null");
+        libccp_warn("CCP priv state is null");
         return -1;
     }
     struct DatapathProgram* program = datapath_program_lookup(conn->datapath, state->program_index);
     if (program == NULL) {
-        warn("Datapath program is null");
+        libccp_warn("Datapath program is null");
         return -1;
     }
     struct ccp_primitives* primitives = &conn->prims;
@@ -598,12 +598,12 @@ int state_machine(struct ccp_connection *conn) {
     implicit_now = datapath->since_usecs(state->implicit_time_zero);
     state->registers.impl_registers[US_ELAPSED_REG] = implicit_now;
     
-    trace(">>> program starting [sid=%d] <<<\n", conn->index);
+    libccp_trace(">>> program starting [sid=%d] <<<\n", conn->index);
     // cycle through expressions, and process instructions
     for (i=0; i < program->num_expressions; i++) {
         ret = process_expression(datapath, program, i, state, primitives);
         if (ret < 0) {
-            trace(">>> program finished [sid=%d] [ret=-1] <<<\n\n", conn->index);
+            libccp_trace(">>> program finished [sid=%d] [ret=-1] <<<\n\n", conn->index);
             return -1;
         }
 
@@ -611,16 +611,16 @@ int state_machine(struct ccp_connection *conn) {
         if ((state->registers.impl_registers[EXPR_FLAG_REG]) && !(state->registers.impl_registers[SHOULD_FALLTHROUGH_REG])) {
             break;
         }
-        trace("[sid=%d] fallthrough...\n", conn->index);
+        libccp_trace("[sid=%d] fallthrough...\n", conn->index);
     }
     // set rate and cwnd from implicit registers
     if (state->registers.impl_registers[CWND_REG] > 0) {
-        debug("[sid=%d] setting cwnd after program: " FMT_U64 "\n", conn->index, state->registers.impl_registers[CWND_REG]);
+        libccp_debug("[sid=%d] setting cwnd after program: " FMT_U64 "\n", conn->index, state->registers.impl_registers[CWND_REG]);
         datapath->set_cwnd(conn, state->registers.impl_registers[CWND_REG]);
     }
 
     if (state->registers.impl_registers[RATE_REG] != 0) {
-        debug("[sid=%d] setting rate after program: " FMT_U64 "\n", conn->index, state->registers.impl_registers[CWND_REG]);
+        libccp_debug("[sid=%d] setting rate after program: " FMT_U64 "\n", conn->index, state->registers.impl_registers[CWND_REG]);
         datapath->set_rate_abs(conn, state->registers.impl_registers[RATE_REG]);
     }
 
@@ -630,6 +630,6 @@ int state_machine(struct ccp_connection *conn) {
         reset_state(conn->datapath, state);
     }
 
-    trace(">>> program finished [sid=%d] [ret=0] <<<\n\n", conn->index);
+    libccp_trace(">>> program finished [sid=%d] [ret=0] <<<\n\n", conn->index);
     return 0;
 }
