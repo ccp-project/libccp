@@ -83,17 +83,6 @@ int ccp_init(struct ccp_datapath *datapath) {
     return 0;
 }
 
-/*
- * Helper function free all memory associated with a ccp_datapath struct. 
- * Since the caller has allocated all of the memory themselves, they can also free it themselves,
- * this function is just provided for convenience. 
- */
-void ccp_free(struct ccp_datapath *datapath) {
-    __FREE__(datapath->programs);
-    __FREE__(datapath->ccp_active_connections);
-    __FREE__(datapath);
-}
-
 void ccp_conn_create_success(struct ccp_priv_state *state) {
     state->sent_create = true;
 }
