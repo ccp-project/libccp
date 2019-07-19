@@ -34,6 +34,13 @@ void __INLINE__ null_log(struct ccp_datapath *dp, enum ccp_log_level level, cons
 }
 
 /*
+ * IMPORTANT: caller must allocate..
+ * 1. ccp_datapath
+ * 2. ccp_datapath.ccp_active_connections with enough space for `max_connections` `ccp_connections`
+ * 3. ccp_datapath.state with enough space for `max_programs` `DatapathPrograms`
+ * ccp_init has no way of checking if enough space has been allocated, so any memory oob errors are
+ * likely a result not allocating enough space
+ *
  * All calls to libccp require a ccp_datapath structure. This function should be called before any
  * other libccp functions and ensures (as much as possible) that the datapath structure has been
  * initialized correctly. A valid ccp_datapath must contain:
@@ -76,6 +83,11 @@ int ccp_init(struct ccp_datapath *datapath) {
     return 0;
 }
 
+/*
+ * Helper function free all memory associated with a ccp_datapath struct. 
+ * Since the caller has allocated all of the memory themselves, they can also free it themselves,
+ * this function is just provided for convenience. 
+ */
 void ccp_free(struct ccp_datapath *datapath) {
     __FREE__(datapath->state);
     __FREE__(datapath->ccp_active_connections);
