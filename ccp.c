@@ -126,7 +126,7 @@ struct ccp_connection *ccp_connection_start(struct ccp_datapath *datapath, void 
     // index of pointer back to this sock for IPC callback
     ok = send_conn_create(datapath, conn);
     if (ok < 0) {
-        warn("failed to send create message: %d\n", ok);
+        libccp_warn("failed to send create message: %d\n", ok);
         return conn;
     }
     
@@ -170,10 +170,10 @@ int ccp_invoke(struct ccp_connection *conn) {
     if (!(state->sent_create)) {
         // try contacting the CCP again
         // index of pointer back to this sock for IPC callback
-        debug("%s retx create message\n", __FUNCTION__);
+        libccp_debug("%s retx create message\n", __FUNCTION__);
         ok = send_conn_create(datapath, conn);
         if (ok < 0) {
-            warn("failed to retx create message: %d\n", ok);
+            libccp_warn("failed to retx create message: %d\n", ok);
         } else {
             ccp_conn_create_success(state);
         }
@@ -182,13 +182,13 @@ int ccp_invoke(struct ccp_connection *conn) {
     }
 
     // set cwnd and rate registers to what they are in the datapath
-    trace("primitives (cwnd, rate): (" FMT_U32 ", " FMT_U64 ")\n", conn->prims.snd_cwnd, conn->prims.snd_rate);
+    libccp_trace("primitives (cwnd, rate): (" FMT_U32 ", " FMT_U64 ")\n", conn->prims.snd_cwnd, conn->prims.snd_rate);
     state->registers.impl_registers[CWND_REG] = (u64)conn->prims.snd_cwnd;
     state->registers.impl_registers[RATE_REG] = (u64)conn->prims.snd_rate;
     
     if (state->staged_program_index >= 0) {
         // change the program to this program, and reset the state
-        debug("[sid=%d] Applying staged program change: %d -> %d\n", conn->index, state->program_index, state->staged_program_index); 
+        libccp_debug("[sid=%d] Applying staged program change: %d -> %d\n", conn->index, state->program_index, state->staged_program_index); 
         state->program_index = state->staged_program_index;
         reset_state(conn->datapath, state);
         init_register_state(conn->datapath, state);
@@ -198,7 +198,7 @@ int ccp_invoke(struct ccp_connection *conn) {
 
     for (i = 0; i < MAX_CONTROL_REG; i++) {
         if (state->pending_update.control_is_pending[i]) {
-            debug("[sid=%d] Applying staged field update: control reg %u (" FMT_U64 "->" FMT_U64 ") \n", 
+            libccp_debug("[sid=%d] Applying staged field update: control reg %u (" FMT_U64 "->" FMT_U64 ") \n", 
                 conn->index, i,
                 state->registers.control_registers[i],
                 state->pending_update.control_registers[i]
@@ -208,7 +208,7 @@ int ccp_invoke(struct ccp_connection *conn) {
     }
 
     if (state->pending_update.impl_is_pending[CWND_REG]) {
-        debug("[sid=%d] Applying staged field update: cwnd reg <- " FMT_U64 "\n", conn->index, state->pending_update.impl_registers[CWND_REG]);
+        libccp_debug("[sid=%d] Applying staged field update: cwnd reg <- " FMT_U64 "\n", conn->index, state->pending_update.impl_registers[CWND_REG]);
         state->registers.impl_registers[CWND_REG] = state->pending_update.impl_registers[CWND_REG];
         if (state->registers.impl_registers[CWND_REG] != 0) {
             conn->datapath->set_cwnd(conn, state->registers.impl_registers[CWND_REG]);
@@ -216,7 +216,7 @@ int ccp_invoke(struct ccp_connection *conn) {
     }
 
     if (state->pending_update.impl_is_pending[RATE_REG]) {
-        debug("[sid=%d] Applying staged field update: rate reg <- " FMT_U64 "\n", conn->index, state->pending_update.impl_registers[RATE_REG]);
+        libccp_debug("[sid=%d] Applying staged field update: rate reg <- " FMT_U64 "\n", conn->index, state->pending_update.impl_registers[RATE_REG]);
         state->registers.impl_registers[RATE_REG] = state->pending_update.impl_registers[RATE_REG];
         if (state->registers.impl_registers[RATE_REG] != 0) {
             conn->datapath->set_rate_abs(conn, state->registers.impl_registers[RATE_REG]);
@@ -239,13 +239,13 @@ struct ccp_connection *ccp_connection_lookup(struct ccp_datapath *datapath, u16 
     struct ccp_connection *conn;
     // bounds check
     if (sid == 0 || sid > datapath->max_connections) {
-        warn("index out of bounds: %d", sid);
+        libccp_warn("index out of bounds: %d", sid);
         return NULL;
     }
 
     conn = &datapath->ccp_active_connections[sid-1];
     if (conn->index != sid) {
-        warn("index mismatch: sid %d, index %d", sid, conn->index);
+        libccp_warn("index mismatch: sid %d, index %d", sid, conn->index);
         return NULL;
     }
 
@@ -259,16 +259,16 @@ void ccp_connection_free(struct ccp_datapath *datapath, u16 sid) {
     struct ccp_connection *conn;
     char msg[REPORT_MSG_SIZE];
 
-    trace("Entering %s\n", __FUNCTION__);
+    libccp_trace("Entering %s\n", __FUNCTION__);
     // bounds check
     if (sid == 0 || sid > datapath->max_connections) {
-        warn("index out of bounds: %d", sid);
+        libccp_warn("index out of bounds: %d", sid);
         return;
     }
 
     conn = &datapath->ccp_active_connections[sid-1];
     if (conn->index != sid) {
-        warn("index mismatch: sid %d, index %d", sid, conn->index);
+        libccp_warn("index mismatch: sid %d, index %d", sid, conn->index);
         return;
     }
 
@@ -277,7 +277,7 @@ void ccp_connection_free(struct ccp_datapath *datapath, u16 sid) {
     msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, sid, 0, 0, 0);
     ok = datapath->send_msg(conn, msg, msg_size);
     if (ok < 0) {
-        warn("error sending close message: %d", ok);
+        libccp_warn("error sending close message: %d", ok);
     }
     
     // ccp_connection_start will look for an array entry with index 0
@@ -294,16 +294,16 @@ struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u
 
     // bounds check
     if (pid == 0) {
-        warn("no datapath program set\n");
+        libccp_warn("no datapath program set\n");
         return NULL;
     } else if (pid > datapath->max_programs) {
-        warn("program index out of bounds: %d\n", pid);
+        libccp_warn("program index out of bounds: %d\n", pid);
         return NULL;
     }
 
     prog = &datapath->programs[pid-1];
     if (prog->index != pid) {
-        warn("index mismatch: pid %d, index %d", pid, prog->index);
+        libccp_warn("index mismatch: pid %d, index %d", pid, prog->index);
         return NULL;
     }
 
@@ -357,7 +357,7 @@ int datapath_program_install(struct ccp_datapath *datapath, struct InstallExpres
     program->program_uid = install_expr_msg->program_uid;
     program->num_expressions = install_expr_msg->num_expressions;
     program->num_instructions = install_expr_msg->num_instructions;
-    trace("Trying to install new program with (uid=%d) with %d expressions and %d instructions\n", program->program_uid, program->num_expressions, program->num_instructions);
+    libccp_trace("Trying to install new program with (uid=%d) with %d expressions and %d instructions\n", program->program_uid, program->num_expressions, program->num_instructions);
 
     memcpy(program->expressions, msg_ptr, program->num_expressions * sizeof(struct ExpressionMsg));
     msg_ptr += program->num_expressions * sizeof(struct ExpressionMsg);
@@ -367,13 +367,13 @@ int datapath_program_install(struct ccp_datapath *datapath, struct InstallExpres
         current_instr = (struct InstructionMsg*)(msg_ptr);
         ok = read_instruction(&(program->fold_instructions[i]), current_instr);
         if (ok < 0) {
-            warn("Could not read instruction # %d: %d in program with uid %u\n", i, ok, program->program_uid);
+            libccp_warn("Could not read instruction # %d: %d in program with uid %u\n", i, ok, program->program_uid);
             return ok;
         }
         msg_ptr += sizeof(struct InstructionMsg);
     }
 
-    debug("installed new program (uid=%d) with %d expressions and %d instructions\n", program->program_uid, program->num_expressions, program->num_instructions);
+    libccp_debug("installed new program (uid=%d) with %d expressions and %d instructions\n", program->program_uid, program->num_expressions, program->num_instructions);
 
     return 0;
 
@@ -385,17 +385,17 @@ int stage_update(struct staged_update *pending_update, struct UpdateField *updat
     switch(update_field->reg_type) {
         case CONTROL_REG:
             // set new value
-            trace(("%s: control " FMT_U32 " <- " FMT_U64 "\n"), __FUNCTION__, update_field->reg_index, update_field->new_value);
+            libccp_trace(("%s: control " FMT_U32 " <- " FMT_U64 "\n"), __FUNCTION__, update_field->reg_index, update_field->new_value);
             pending_update->control_registers[update_field->reg_index] = update_field->new_value;
             pending_update->control_is_pending[update_field->reg_index] = true;
             return 0;
         case IMPLICIT_REG:
             if (update_field->reg_index == CWND_REG) {
-                trace("%s: cwnd <- " FMT_U64 "\n", __FUNCTION__, update_field->new_value);
+                libccp_trace("%s: cwnd <- " FMT_U64 "\n", __FUNCTION__, update_field->new_value);
                 pending_update->impl_registers[CWND_REG] = update_field->new_value;
                 pending_update->impl_is_pending[CWND_REG] = true;
             } else if (update_field->reg_index == RATE_REG) {
-                trace("%s: rate <- " FMT_U64 "\n", __FUNCTION__, update_field->new_value);
+                libccp_trace("%s: rate <- " FMT_U64 "\n", __FUNCTION__, update_field->new_value);
                 pending_update->impl_registers[RATE_REG] = update_field->new_value;
                 pending_update->impl_is_pending[RATE_REG] = true;
             }
@@ -434,27 +434,27 @@ int ccp_read_msg(
     struct InstallExpressionMsgHdr expr_msg_info;
     struct ChangeProgMsg change_program;
     if (datapath->programs == NULL) {
-        warn("datapath state not initialized\n");
+        libccp_warn("datapath state not initialized\n");
         return -1;
     }
 
     ok = read_header(&hdr, buf);  
     if (ok < 0) {
-        warn("read header failed: %d", ok);
+        libccp_warn("read header failed: %d", ok);
         return -1;
     }
 
     if (bufsize < 0) {
-        warn("negative bufsize: %d", bufsize);
+        libccp_warn("negative bufsize: %d", bufsize);
         return -2;
     }
     if (hdr.Len > ((u32) bufsize)) {
-        warn("message size wrong: %u > %d\n", hdr.Len, bufsize);
+        libccp_warn("message size wrong: %u > %d\n", hdr.Len, bufsize);
         return -3;
     }
 
     if (hdr.Len > BIGGEST_MSG_SIZE) {
-        warn("message too long: %u > %d\n", hdr.Len, BIGGEST_MSG_SIZE);
+        libccp_warn("message too long: %u > %d\n", hdr.Len, BIGGEST_MSG_SIZE);
         return -4;
     }
     msg_ptr = buf + ok;
@@ -462,11 +462,11 @@ int ccp_read_msg(
     // INSTALL_EXPR message is for all flows, not a specific connection
     // sock_id in this message should be disregarded (could be before any flows begin)
     if (hdr.Type == INSTALL_EXPR) {
-        trace("Received install message\n");
+        libccp_trace("Received install message\n");
         memset(&expr_msg_info, 0, sizeof(struct InstallExpressionMsgHdr));
         ok = read_install_expr_msg_hdr(datapath, &hdr, &expr_msg_info, msg_ptr);
         if (ok < 0) {
-            warn("could not read install expression msg header: %d\n", ok);
+            libccp_warn("could not read install expression msg header: %d\n", ok);
             return -5;
         }
         // clear the datapath programs
@@ -481,7 +481,7 @@ int ccp_read_msg(
         msg_ptr += ok;
         ok = datapath_program_install(datapath, &expr_msg_info, msg_ptr);
         if ( ok < 0 ) {
-            warn("could not install datapath program: %d\n", ok);
+            libccp_warn("could not install datapath program: %d\n", ok);
             return -6;
         }
         return 0; // installed program successfully
@@ -490,33 +490,33 @@ int ccp_read_msg(
     // rest of the messages must be for a specific flow
     conn = ccp_connection_lookup(datapath, hdr.SocketId);
     if (conn == NULL) {
-        warn("unknown connection: %u\n", hdr.SocketId);
+        libccp_warn("unknown connection: %u\n", hdr.SocketId);
         return -7;
     }
     state = get_ccp_priv_state(conn);
 
     if (hdr.Type == UPDATE_FIELDS) {
-        debug("[sid=%d] Received update_fields message\n", conn->index);
+        libccp_debug("[sid=%d] Received update_fields message\n", conn->index);
         ok = check_update_fields_msg(datapath, &hdr, &num_updates, msg_ptr);
         msg_ptr += ok;
         if (ok < 0) {
-            warn("Update fields message failed: %d\n", ok);
+            libccp_warn("Update fields message failed: %d\n", ok);
             return -8;
         }
 
         ok = stage_multiple_updates(&state->pending_update, num_updates, (struct UpdateField*) msg_ptr);
         if (ok < 0) {
-            warn("Failed to stage updates: %d\n", ok);
+            libccp_warn("Failed to stage updates: %d\n", ok);
             return -11;
         }
 
-        debug("Staged %u updates\n", num_updates);
+        libccp_debug("Staged %u updates\n", num_updates);
     } else if (hdr.Type == CHANGE_PROG) {
-        debug("[sid=%d] Received change_prog message\n", conn->index);
+        libccp_debug("[sid=%d] Received change_prog message\n", conn->index);
         // check if the program is in the program_table
         ok = read_change_prog_msg(datapath, &hdr, &change_program, msg_ptr);
         if (ok < 0) {
-            warn("Change program message deserialization failed: %d\n", ok);
+            libccp_warn("Change program message deserialization failed: %d\n", ok);
             return -9;
         }
         msg_ptr += ok;
@@ -524,7 +524,7 @@ int ccp_read_msg(
         msg_program_index = datapath_program_lookup_uid(datapath, change_program.program_uid);
         if (msg_program_index < 0) {
             // TODO: is it possible there is not enough time between when the message is installed and when a flow asks to use the program?
-            info("Could not find datapath program with program uid: %u\n", msg_program_index);
+            libccp_info("Could not find datapath program with program uid: %u\n", msg_program_index);
             return -10;
         }
 
@@ -536,11 +536,11 @@ int ccp_read_msg(
         // corresponding to the new program
         ok = stage_multiple_updates(&state->pending_update, change_program.num_updates, (struct UpdateField*)(msg_ptr));
         if (ok < 0) {
-            warn("Failed to stage updates: %d\n", ok);
+            libccp_warn("Failed to stage updates: %d\n", ok);
             return -8;
         }
 
-        debug("Staged switch to program %d\n", change_program.program_uid);
+        libccp_debug("Staged switch to program %d\n", change_program.program_uid);
     }
 
     return ok;
@@ -567,7 +567,7 @@ int send_conn_create(
         conn->last_create_msg_sent != 0 &&
         datapath->since_usecs(conn->last_create_msg_sent) < CREATE_TIMEOUT_US
     ) {
-        trace("%s: " FMT_U64 " < " FMT_U32 "\n", 
+        libccp_trace("%s: " FMT_U64 " < " FMT_U32 "\n", 
             __FUNCTION__, 
             datapath->since_usecs(conn->last_create_msg_sent), 
             CREATE_TIMEOUT_US
@@ -602,7 +602,7 @@ int send_measurement(
     }
 
     msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, conn->index, program_uid, fields, num_fields);
-    trace("[sid=%d] In %s\n", conn->index, __FUNCTION__);
+    libccp_trace("[sid=%d] In %s\n", conn->index, __FUNCTION__);
     ok = conn->datapath->send_msg(conn, msg, msg_size);
     return ok;
 }
