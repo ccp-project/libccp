@@ -175,6 +175,7 @@ void ccp_free(struct ccp_datapath *datapath);
  */
 struct ccp_connection *ccp_connection_start(struct ccp_datapath *datapath, void *impl, struct ccp_datapath_info *flow_info);
 
+
 /* Upon a connection ending,
  * free its slot in the connection map.
  */
@@ -188,15 +189,6 @@ struct ccp_connection *ccp_connection_lookup(struct ccp_datapath *datapath, u16 
 /* Lookup a datapath program, available to all flows
  */
 struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u16 pid);
-
-/* TODO dont see where these are being used, trying to remove for now
-// Get the implementation-specific global ccp state
-void *ccp_get_global_impl(void);
-
-int ccp_set_global_impl(
-    void *ptr
-);
-*/
 
 /* Get the implementation-specific state of the ccp_connection.
  */

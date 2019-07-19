@@ -136,17 +136,6 @@ struct ccp_connection *ccp_connection_start(struct ccp_datapath *datapath, void 
     return conn;
 }
 
-/* TODO dont see where these are being used, trying to remove for now
-__INLINE__ void *ccp_get_global_impl(void) {
-    return datapath->impl;
-}
-
-__INLINE__ int ccp_set_global_impl(void *ptr) {
-    datapath->impl = ptr;
-    return 0;
-}
-*/
-
 __INLINE__ void *ccp_get_impl(struct ccp_connection *conn) {
     return conn->impl;
 }

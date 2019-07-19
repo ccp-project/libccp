@@ -440,39 +440,6 @@ int read_expression(
 }
 
 /*
- * Perform update in update_field struct
- * Only applicable to control registers and cwnd and rate registers
- */
-/* TODO don't think this is being used, try remove
-int update_register(struct ccp_connection* conn, struct ccp_priv_state *state, struct UpdateField *update_field) {
-    // update the value for these registers
-    // for cwnd, rate; update field in datapath
-    switch(update_field->reg_type) {
-        case CONTROL_REG:
-            // set new value
-            state->registers.control_registers[update_field->reg_index] = update_field->new_value;
-            return 0;
-        case IMPLICIT_REG:
-            if (update_field->reg_index == CWND_REG) {
-                state->registers.impl_registers[CWND_REG] = update_field->new_value;
-                if (state->registers.impl_registers[CWND_REG] != 0) {
-                    datapath->set_cwnd(conn, state->registers.impl_registers[CWND_REG]);
-                }
-            } else if (update_field->reg_index == RATE_REG) {
-                state->registers.impl_registers[RATE_REG] = update_field->new_value;
-                if (state->registers.impl_registers[RATE_REG] != 0) {
-                    datapath->set_rate_abs(conn, state->registers.impl_registers[RATE_REG]);
-                }
-            }
-            return 0;
-        default:
-            return 0; // allowed only for CONTROL and CWND and RATE reg within CONTROL_REG
-    }
-}
-*/
-
-
-/*
  * Resets all permanent registers to the DEF values
  */
 void reset_state(struct ccp_datapath *datapath, struct ccp_priv_state *state) {
