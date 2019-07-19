@@ -149,8 +149,7 @@ struct ccp_datapath {
 
     size_t max_programs;
     // list of datapath programs
-    void *state; // TODO why is this void rather than an explicit list of datapath programs since
-                 // we always cast it to that anyway?
+    struct DatapathProgram *programs;
 
     size_t max_connections;
     // list of active connections this datapath is handling

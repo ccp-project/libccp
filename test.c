@@ -641,8 +641,8 @@ struct ccp_datapath *create_datapath() {
         return NULL;
     }
     datapath->max_programs = MAX_PROGRAMS;
-    datapath->state = __MALLOC__(MAX_PROGRAMS, sizeof(struct DatapathProgram));
-    if (!datapath->state) {
+    datapath->programs = __MALLOC__(MAX_PROGRAMS, sizeof(struct DatapathProgram));
+    if (!datapath->programs) {
         printf("error: failed to allocate memory for datapath programs\n");
         return NULL;
     }
