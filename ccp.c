@@ -63,7 +63,7 @@ int ccp_init(struct ccp_datapath *datapath) {
         datapath->now                    ==  NULL  ||
         datapath->since_usecs            ==  NULL  ||
         datapath->after_usecs            ==  NULL  ||
-        datapath->state                  ==  NULL  ||
+        datapath->programs               ==  NULL  ||
         datapath->ccp_active_connections ==  NULL
     ) {
         return -1;
@@ -89,7 +89,7 @@ int ccp_init(struct ccp_datapath *datapath) {
  * this function is just provided for convenience. 
  */
 void ccp_free(struct ccp_datapath *datapath) {
-    __FREE__(datapath->state);
+    __FREE__(datapath->programs);
     __FREE__(datapath->ccp_active_connections);
     __FREE__(datapath);
 }
@@ -291,8 +291,6 @@ void ccp_connection_free(struct ccp_datapath *datapath, u16 sid) {
 // returns  NULL on error
 struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u16 pid) {
     struct DatapathProgram *prog;
-    struct DatapathProgram *datapath_programs;
-    datapath_programs = (struct DatapathProgram*) datapath->state;
 
     // bounds check
     if (pid == 0) {
@@ -303,7 +301,7 @@ struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u
         return NULL;
     }
 
-    prog = &datapath_programs[pid-1];
+    prog = &datapath->programs[pid-1];
     if (prog->index != pid) {
         warn("index mismatch: pid %d, index %d", pid, prog->index);
         return NULL;
@@ -314,12 +312,12 @@ struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u
 }
 
 // scan through datapath program table for the program with this UID
-int datapath_program_lookup_uid(struct DatapathProgram *datapath_programs, size_t max_programs, u32 program_uid) {
+int datapath_program_lookup_uid(struct ccp_datapath *datapath, u32 program_uid) {
     struct DatapathProgram *prog;
     size_t i;
     
-    for (i=0; i < max_programs; i++) {
-        prog = &datapath_programs[i];
+    for (i=0; i < datapath->max_programs; i++) {
+        prog = &datapath->programs[i];
         if (prog->index == 0) {
             continue;
         }
@@ -333,7 +331,7 @@ int datapath_program_lookup_uid(struct DatapathProgram *datapath_programs, size_
 // saves a new datapath program into the array of datapath programs
 // returns index into datapath program array where this program is stored
 // if there is no more space, returns -1
-int datapath_program_install(struct ccp_datapath *datapath, struct DatapathProgram *datapath_programs, struct InstallExpressionMsgHdr* install_expr_msg, char* buf) {
+int datapath_program_install(struct ccp_datapath *datapath, struct InstallExpressionMsgHdr* install_expr_msg, char* buf) {
     int i;
     int ok;
     u16 pid;
@@ -342,7 +340,7 @@ int datapath_program_install(struct ccp_datapath *datapath, struct DatapathProgr
     struct InstructionMsg* current_instr;
     msg_ptr = buf;
     for (pid = 0; pid < datapath->max_programs; pid++) {
-        program = &datapath_programs[pid];
+        program = &datapath->programs[pid];
         if (program->index == 0) {
             // found a free slot
             program->index = pid + 1;
@@ -435,9 +433,7 @@ int ccp_read_msg(
     struct ccp_priv_state *state;
     struct InstallExpressionMsgHdr expr_msg_info;
     struct ChangeProgMsg change_program;
-    struct DatapathProgram *datapath_programs;
-    datapath_programs = (struct DatapathProgram*) datapath->state;
-    if (datapath_programs == NULL) {
+    if (datapath->programs == NULL) {
         warn("datapath state not initialized\n");
         return -1;
     }
@@ -479,11 +475,11 @@ int ccp_read_msg(
         // by checking if the ID of the program is 0
         // TODO: remove this hack
         if (expr_msg_info.program_uid == 1) {
-            memset(datapath_programs, 0, datapath->max_programs * sizeof(struct DatapathProgram));
+            memset(datapath->programs, 0, datapath->max_programs * sizeof(struct DatapathProgram));
         }
 
         msg_ptr += ok;
-        ok = datapath_program_install(datapath, datapath_programs, &expr_msg_info, msg_ptr);
+        ok = datapath_program_install(datapath, &expr_msg_info, msg_ptr);
         if ( ok < 0 ) {
             warn("could not install datapath program: %d\n", ok);
             return -6;
@@ -525,7 +521,7 @@ int ccp_read_msg(
         }
         msg_ptr += ok;
 
-        msg_program_index = datapath_program_lookup_uid(datapath_programs, datapath->max_programs, change_program.program_uid);
+        msg_program_index = datapath_program_lookup_uid(datapath, change_program.program_uid);
         if (msg_program_index < 0) {
             // TODO: is it possible there is not enough time between when the message is installed and when a flow asks to use the program?
             info("Could not find datapath program with program uid: %u\n", msg_program_index);
