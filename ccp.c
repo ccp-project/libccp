@@ -37,7 +37,6 @@ void __INLINE__ null_log(struct ccp_datapath *dp, enum ccp_log_level level, cons
  * IMPORTANT: caller must allocate..
  * 1. ccp_datapath
  * 2. ccp_datapath.ccp_active_connections with enough space for `max_connections` `ccp_connections`
- * 3. ccp_datapath.state with enough space for `max_programs` `DatapathPrograms`
  * ccp_init has no way of checking if enough space has been allocated, so any memory oob errors are
  * likely a result not allocating enough space
  *
@@ -46,9 +45,7 @@ void __INLINE__ null_log(struct ccp_datapath *dp, enum ccp_log_level level, cons
  * initialized correctly. A valid ccp_datapath must contain:
  *   1. 6 callback functions: set_cwnd, set_rate_abs, send_msg, now, since_users, after_usecs
  *   2. an optional callback function for logging
- *   3. a pointer to memory allocated for a list of datapath programs 
- *      (as well as the number of datapath programs it can hold
- *   4. a pointer to memory allocated for a list of ccp_connection objects
+ *   3. a pointer to memory allocated for a list of ccp_connection objects
  *      (as well as the number of connections it can hold)
  *
  * This function returns 0 if the structure has been initialized correctly and a negative value
@@ -63,7 +60,6 @@ int ccp_init(struct ccp_datapath *datapath) {
         datapath->now                    ==  NULL  ||
         datapath->since_usecs            ==  NULL  ||
         datapath->after_usecs            ==  NULL  ||
-        datapath->programs               ==  NULL  ||
         datapath->ccp_active_connections ==  NULL
     ) {
         return -1;
@@ -73,13 +69,13 @@ int ccp_init(struct ccp_datapath *datapath) {
         return -2;
     }
 
+    datapath->programs = __CALLOC__(datapath->max_programs, sizeof(struct DatapathProgram));
+
     if (datapath->log == NULL) {
-        // TODO maybe warn in this case? 
         datapath->log = &null_log;
     }
 
-    datapath->time_zero          = datapath->now();
-
+    datapath->time_zero = datapath->now();
     return 0;
 }
 
@@ -265,37 +261,14 @@ void ccp_connection_free(struct ccp_datapath *datapath, u16 sid) {
     return;
 }
 
-// lookup datapath program using program ID
-// returns  NULL on error
-struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u16 pid) {
-    struct DatapathProgram *prog;
-
-    // bounds check
-    if (pid == 0) {
-        libccp_warn("no datapath program set\n");
-        return NULL;
-    } else if (pid > datapath->max_programs) {
-        libccp_warn("program index out of bounds: %d\n", pid);
-        return NULL;
-    }
-
-    prog = &datapath->programs[pid-1];
-    if (prog->index != pid) {
-        libccp_warn("index mismatch: pid %d, index %d", pid, prog->index);
-        return NULL;
-    }
-
-    return prog;
-
-}
-
 // scan through datapath program table for the program with this UID
 int datapath_program_lookup_uid(struct ccp_datapath *datapath, u32 program_uid) {
-    struct DatapathProgram *prog;
     size_t i;
+    struct DatapathProgram *prog;
+    struct DatapathProgram *programs = (struct DatapathProgram*) datapath->programs;
     
     for (i=0; i < datapath->max_programs; i++) {
-        prog = &datapath->programs[i];
+        prog = &programs[i];
         if (prog->index == 0) {
             continue;
         }
@@ -314,11 +287,13 @@ int datapath_program_install(struct ccp_datapath *datapath, struct InstallExpres
     int ok;
     u16 pid;
     char* msg_ptr; // for reading from char* buf
-    struct DatapathProgram* program;
     struct InstructionMsg* current_instr;
+    struct DatapathProgram* program;
+    struct DatapathProgram *programs = (struct DatapathProgram*) datapath->programs;
+
     msg_ptr = buf;
     for (pid = 0; pid < datapath->max_programs; pid++) {
-        program = &datapath->programs[pid];
+        program = &programs[pid];
         if (program->index == 0) {
             // found a free slot
             program->index = pid + 1;

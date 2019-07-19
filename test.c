@@ -12,7 +12,6 @@
     #define UNUSED(x) x
 #endif
 
-#define __MALLOC__(a,b) calloc(a,b)
 //===========================================
 // Mock Datapath
 //===========================================
@@ -629,23 +628,18 @@ struct ccp_datapath *create_datapath() {
     printf("initializing libccp... ");
 
     struct ccp_datapath *datapath;
-    datapath = (struct ccp_datapath*)__MALLOC__(1, sizeof(struct ccp_datapath));
+    datapath = (struct ccp_datapath*)calloc(1, sizeof(struct ccp_datapath));
     if (!datapath) {
         printf("error: failed to allocate memory for datapath\n");
         return NULL;
     }
     datapath->max_connections = MAX_CONNECTIONS;
-    datapath->ccp_active_connections = (struct ccp_connection*)__MALLOC__(MAX_CONNECTIONS, sizeof(struct ccp_connection));
+    datapath->ccp_active_connections = (struct ccp_connection*)calloc(MAX_CONNECTIONS, sizeof(struct ccp_connection));
     if (!datapath->ccp_active_connections) {
         printf("error: failed to allocate memory for ccp_active_connections\n");
         return NULL;
     }
     datapath->max_programs = MAX_PROGRAMS;
-    datapath->programs = __MALLOC__(MAX_PROGRAMS, sizeof(struct DatapathProgram));
-    if (!datapath->programs) {
-        printf("error: failed to allocate memory for datapath programs\n");
-        return NULL;
-    }
     datapath->set_cwnd = test_ccp_set_cwnd;
     datapath->set_rate_abs = test_ccp_set_rate;
     datapath->send_msg = test_ccp_send_msg;
@@ -728,6 +722,5 @@ int main(int UNUSED(argc), char **UNUSED(argv)) {
     ccp_connection_free(datapath, conn->index);
     printf("ok\n");
   ret:
-    ccp_free(datapath);
     return 0;
 }

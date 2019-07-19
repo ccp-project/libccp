@@ -215,6 +215,10 @@ int send_measurement(
  */
 __INLINE__ struct ccp_priv_state *get_ccp_priv_state(struct ccp_connection *conn);
 
+/* Lookup a datapath program, available to all flows
+ */
+struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u16 pid);
+
 /*
  * Reserved Implicit Registers
  */

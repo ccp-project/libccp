@@ -32,3 +32,28 @@ void free_ccp_priv_state(struct ccp_connection *conn) {
 __INLINE__ struct ccp_priv_state* get_ccp_priv_state(struct ccp_connection *conn) {
     return (struct ccp_priv_state*) conn->state;
 }
+
+// lookup datapath program using program ID
+// returns  NULL on error
+struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u16 pid) {
+    struct DatapathProgram *prog;
+    struct DatapathProgram *programs = (struct DatapathProgram*) datapath->programs;
+
+    // bounds check
+    if (pid == 0) {
+        libccp_warn("no datapath program set\n");
+        return NULL;
+    } else if (pid > datapath->max_programs) {
+        libccp_warn("program index out of bounds: %d\n", pid);
+        return NULL;
+    }
+
+    prog = &programs[pid-1];
+    if (prog->index != pid) {
+        libccp_warn("index mismatch: pid %d, index %d", pid, prog->index);
+        return NULL;
+    }
+
+    return prog;
+
+}

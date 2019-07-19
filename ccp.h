@@ -143,17 +143,17 @@ struct ccp_datapath {
     u64 (*now)(void); // the current time in datapath time units
     u64 (*since_usecs)(u64 then); // elapsed microseconds since <then>
     u64 (*after_usecs)(u64 usecs); // <usecs> microseconds from now in datapath time units
-    
-    // datapath-specific global state
-    void *impl;
-
-    size_t max_programs;
-    // list of datapath programs
-    struct DatapathProgram *programs;
 
     size_t max_connections;
     // list of active connections this datapath is handling
     struct ccp_connection* ccp_active_connections;
+
+    size_t max_programs;
+    // list of datapath programs
+    void *programs;
+    
+    // datapath-specific global state
+    void *impl;
 };
 
 /* 
@@ -175,7 +175,6 @@ void ccp_free(struct ccp_datapath *datapath);
  */
 struct ccp_connection *ccp_connection_start(struct ccp_datapath *datapath, void *impl, struct ccp_datapath_info *flow_info);
 
-
 /* Upon a connection ending,
  * free its slot in the connection map.
  */
@@ -184,11 +183,6 @@ void ccp_connection_free(struct ccp_datapath *datapath, u16 sid);
 /* While a flow is active, look up its CCP connection information.
  */
 struct ccp_connection *ccp_connection_lookup(struct ccp_datapath *datapath, u16 sid);
-
-
-/* Lookup a datapath program, available to all flows
- */
-struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u16 pid);
 
 /* Get the implementation-specific state of the ccp_connection.
  */
