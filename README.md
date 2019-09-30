@@ -8,7 +8,7 @@ and libccp handles everything else. The instructions below detail all of the
 steps necessary to make a datapath CCP compatible.  
 
 If you do not need to create a new datapath and just want to get started using
-CCP, please see our [guide](https://ccp-project.github.io/guide).
+CCP, please see our [guide](https://ccp-project.github.io/ccp-guide).
 
 
 ## Implementation
