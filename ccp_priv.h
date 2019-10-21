@@ -43,31 +43,31 @@
 }
 
 // __LOG_INFO__ is default
-#define libccp_trace(fmt, args...) 
-#define libccp_debug(fmt, args...) 
+#define libccp_trace(fmt, args...)
+#define libccp_debug(fmt, args...)
 #define libccp_info(fmt, args...) log_fmt(INFO, fmt, ## args)
 #define libccp_warn(fmt, args...) log_fmt(WARN, fmt, ## args)
 #define libccp_error(fmt, args...) log_fmt(ERROR, fmt, ## args)
 
 #ifdef __LOG_TRACE__
 #undef libccp_trace
-#define libccp_trace(fmt, args...) log_fmt(libccp_trace, fmt, ## args)
+#define libccp_trace(fmt, args...) log_fmt(TRACE, fmt, ## args)
 #undef libccp_debug
-#define libccp_debug(fmt, args...) log_fmt(libccp_debug, fmt, ## args)
+#define libccp_debug(fmt, args...) log_fmt(DEBUG, fmt, ## args)
 #endif
 
 #ifdef __LOG_DEBUG__
 #undef libccp_debug
-#define libccp_debug(fmt, args...) log_fmt(libccp_debug, fmt, ## args)
+#define libccp_debug(fmt, args...) log_fmt(DEBUG, fmt, ## args)
 #endif
 
 #ifdef __LOG_WARN__
 #undef libccp_info
-#define libccp_info(fmt, args...) 
+#define libccp_info(fmt, args...)
 #endif
 #ifdef __LOG_ERROR__
 #undef libccp_info
-#define libccp_info(fmt, args...) 
+#define libccp_info(fmt, args...)
 #undef libccp_warn
 #define libccp_warn(fmt, args...)
 #endif
