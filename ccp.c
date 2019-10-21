@@ -336,7 +336,7 @@ int datapath_program_install(struct ccp_datapath *datapath, struct InstallExpres
 
 }
 
-int stage_update(struct staged_update *pending_update, struct UpdateField *update_field) {
+int stage_update(struct ccp_datapath *datapath, struct staged_update *pending_update, struct UpdateField *update_field) {
     // update the value for these registers
     // for cwnd, rate; update field in datapath
     switch(update_field->reg_type) {
@@ -362,10 +362,10 @@ int stage_update(struct staged_update *pending_update, struct UpdateField *updat
     }
 }
 
-int stage_multiple_updates(struct staged_update *pending_update, size_t num_updates, struct UpdateField *msg_ptr) {
+int stage_multiple_updates(struct ccp_datapath *datapath, struct staged_update *pending_update, size_t num_updates, struct UpdateField *msg_ptr) {
     int ok;
     for (size_t i = 0; i < num_updates; i++) {
-        ok = stage_update(pending_update, msg_ptr);
+        ok = stage_update(datapath, pending_update, msg_ptr);
         if (ok < 0) {
             return ok;
         }
@@ -461,7 +461,7 @@ int ccp_read_msg(
             return -8;
         }
 
-        ok = stage_multiple_updates(&state->pending_update, num_updates, (struct UpdateField*) msg_ptr);
+        ok = stage_multiple_updates(datapath, &state->pending_update, num_updates, (struct UpdateField*) msg_ptr);
         if (ok < 0) {
             libccp_warn("Failed to stage updates: %d\n", ok);
             return -11;
@@ -491,7 +491,7 @@ int ccp_read_msg(
         memset(&state->pending_update, 0, sizeof(struct staged_update));
         // stage any possible update fields to the initialized registers
         // corresponding to the new program
-        ok = stage_multiple_updates(&state->pending_update, change_program.num_updates, (struct UpdateField*)(msg_ptr));
+        ok = stage_multiple_updates(datapath, &state->pending_update, change_program.num_updates, (struct UpdateField*)(msg_ptr));
         if (ok < 0) {
             libccp_warn("Failed to stage updates: %d\n", ok);
             return -8;
@@ -553,6 +553,8 @@ int send_measurement(
     int ok;
     char msg[REPORT_MSG_SIZE];
     int msg_size;
+    struct ccp_datapath *datapath = conn->datapath;
+
     if (conn->index < 1) {
         ok = -1;
         return ok;
