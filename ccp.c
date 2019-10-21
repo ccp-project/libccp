@@ -79,6 +79,10 @@ int ccp_init(struct ccp_datapath *datapath) {
     return 0;
 }
 
+void ccp_free(struct ccp_datapath *datapath) {
+  free(datapath->programs);
+}
+
 void ccp_conn_create_success(struct ccp_priv_state *state) {
     state->sent_create = true;
 }
