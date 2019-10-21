@@ -347,7 +347,7 @@ static int process_instruction(struct ccp_datapath *datapath, struct DatapathPro
             }
             break;
         case BIND: // take arg2, and put it in rRet
-            libccp_trace("BIND r" FMT_U64 " -> r" FMT_U64 "\n", arg2, current_instruction.rRet.value);
+            libccp_trace("BIND r%d: " FMT_U64 " -> " FMT_U64 "\n", current_instruction.rRet.index, current_instruction.rRet.value, arg2);
             write_reg(datapath, state, arg2, current_instruction.rRet);
             break;
         default:
