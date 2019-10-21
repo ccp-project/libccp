@@ -114,8 +114,10 @@ int write_measure_msg(
     };
     
     // copy message fields into MeasureMsg struct
-    memcpy(ms.fields, msg_fields, ms.num_fields * sizeof(u64));
-    
+    if (msg_fields) {
+      memcpy(ms.fields, msg_fields, ms.num_fields * sizeof(u64));
+    }
+
     if (bufsize < 0) {
         return -1;
     }
