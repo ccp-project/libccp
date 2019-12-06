@@ -336,7 +336,7 @@ int datapath_program_install(struct ccp_datapath *datapath, struct InstallExpres
 
 }
 
-int stage_update(struct ccp_datapath *datapath, struct staged_update *pending_update, struct UpdateField *update_field) {
+int stage_update(struct ccp_datapath *datapath __attribute__((unused)), struct staged_update *pending_update, struct UpdateField *update_field) {
     // update the value for these registers
     // for cwnd, rate; update field in datapath
     switch(update_field->reg_type) {
@@ -553,7 +553,7 @@ int send_measurement(
     int ok;
     char msg[REPORT_MSG_SIZE];
     int msg_size;
-    struct ccp_datapath *datapath = conn->datapath;
+    struct ccp_datapath *datapath __attribute__((unused)) = conn->datapath;
 
     if (conn->index < 1) {
         ok = -1;
