@@ -116,41 +116,40 @@ static int read_op(struct Instruction64* instr, u8 opcode) {
  */
 static int deserialize_register(struct Register *ret, u8 reg_type, u32 reg_value) {
     switch (reg_type) {
-        case CONTROL_REG: // control register
-            ret->type = (int)CONTROL_REG;
-            ret->index = (u64)reg_value;
-            return 0;
        case IMMEDIATE_REG: // immediate - store in value
             ret->type = (int)IMMEDIATE_REG;
             ret->value = (u64)reg_value;
             return 0;
+        case NONVOLATILE_CONTROL_REG: // control register
+            ret->type = (int)NONVOLATILE_CONTROL_REG;
+            break;
+        case VOLATILE_CONTROL_REG: // control register
+            ret->type = (int)VOLATILE_CONTROL_REG;
+            break;
         case IMPLICIT_REG: // implicit
             ret->type = (int)IMPLICIT_REG;
-            ret->index = (int)reg_value;
-            return 0;
+            break;
         case PRIMITIVE_REG: // primitive
             ret->type = (int)PRIMITIVE_REG;
-            ret->index = (int)reg_value;
-            return 0;
+            break;
         case VOLATILE_REPORT_REG: // output/permanent
             ret->type = (int)VOLATILE_REPORT_REG;
-            ret->index = (int)reg_value;
-            return 0;
+            break;
         case NONVOLATILE_REPORT_REG: // output/permanent
             ret->type = (int)NONVOLATILE_REPORT_REG;
-            ret->index = (int)reg_value;
-            return 0;
+            break;
         case TMP_REG: // temporary register
             ret->type = (int)TMP_REG;
-            ret->index = (int)reg_value;
-            return 0;  
+            break;
         case LOCAL_REG: // local register
             ret->type = (int)LOCAL_REG;
-            ret->index = (int)reg_value;
-            return 0;
+            break;
         default:
             return -1;
     }
+
+    ret->index = (int)reg_value;
+    return 0;
 }
 
 /*
@@ -185,7 +184,8 @@ static void write_reg(struct ccp_datapath *datapath, struct ccp_priv_state *stat
                 state->registers.impl_registers[US_ELAPSED_REG] = value;
             }
             break;
-        case CONTROL_REG:
+        case VOLATILE_CONTROL_REG:
+        case NONVOLATILE_CONTROL_REG:
             if (reg.index >= 0 && reg.index < MAX_CONTROL_REG) {
                 state->registers.control_registers[reg.index] = value; 
             }
@@ -204,7 +204,8 @@ static u64 read_reg(struct ccp_datapath *datapath, struct ccp_priv_state *state,
         case NONVOLATILE_REPORT_REG:
         case VOLATILE_REPORT_REG:
             return state->registers.report_registers[reg.index];
-        case CONTROL_REG:
+        case NONVOLATILE_CONTROL_REG:
+        case VOLATILE_CONTROL_REG:
             return state->registers.control_registers[reg.index];
         case TMP_REG:
             return state->registers.tmp_registers[reg.index];
@@ -457,14 +458,17 @@ void reset_state(struct ccp_datapath *datapath, struct ccp_priv_state *state) {
         current_instruction = program->fold_instructions[i];
         switch (current_instruction.op) {
             case DEF:
-                // This only applies to REPORT_REG.
+                // This only applies to REPORT_REG and volatile CONTROL_REG.
                 if (current_instruction.rLeft.type != NONVOLATILE_REPORT_REG && 
-                    current_instruction.rLeft.type != VOLATILE_REPORT_REG) {
+                    current_instruction.rLeft.type != VOLATILE_REPORT_REG && 
+                    current_instruction.rLeft.type != VOLATILE_CONTROL_REG) {
                     continue;
                 }
                 
                 // We report both NONVOLATILE_REPORT_REG and VOLATILE_REPORT_REG.
-                num_to_return += 1;
+                if (current_instruction.rLeft.type != VOLATILE_CONTROL_REG) {
+                    num_to_return += 1;
+                }
 
                 // We don't reset NONVOLATILE_REPORT_REG
                 if (current_instruction.rLeft.type == NONVOLATILE_REPORT_REG) {
@@ -497,12 +501,12 @@ void init_register_state(struct ccp_datapath *datapath, struct ccp_priv_state *s
 	return;
     }
 
-    // go through all the DEF instructions, and reset all CONTROL_REG and NONVOLATILE_REPORT_REG variables
+    // go through all the DEF instructions, and reset all nonvolatile CONTROL_REG and REPORT_REG variables
     for (i = 0; i < program->num_instructions; i++) {
         current_instruction = program->fold_instructions[i];
         switch (current_instruction.op) {
             case DEF:
-                if (current_instruction.rLeft.type != CONTROL_REG && current_instruction.rLeft.type != NONVOLATILE_REPORT_REG) {
+                if (current_instruction.rLeft.type != NONVOLATILE_CONTROL_REG && current_instruction.rLeft.type != NONVOLATILE_REPORT_REG) {
                     continue;
                 }
                 // set the default value of the state register

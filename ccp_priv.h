@@ -269,14 +269,15 @@ struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u
 #define    MAX_OP     15
 
 // types of registers
-#define CONTROL_REG            0
-#define IMMEDIATE_REG          1
-#define IMPLICIT_REG           2
-#define LOCAL_REG              3
-#define PRIMITIVE_REG          4
-#define VOLATILE_REPORT_REG    5
-#define NONVOLATILE_REPORT_REG 6
-#define TMP_REG                7
+#define NONVOLATILE_CONTROL_REG 0
+#define IMMEDIATE_REG           1
+#define IMPLICIT_REG            2
+#define LOCAL_REG               3
+#define PRIMITIVE_REG           4
+#define VOLATILE_REPORT_REG     5
+#define NONVOLATILE_REPORT_REG  6
+#define TMP_REG                 7
+#define VOLATILE_CONTROL_REG    8
 
 #ifdef __CPLUSPLUS__
 } // extern "C"

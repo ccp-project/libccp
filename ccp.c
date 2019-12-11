@@ -340,7 +340,8 @@ int stage_update(struct ccp_datapath *datapath __attribute__((unused)), struct s
     // update the value for these registers
     // for cwnd, rate; update field in datapath
     switch(update_field->reg_type) {
-        case CONTROL_REG:
+        case NONVOLATILE_CONTROL_REG:
+        case VOLATILE_CONTROL_REG:
             // set new value
             libccp_trace(("%s: control " FMT_U32 " <- " FMT_U64 "\n"), __FUNCTION__, update_field->reg_index, update_field->new_value);
             pending_update->control_registers[update_field->reg_index] = update_field->new_value;
