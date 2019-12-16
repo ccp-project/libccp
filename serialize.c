@@ -44,6 +44,7 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr) {
     switch (hdr->Type) {
     case CREATE:
     case MEASURE:
+    case READY:
         break;
     default:
         return -1;
@@ -55,6 +56,39 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr) {
 
     memcpy(buf, hdr, sizeof(struct CcpMsgHeader));
     return sizeof(struct CcpMsgHeader);
+}
+
+int write_ready_msg(
+    char *buf,
+    int bufsize,
+    u32 id
+) {
+    struct CcpMsgHeader hdr;
+    int ok;
+    u16 msg_len = sizeof(struct CcpMsgHeader) + sizeof(u32);
+
+    hdr = (struct CcpMsgHeader) {
+        .Type = READY,
+        .Len = msg_len,
+        .SocketId = 0
+    };
+
+    if (bufsize < 0) {
+        return -1;
+    }
+
+    if (((u32) bufsize) < hdr.Len) {
+        return -2;
+    }
+
+    ok = serialize_header(buf, bufsize, &hdr);
+    if (ok < 0) {
+        return ok;
+    }
+
+    buf += ok;
+    memcpy(buf, &id, sizeof(u32));
+    return hdr.Len;
 }
 
 int write_create_msg(
