@@ -76,6 +76,7 @@ int ccp_init(struct ccp_datapath *datapath) {
     }
 
     datapath->time_zero = datapath->now();
+
     return 0;
 }
 
