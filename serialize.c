@@ -47,11 +47,11 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr) {
     case READY:
         break;
     default:
-        return -1;
+        return -9;
     }
 
     if (bufsize < ((int)sizeof(struct CcpMsgHeader))) {
-        return -2;
+        return -10;
     }
 
     memcpy(buf, hdr, sizeof(struct CcpMsgHeader));
