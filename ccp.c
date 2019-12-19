@@ -81,7 +81,7 @@ int ccp_init(struct ccp_datapath *datapath) {
 }
 
 void ccp_free(struct ccp_datapath *datapath) {
-  free(datapath->programs);
+  __FREE__(datapath->programs);
 }
 
 void ccp_conn_create_success(struct ccp_priv_state *state) {
