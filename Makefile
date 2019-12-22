@@ -59,5 +59,5 @@ test: $(TEST_TARGET)
 
 .PHONY: clean
 clean:
-	-${RM} ${TARGET_LIB} ${OBJS} $(SRCS:.c=.d) ${TEST_TARGET} ${TEST_TARGET} ${STATIC_TARGET}
+	-${RM} ${TARGET_LIB} ${OBJS} ${TEST_OBJS} $(SRCS:.c=.d) ${TEST_TARGET} ${TEST_TARGET} ${STATIC_TARGET}
 	-${RM} -r *.dSYM

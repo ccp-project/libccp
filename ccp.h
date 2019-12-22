@@ -83,7 +83,7 @@ struct ccp_connection {
     // the index of this array element
     u16 index;
 
-    u32 last_create_msg_sent;
+    u64 last_create_msg_sent;
 
     // struct ccp_primitives is large; as a result, we store it inside ccp_connection to avoid
     // potential limitations in the datapath
@@ -192,7 +192,7 @@ struct ccp_connection *ccp_connection_lookup(struct ccp_datapath *datapath, u16 
  */
 void *ccp_get_impl(struct ccp_connection *conn);
 
-int ccp_set_impl(
+void ccp_set_impl(
     struct ccp_connection *conn, 
     void *ptr
 );
@@ -217,6 +217,14 @@ int ccp_invoke(struct ccp_connection *conn);
 void _update_fto_timer(struct ccp_datapath *datapath);
 bool _check_fto(struct ccp_datapath *datapath);
 void _turn_off_fto_timer(struct ccp_datapath *datapath);
+
+#define READY_MSG_SIZE 12
+int write_ready_msg(
+    char *buf,
+    int bufsize,
+    u32 id
+);
+
 
 #ifdef __CPLUSPLUS__
 } // extern "C"

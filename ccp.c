@@ -76,6 +76,8 @@ int ccp_init(struct ccp_datapath *datapath) {
         datapath->log = &null_log;
     }
 
+    libccp_trace("ccp_init");
+
     datapath->time_zero = datapath->now();
     datapath->last_msg_sent = 0;
     datapath->_in_fallback = false;
@@ -135,7 +137,7 @@ __INLINE__ void *ccp_get_impl(struct ccp_connection *conn) {
     return conn->impl;
 }
 
-__INLINE__ int ccp_set_impl(struct ccp_connection *conn, void *ptr) {
+__INLINE__ void ccp_set_impl(struct ccp_connection *conn, void *ptr) {
     conn->impl = ptr;
 }
 
@@ -160,7 +162,7 @@ int ccp_invoke(struct ccp_connection *conn) {
     if (!(state->sent_create)) {
         // try contacting the CCP again
         // index of pointer back to this sock for IPC callback
-        libccp_debug("%s retx create message\n", __FUNCTION__);
+        libccp_trace("%s retx create message\n", __FUNCTION__);
         ret = send_conn_create(datapath, conn);
         if (ret < 0) {
             if (!datapath->_in_fallback) {
@@ -238,7 +240,7 @@ struct ccp_connection *ccp_connection_lookup(struct ccp_datapath *datapath, u16 
 
     conn = &datapath->ccp_active_connections[sid-1];
     if (conn->index != sid) {
-        libccp_warn("index mismatch: sid %d, index %d", sid, conn->index);
+        libccp_trace("index mismatch: sid %d, index %d", sid, conn->index);
         return NULL;
     }
 
@@ -469,7 +471,7 @@ int ccp_read_msg(
     // rest of the messages must be for a specific flow
     conn = ccp_connection_lookup(datapath, hdr.SocketId);
     if (conn == NULL) {
-        libccp_warn("unknown connection: %u\n", hdr.SocketId);
+        libccp_trace("unknown connection: %u\n", hdr.SocketId);
         return LIBCCP_UNKNOWN_CONNECTION;
     }
     state = get_ccp_priv_state(conn);
@@ -562,6 +564,7 @@ int send_conn_create(
     msg_size = write_create_msg(msg, REPORT_MSG_SIZE, conn->index, cr);
     ret = datapath->send_msg(conn, msg, msg_size);
     if (ret) {
+        libccp_debug("error sending create, updating fto_timer")
         _update_fto_timer(datapath);
     }
     return ret;
@@ -621,6 +624,7 @@ int send_measurement(
     libccp_trace("[sid=%d] In %s\n", conn->index, __FUNCTION__);
     ret = conn->datapath->send_msg(conn, msg, msg_size);
     if(ret) {
+        libccp_debug("error sending measurement, updating fto timer");
         _update_fto_timer(datapath);
     }
     return ret;
