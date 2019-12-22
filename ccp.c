@@ -48,6 +48,7 @@ void __INLINE__ null_log(struct ccp_datapath *dp, enum ccp_log_level level, cons
  *   2. an optional callback function for logging
  *   3. a pointer to memory allocated for a list of ccp_connection objects
  *      (as well as the number of connections it can hold)
+ *   4. a fallback timeout value in microseconds (must be > 0)
  *
  * This function returns 0 if the structure has been initialized correctly and a negative value
  * with an error code otherwise. 
@@ -63,7 +64,8 @@ int ccp_init(struct ccp_datapath *datapath) {
         datapath->after_usecs            ==  NULL  ||
         datapath->ccp_active_connections ==  NULL  ||
         datapath->max_connections        ==  0     ||
-        datapath->max_programs           ==  0
+        datapath->max_programs           ==  0     ||
+        datapath->fto_us                 ==  0
     ) {
         return LIBCCP_MISSING_ARG;
     }
@@ -75,6 +77,8 @@ int ccp_init(struct ccp_datapath *datapath) {
     }
 
     datapath->time_zero = datapath->now();
+    datapath->last_msg_sent = 0;
+    datapath->_in_fallback = false;
 
     return LIBCCP_OK;
 }
@@ -115,10 +119,12 @@ struct ccp_connection *ccp_connection_start(struct ccp_datapath *datapath, void 
     // index of pointer back to this sock for IPC callback
     ret = send_conn_create(datapath, conn);
     if (ret < 0) {
-        libccp_warn("failed to send create message: %d\n", ret);
+        if (!datapath->_in_fallback) {
+            libccp_warn("failed to send create message: %d\n", ret);
+        }
         return conn;
     }
-    
+
     struct ccp_priv_state *state = get_ccp_priv_state(conn);
     ccp_conn_create_success(state);
 
@@ -142,15 +148,24 @@ int ccp_invoke(struct ccp_connection *conn) {
     if (conn == NULL) {
         return LIBCCP_NULL_ARG;
     }
+
     datapath = conn->datapath;
-		state = get_ccp_priv_state(conn);
+
+    if (_check_fto(datapath)) {
+        return LIBCCP_FALLBACK_TIMED_OUT;
+    }
+
+    state = get_ccp_priv_state(conn);
+
     if (!(state->sent_create)) {
         // try contacting the CCP again
         // index of pointer back to this sock for IPC callback
         libccp_debug("%s retx create message\n", __FUNCTION__);
         ret = send_conn_create(datapath, conn);
         if (ret < 0) {
-            libccp_warn("failed to retx create message: %d\n", ret);
+            if (!datapath->_in_fallback) {
+                libccp_warn("failed to retx create message: %d\n", ret);
+            }
         } else {
             ccp_conn_create_success(state);
         }
@@ -255,7 +270,9 @@ void ccp_connection_free(struct ccp_datapath *datapath, u16 sid) {
     msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, sid, 0, 0, 0);
     ret = datapath->send_msg(conn, msg, msg_size);
     if (ret < 0) {
-        libccp_warn("error sending close message: %d", ret);
+        if (!datapath->_in_fallback)  {
+            libccp_warn("error sending close message: %d", ret);
+        }
     }
     
     // ccp_connection_start will look for an array entry with index 0
@@ -420,6 +437,9 @@ int ccp_read_msg(
     }
     msg_ptr = buf + ret;
 
+
+    _turn_off_fto_timer(datapath);
+
     // INSTALL_EXPR message is for all flows, not a specific connection
     // sock_id in this message should be disregarded (could be before any flows begin)
     if (hdr.Type == INSTALL_EXPR) {
@@ -543,7 +563,43 @@ int send_conn_create(
     conn->last_create_msg_sent = datapath->now();
     msg_size = write_create_msg(msg, REPORT_MSG_SIZE, conn->index, cr);
     ret = datapath->send_msg(conn, msg, msg_size);
+    if (ret) {
+        _update_fto_timer(datapath);
+    }
     return ret;
+}
+
+void _update_fto_timer(struct ccp_datapath *datapath) {
+    if (!datapath->last_msg_sent) {
+        datapath->last_msg_sent = datapath->now();
+    }
+}
+
+/*
+ * Returns true if CCP has timed out, false otherwise
+ */
+bool _check_fto(struct ccp_datapath *datapath) {
+    // TODO not sure how well this will scale with many connections,
+    //      may be better to make it per conn
+    u64 since_last = datapath->since_usecs(datapath->last_msg_sent);
+    bool should_be_in_fallback = datapath->last_msg_sent && (since_last > datapath->fto_us);
+
+    if (should_be_in_fallback && !datapath->_in_fallback) {
+        datapath->_in_fallback = true;
+        libccp_error("ccp fallback (%lu since last msg)\n", since_last);
+    } else if (!should_be_in_fallback && datapath->_in_fallback) {
+        datapath->_in_fallback = false;
+        libccp_error("ccp should not be in fallback");
+    }
+    return should_be_in_fallback;
+}
+
+void _turn_off_fto_timer(struct ccp_datapath *datapath) {
+    if (datapath->_in_fallback) {
+        libccp_error("ccp restored!\n");
+    }
+    datapath->_in_fallback = false;
+    datapath->last_msg_sent = 0;
 }
 
 // send datapath measurements
@@ -565,6 +621,9 @@ int send_measurement(
 
     msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, conn->index, program_uid, fields, num_fields);
     libccp_trace("[sid=%d] In %s\n", conn->index, __FUNCTION__);
-    ok = conn->datapath->send_msg(conn, msg, msg_size);
-    return ok;
+    ret = conn->datapath->send_msg(conn, msg, msg_size);
+    if(ret) {
+        _update_fto_timer(datapath);
+    }
+    return ret;
 }
