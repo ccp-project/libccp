@@ -646,6 +646,7 @@ struct ccp_datapath *create_datapath() {
     datapath->now = test_ccp_time_now;
     datapath->since_usecs = test_ccp_since_usecs;
     datapath->after_usecs = test_ccp_after_usecs;
+    datapath->fto_us = 100000;
 
     return datapath;
 }
