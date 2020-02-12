@@ -188,7 +188,7 @@ struct ccp_connection *ccp_connection_lookup(struct ccp_datapath *datapath, u16 
  */
 void *ccp_get_impl(struct ccp_connection *conn);
 
-int ccp_set_impl(
+void ccp_set_impl(
     struct ccp_connection *conn, 
     void *ptr
 );

@@ -130,7 +130,7 @@ __INLINE__ void *ccp_get_impl(struct ccp_connection *conn) {
     return conn->impl;
 }
 
-__INLINE__ int ccp_set_impl(struct ccp_connection *conn, void *ptr) {
+__INLINE__ void ccp_set_impl(struct ccp_connection *conn, void *ptr) {
     conn->impl = ptr;
     return 0;
 }
