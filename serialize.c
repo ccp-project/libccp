@@ -1,6 +1,7 @@
 #include "serialize.h"
 #include "ccp.h"
 #include "ccp_priv.h"
+#include "ccp_error.h"
 
 #ifdef __KERNEL__
 #include <linux/types.h>
@@ -21,8 +22,6 @@
  * total: 6 Bytes
  */
 
-/* We only read Install Expr messages.
- */
 int read_header(struct CcpMsgHeader *hdr, char *buf) {
     memcpy(hdr, buf, sizeof(struct CcpMsgHeader));
 
@@ -34,7 +33,7 @@ int read_header(struct CcpMsgHeader *hdr, char *buf) {
     case CHANGE_PROG:
         return sizeof(struct CcpMsgHeader);
     default:
-        return -hdr->Type;
+        return LIBCCP_READ_INVALID_HEADER_TYPE;
     }
 }
 
@@ -47,11 +46,11 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr) {
     case READY:
         break;
     default:
-        return -9;
+        return LIBCCP_WRITE_INVALID_HEADER_TYPE;
     }
 
     if (bufsize < ((int)sizeof(struct CcpMsgHeader))) {
-        return -10;
+        return LIBCCP_BUFSIZE_TOO_SMALL;
     }
 
     memcpy(buf, hdr, sizeof(struct CcpMsgHeader));
@@ -64,7 +63,7 @@ int write_ready_msg(
     u32 id
 ) {
     struct CcpMsgHeader hdr;
-    int ok;
+    int ret;
     u16 msg_len = sizeof(struct CcpMsgHeader) + sizeof(u32);
 
     hdr = (struct CcpMsgHeader) {
@@ -74,19 +73,19 @@ int write_ready_msg(
     };
 
     if (bufsize < 0) {
-        return -1;
+        return LIBCCP_BUFSIZE_NEGATIVE;
     }
 
     if (((u32) bufsize) < hdr.Len) {
-        return -2;
+        return LIBCCP_BUFSIZE_TOO_SMALL;
     }
 
-    ok = serialize_header(buf, bufsize, &hdr);
-    if (ok < 0) {
-        return ok;
+    ret = serialize_header(buf, bufsize, &hdr);
+    if (ret < 0) {
+        return ret;
     }
 
-    buf += ok;
+    buf += ret;
     memcpy(buf, &id, sizeof(u32));
     return hdr.Len;
 }
@@ -98,7 +97,7 @@ int write_create_msg(
     struct CreateMsg cr
 ) {
     struct CcpMsgHeader hdr;
-    int ok;
+    int ret;
     u16 msg_len = sizeof(struct CcpMsgHeader) + sizeof(struct CreateMsg);
     
     hdr = (struct CcpMsgHeader){
@@ -108,19 +107,19 @@ int write_create_msg(
     };
 
     if (bufsize < 0) {
-        return -1;
+        return LIBCCP_BUFSIZE_NEGATIVE;
     }
     
     if (((u32) bufsize) < hdr.Len) {
-        return -2;
+        return LIBCCP_BUFSIZE_TOO_SMALL;
     }
     
-    ok = serialize_header(buf, bufsize, &hdr);
-    if (ok < 0) {
-        return ok;
+    ret = serialize_header(buf, bufsize, &hdr);
+    if (ret < 0) {
+        return ret;
     }
 
-    buf += ok;
+    buf += ret;
     memcpy(buf, &cr, hdr.Len - sizeof(struct CcpMsgHeader));
     return hdr.Len;
 }
@@ -133,7 +132,7 @@ int write_measure_msg(
     u64 *msg_fields,
     u8 num_fields
 ) {
-    int ok;
+    int ret;
     struct MeasureMsg ms = {
         .program_uid = program_uid,
         .num_fields = num_fields,
@@ -153,19 +152,19 @@ int write_measure_msg(
     }
 
     if (bufsize < 0) {
-        return -1;
+        return LIBCCP_BUFSIZE_NEGATIVE;
     }
 
     if (((u32) bufsize) < hdr.Len) {
-        return -2;
+        return LIBCCP_BUFSIZE_TOO_SMALL;
     }
 
-    ok = serialize_header(buf, bufsize, &hdr);
-    if (ok < 0) {
-        return ok;
+    ret = serialize_header(buf, bufsize, &hdr);
+    if (ret < 0) {
+        return ret;
     }
 
-    buf += ok;
+    buf += ret;
     memcpy(buf, &ms, hdr.Len - sizeof(struct CcpMsgHeader));
     return hdr.Len;
 }
@@ -177,17 +176,17 @@ int read_install_expr_msg_hdr(
     char *buf
 ) {
     if (hdr->Type != INSTALL_EXPR) {
-        return -1;
+        return LIBCCP_INSTALL_TYPE_MISMATCH;
     } 
 
     if (expr_msg_info->num_expressions > MAX_EXPRESSIONS) {
         libccp_warn("Program to install has too many expressions: %u\n", expr_msg_info->num_expressions);
-        return -2;
+        return LIBCCP_INSTALL_TOO_MANY_EXPR;
     }
 
     if (expr_msg_info->num_instructions > MAX_INSTRUCTIONS) {
         libccp_warn("Program to install has too many instructions: %u\n", expr_msg_info->num_instructions);
-        return -2;
+        return LIBCCP_INSTALL_TOO_MANY_INSTR;
     }
     memcpy(expr_msg_info, buf, sizeof(struct InstallExpressionMsgHdr));
     return sizeof(struct InstallExpressionMsgHdr);
@@ -201,13 +200,14 @@ int check_update_fields_msg(
     char *buf
 ) {
     if (hdr->Type != UPDATE_FIELDS) {
-        return -1;
+        libccp_warn("check_update_fields_msg: hdr.Type != UPDATE_FIELDS")
+        return LIBCCP_UPDATE_TYPE_MISMATCH;
     }
 
     *num_updates = (u32)*buf;
     if (*num_updates > MAX_MUTABLE_REG) {
         libccp_warn("Too many updates!: %u\n", *num_updates);
-        return -2;
+        return LIBCCP_UPDATE_TOO_MANY;
     }
     return sizeof(u32);
 }
@@ -219,13 +219,14 @@ int read_change_prog_msg(
     char *buf
 ) {
     if (hdr->Type != CHANGE_PROG) {
-        return -1;
+        libccp_warn("read_change_prog_msg: hdr.Type != CHANGE_PROG")
+        return LIBCCP_CHANGE_TYPE_MISMATCH;
     }
 
     memcpy(change_prog, buf, sizeof(struct ChangeProgMsg));
     if (change_prog->num_updates > MAX_MUTABLE_REG) {
         libccp_warn("Too many updates sent with change prog: %u\n", change_prog->num_updates);
-        return -2;
+        return LIBCCP_CHANGE_TOO_MANY;
     }
     return sizeof(struct ChangeProgMsg);
 }
