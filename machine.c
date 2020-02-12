@@ -1,4 +1,6 @@
 #include "ccp_priv.h"
+#include "ccp_error.h"
+
 /*
  * CCP Send State Machine
  *
@@ -104,10 +106,10 @@ static u64 mysub64(u64 a, u64 b) {
  */
 static int read_op(struct Instruction64* instr, u8 opcode) {
     if (opcode >= MAX_OP) {
-        return -1;
+        return LIBCCP_READ_INVALID_OP;
     }
     instr->op = opcode;
-    return 0;
+    return LIBCCP_OK;
 }
 
 /*
@@ -275,7 +277,7 @@ static int process_instruction(struct ccp_datapath *datapath, struct DatapathPro
             result = myadd64(arg1, arg2);
             if (result < arg1) {
                 libccp_warn("ERROR! Integer overflow: " FMT_U64 " + " FMT_U64 "\n", arg1, arg2);
-                return -1;
+                return LIBCCP_ADD_INT_OVERFLOW;
             }
             write_reg(datapath, state, result, current_instruction.rRet);
             break;
@@ -283,7 +285,7 @@ static int process_instruction(struct ccp_datapath *datapath, struct DatapathPro
             libccp_trace("DIV  " FMT_U64 " / " FMT_U64 " = ", arg1, arg2);
             if (arg2 == 0) {
                 libccp_warn("ERROR! Attempt to divide by 0: " FMT_U64 " / " FMT_U64 "\n", arg1, arg2);
-                return -1;
+                return LIBCCP_DIV_BY_ZERO;
             } else {
                 libccp_trace("" FMT_U64 "\n", mydiv64(arg1, arg2));
                 write_reg(datapath, state, mydiv64(arg1, arg2), current_instruction.rRet);
@@ -318,7 +320,7 @@ static int process_instruction(struct ccp_datapath *datapath, struct DatapathPro
             result = mymul64(arg1, arg2);
             if (result < arg1 && arg2 > 0) {
                 libccp_error("ERROR! Integer overflow: " FMT_U64 " * " FMT_U64 "\n", arg1, arg2);
-                return -1;
+                return LIBCCP_MUL_INT_OVERFLOW;
             }
             write_reg(datapath, state, result, current_instruction.rRet);
             break;
@@ -327,7 +329,7 @@ static int process_instruction(struct ccp_datapath *datapath, struct DatapathPro
             result = mysub64(arg1, arg2);
             if (result > arg1) {
                 libccp_error("ERROR! Integer underflow: " FMT_U64 " - " FMT_U64 "\n", arg1, arg2);
-                return -1;
+                return LIBCCP_SUB_INT_UNDERFLOW;
             }
             write_reg(datapath, state, result, current_instruction.rRet);
             break;
@@ -355,7 +357,7 @@ static int process_instruction(struct ccp_datapath *datapath, struct DatapathPro
             libccp_debug("UNKNOWN OP %d\n", current_instruction.op);
             break;
     }
-    return 0;
+    return LIBCCP_OK;
 
 }
 
@@ -371,7 +373,7 @@ static int process_expression(struct ccp_datapath *datapath, struct DatapathProg
     for (idx=expression->cond_start_idx; idx<(expression->cond_start_idx + expression->num_cond_instrs); idx++) {
        ret = process_instruction(datapath, program, idx, state, primitives);
        if (ret < 0) {
-         return -1;
+         return ret;
        }
     }
     libccp_trace("} => " FMT_U64 "\n", state->registers.impl_registers[EXPR_FLAG_REG]);
@@ -381,48 +383,48 @@ static int process_expression(struct ccp_datapath *datapath, struct DatapathProg
         for (idx = expression->event_start_idx; idx<(expression->event_start_idx + expression->num_event_instrs ); idx++) {
             ret = process_instruction(datapath, program, idx, state, primitives);
             if (ret < 0) {
-                return -1;
+                return ret;
             }
         }
     }
 
-    return 0;
+    return LIBCCP_OK;
 }
 
 /*
  * Read instructions into an instruction struct
  */
 int read_instruction(
-    struct Instruction64 *ret,
+    struct Instruction64 *instr,
     struct InstructionMsg *msg
 ) {
-    int ok;
-    ok = read_op(ret, msg->opcode);
-    if (ok < 0) {
-        return -1;
+    int reg;
+    reg = read_op(instr, msg->opcode);
+    if (reg < 0) {
+        return reg;
     }
     
     // check if the reg type is IMMEDIATE or PRIMITIVE
     if (msg->result_reg_type == IMMEDIATE_REG || msg->result_reg_type == PRIMITIVE_REG) {
-        return -2;
+        return LIBCCP_READ_REG_NOT_ALLOWED;
     }
 
-    ok = deserialize_register(&ret->rRet, msg->result_reg_type, msg->result_register);
-    if (ok < 0) {
-        return -3;
+    reg = deserialize_register(&instr->rRet, msg->result_reg_type, msg->result_register);
+    if (reg < 0) {
+        return LIBCCP_READ_INVALID_RETURN_REG;
     }
 
-    ok = deserialize_register(&ret->rLeft, msg->left_reg_type, msg->left_register);
-    if (ok < 0) {
-        return -4;
+    reg = deserialize_register(&instr->rLeft, msg->left_reg_type, msg->left_register);
+    if (reg < 0) {
+        return LIBCCP_READ_INVALID_LEFT_REG;
     }
 
-    ok = deserialize_register(&ret->rRight, msg->right_reg_type, msg->right_register);
-    if (ok < 0) {
-        return -5;
+    reg = deserialize_register(&instr->rRight, msg->right_reg_type, msg->right_register);
+    if (reg < 0) {
+        return LIBCCP_READ_INVALID_RIGHT_REG;
     }
 
-    return ok;
+    return reg;
 }
 
 /*
@@ -432,12 +434,11 @@ int read_expression(
     struct Expression *expr,
     struct ExpressionMsg *msg
 ) {
-    int ok = 0;
     expr->cond_start_idx = msg->cond_start_idx;
     expr->num_cond_instrs = msg->num_cond_instrs;
     expr->event_start_idx = msg->event_start_idx;
     expr->num_event_instrs = msg->num_event_instrs;
-    return ok;
+    return LIBCCP_OK;
 }
 
 /*
@@ -448,7 +449,7 @@ void reset_state(struct ccp_datapath *datapath, struct ccp_priv_state *state) {
     struct DatapathProgram* program = datapath_program_lookup(datapath, state->program_index);
     if (program == NULL) {
         libccp_info("Cannot reset state because program is NULL\n");
-	return;
+        return;
     }
     struct Instruction64 current_instruction;
     u8 num_to_return = 0;
@@ -498,7 +499,7 @@ void init_register_state(struct ccp_datapath *datapath, struct ccp_priv_state *s
     struct DatapathProgram* program = datapath_program_lookup(datapath, state->program_index);
     if (program == NULL) {
         libccp_info("Cannot init register state because program is NULL\n");
-	return;
+        return;
     }
 
     // go through all the DEF instructions, and reset all nonvolatile CONTROL_REG and REPORT_REG variables
@@ -550,12 +551,12 @@ int state_machine(struct ccp_connection *conn) {
     struct ccp_datapath *datapath = conn->datapath;
     if (state == NULL) {
         libccp_warn("CCP priv state is null");
-        return -1;
+        return LIBCCP_PRIV_IS_NULL;
     }
     struct DatapathProgram* program = datapath_program_lookup(conn->datapath, state->program_index);
     if (program == NULL) {
         libccp_warn("Datapath program is null");
-        return -1;
+        return LIBCCP_PROG_IS_NULL;
     }
     struct ccp_primitives* primitives = &conn->prims;
     u32 i;
@@ -575,7 +576,7 @@ int state_machine(struct ccp_connection *conn) {
         ret = process_expression(datapath, program, i, state, primitives);
         if (ret < 0) {
             libccp_trace(">>> program finished [sid=%d] [ret=-1] <<<\n\n", conn->index);
-            return -1;
+            return ret;
         }
 
         // break if the expression is true and fall through is NOT true
@@ -602,5 +603,5 @@ int state_machine(struct ccp_connection *conn) {
     }
 
     libccp_trace(">>> program finished [sid=%d] [ret=0] <<<\n\n", conn->index);
-    return 0;
+    return LIBCCP_OK;
 }
