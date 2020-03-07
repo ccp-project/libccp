@@ -139,12 +139,12 @@ int ccp_invoke(struct ccp_connection *conn) {
     int i;
     int ok = 0;
     struct ccp_priv_state *state;
-    struct ccp_datapath *datapath = conn->datapath;
+    struct ccp_datapath *datapath;
 
     if (conn == NULL) {
         return -1;
     }
-
+    datapath = conn->datapath;
 		state = get_ccp_priv_state(conn);
     if (!(state->sent_create)) {
         // try contacting the CCP again
