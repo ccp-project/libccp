@@ -1,6 +1,6 @@
 # libccp [![Build Status](https://travis-ci.org/ccp-project/libccp.svg?branch=master)](https://travis-ci.org/ccp-project/libccp)
 
-Libccp is an implementation of the core functionality necsesary for a datapath
+`libccp` is an implementation of the core functionality necsesary for a datapath
 to communicate with a CCP process. The datapath is responsible for providing 
 a few callback functions for modifying state internal to the datapath
 (e.g. congestion window or packet pacing rate) and a few utility functions
@@ -10,6 +10,19 @@ steps necessary to make a datapath CCP compatible.
 If you do not need to create a new datapath and just want to get started using
 CCP, please see our [guide](https://ccp-project.github.io/ccp-guide).
 
+## Build
+
+### cmake
+
+Run `cmake .` in the root directory of libccp, then run `make`. 
+
+### make 
+
+`mv Makefile.old Makefile` then `make`.
+
+# Supporting New Datapaths
+
+Follow these steps to add ccp support to a new datapath.
 
 ## Implementation
 
