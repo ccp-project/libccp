@@ -2,4 +2,10 @@
 **/*.o
 **/*.a
 **/*.so
-libccp-test*
+unittest*
+CMakeFiles/
+CMakeCache.txt
+.cmake
+*.cmake
+_build
+install_manifest.txt
