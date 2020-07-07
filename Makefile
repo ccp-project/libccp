@@ -30,11 +30,11 @@ LIB_NAME = ccp
 TARGET_LIB = lib${LIB_NAME}.so # target lib
 STATIC_TARGET = lib${LIB_NAME}.a
 
-TEST_TARGET = libccp-test
+TEST_TARGET = unittest
 SRCS = ccp.c machine.c serialize.c ccp_priv.c # source files
 OBJS = $(SRCS:.c=.o)
 
-TEST_SRCS = test.c
+TEST_SRCS = unittest.c
 TEST_OBJS = $(TEST_SRCS:.c=.o)
 
 .PHONY: all
@@ -55,7 +55,7 @@ $(TEST_TARGET): ${TARGET_LIB} ${TEST_OBJS}
 	$(CC) ${CFLAGS} ${TEST_SRCS} ${STATIC_TARGET} -o ${TEST_TARGET}
 
 test: $(TEST_TARGET)
-	./libccp-test
+	./$(TEST_TARGET)
 
 .PHONY: clean
 clean:
