@@ -218,6 +218,14 @@ void _update_fto_timer(struct ccp_datapath *datapath);
 bool _check_fto(struct ccp_datapath *datapath);
 void _turn_off_fto_timer(struct ccp_datapath *datapath);
 
+#define READY_MSG_SIZE 12
+int write_ready_msg(
+    char *buf,
+    int bufsize,
+    u32 id
+);
+
+
 #ifdef __CPLUSPLUS__
 } // extern "C"
 #endif

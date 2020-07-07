@@ -51,8 +51,6 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
 // size of report msg is approx MAX_REPORT_REG * 8 + 4 + 4
 #define REPORT_MSG_SIZE     900
 
-#define READY_MSG_SIZE      12
-
 // Some messages contain serialized fold instructions.
 #define MAX_EXPRESSIONS    256 // arbitrary TODO: make configurable
 #define MAX_INSTRUCTIONS   256 // arbitrary, TODO: make configurable
@@ -66,12 +64,6 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
 struct __attribute__((packed, aligned(4))) ReadyMsg {
     u32 id;
 };
-
-int write_ready_msg(
-    char *buf,
-    int bufsize,
-    u32 id
-);
 
 /* CREATE
  * str: the datapath's requested congestion control algorithm (could be overridden)
