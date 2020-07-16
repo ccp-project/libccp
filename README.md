@@ -10,15 +10,29 @@ steps necessary to make a datapath CCP compatible.
 If you do not need to create a new datapath and just want to get started using
 CCP, please see our [guide](https://ccp-project.github.io/ccp-guide).
 
+
 ## Build
+
+The simplest way to build is to simply run `make`. By default, we build both a shared and static version of the library.
 
 ### cmake
 
-Run `cmake .` in the root directory of libccp, then run `make`. 
+If you want to use `cmake`, run `cmake <path_to_libccp>` from within a separate build directory, then run `make` 
+and (optionally) `make install` (which copies the libraries, public header files, and target lists to an install prefix). 
+If you do not specify anything, it will use a system default install prefix, such as `/usr/lib` and `/usr/include`. 
+To use a different install prefix, add `-DCMAKE_INSTALL_PREFIX=...` when you run `cmake` (but then run `make` and `make install` as normal).
 
-### make 
+For example, you could do (from within the libccp root directory):
+```
+mkdir build/
+cd build/
+cmake -DCMAKE_INSTALL_PREFIX=~/test_install ../ # runs cmake on the libccp root directory but places the build files in the current libccp/build directory
+make # builds the libraries
+make install # copies all the files to ~/test_install/...
+```
 
-`mv Makefile.old Makefile` then `make`.
+To do an equivalent "clean" of all cmake-generated files, simply delete the `build` directory.
+
 
 # Supporting New Datapaths
 
