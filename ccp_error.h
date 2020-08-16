@@ -1,3 +1,6 @@
+#ifndef CCP_ERROR_H
+#define CCP_ERROR_H
+
 #define LIBCCP_OK 0
 
 // Function parameter checking
@@ -52,3 +55,4 @@
 // Fallback timer
 #define LIBCCP_FALLBACK_TIMED_OUT -101
 
+#endif
