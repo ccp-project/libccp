@@ -569,12 +569,12 @@ int state_machine(struct ccp_connection *conn) {
     implicit_now = datapath->since_usecs(state->implicit_time_zero);
     state->registers.impl_registers[US_ELAPSED_REG] = implicit_now;
     
-    libccp_trace(">>> program starting [sid=%d] <<<\n", conn->index);
+    libccp_trace(">>> program starting [sid=%d] <<<", conn->index);
     // cycle through expressions, and process instructions
     for (i=0; i < program->num_expressions; i++) {
         ret = process_expression(datapath, program, i, state, primitives);
         if (ret < 0) {
-            libccp_trace(">>> program finished [sid=%d] [ret=-1] <<<\n\n", conn->index);
+            libccp_trace(">>> program finished [sid=%d] [ret=-1] <<<", conn->index);
             return -1;
         }
 
@@ -582,25 +582,26 @@ int state_machine(struct ccp_connection *conn) {
         if ((state->registers.impl_registers[EXPR_FLAG_REG]) && !(state->registers.impl_registers[SHOULD_FALLTHROUGH_REG])) {
             break;
         }
-        libccp_trace("[sid=%d] fallthrough...\n", conn->index);
+        libccp_trace("[sid=%d] fallthrough...", conn->index);
     }
     // set rate and cwnd from implicit registers
     if (state->registers.impl_registers[CWND_REG] > 0) {
-        libccp_debug("[sid=%d] setting cwnd after program: " FMT_U64 "\n", conn->index, state->registers.impl_registers[CWND_REG]);
+        libccp_debug("[sid=%d] setting cwnd after program: " FMT_U64, conn->index, state->registers.impl_registers[CWND_REG]);
         datapath->set_cwnd(conn, state->registers.impl_registers[CWND_REG]);
     }
 
     if (state->registers.impl_registers[RATE_REG] != 0) {
-        libccp_debug("[sid=%d] setting rate after program: " FMT_U64 "\n", conn->index, state->registers.impl_registers[CWND_REG]);
+        libccp_debug("[sid=%d] setting rate after program: " FMT_U64, conn->index, state->registers.impl_registers[CWND_REG]);
         datapath->set_rate_abs(conn, state->registers.impl_registers[RATE_REG]);
     }
 
     // if we should report, report and reset state
     if (state->registers.impl_registers[SHOULD_REPORT_REG]) {
+        libccp_debug("[sid=%d] reporting", conn->index);
         send_measurement(conn, program->program_uid, state->registers.report_registers, program->num_to_return);
         reset_state(conn->datapath, state);
     }
 
-    libccp_trace(">>> program finished [sid=%d] [ret=0] <<<\n\n", conn->index);
+    libccp_trace(">>> program finished [sid=%d] [ret=0] <<<", conn->index);
     return 0;
 }

@@ -149,7 +149,7 @@ int ccp_invoke(struct ccp_connection *conn) {
     if (!(state->sent_create)) {
         // try contacting the CCP again
         // index of pointer back to this sock for IPC callback
-        libccp_debug("%s retx create message\n", __FUNCTION__);
+        libccp_debug("%s retx create message", __FUNCTION__);
         ok = send_conn_create(datapath, conn);
         if (ok < 0) {
             libccp_warn("failed to retx create message: %d\n", ok);
@@ -161,13 +161,18 @@ int ccp_invoke(struct ccp_connection *conn) {
     }
 
     // set cwnd and rate registers to what they are in the datapath
-    libccp_trace("primitives (cwnd, rate): (" FMT_U32 ", " FMT_U64 ")\n", conn->prims.snd_cwnd, conn->prims.snd_rate);
-    state->registers.impl_registers[CWND_REG] = (u64)conn->prims.snd_cwnd;
-    state->registers.impl_registers[RATE_REG] = (u64)conn->prims.snd_rate;
+    libccp_trace("primitives (cwnd, rate): (" FMT_U32 ", " FMT_U64 ")", conn->prims.snd_cwnd, conn->prims.snd_rate);
+    if conn->prims.snd_cwnd > 0 {
+        state->registers.impl_registers[CWND_REG] = (u64)conn->prims.snd_cwnd;
+    }
+
+    if conn->prims.snd_rate > 0 {
+        state->registers.impl_registers[RATE_REG] = (u64)conn->prims.snd_rate;
+    }
     
     if (state->staged_program_index >= 0) {
         // change the program to this program, and reset the state
-        libccp_debug("[sid=%d] Applying staged program change: %d -> %d\n", conn->index, state->program_index, state->staged_program_index); 
+        libccp_debug("[sid=%d] Applying staged program change: %d -> %d", conn->index, state->program_index, state->staged_program_index); 
         state->program_index = state->staged_program_index;
         reset_state(conn->datapath, state);
         init_register_state(conn->datapath, state);
@@ -177,7 +182,7 @@ int ccp_invoke(struct ccp_connection *conn) {
 
     for (i = 0; i < MAX_CONTROL_REG; i++) {
         if (state->pending_update.control_is_pending[i]) {
-            libccp_debug("[sid=%d] Applying staged field update: control reg %u (" FMT_U64 "->" FMT_U64 ") \n", 
+            libccp_debug("[sid=%d] Applying staged field update: control reg %u (" FMT_U64 "->" FMT_U64 ")", 
                 conn->index, i,
                 state->registers.control_registers[i],
                 state->pending_update.control_registers[i]
