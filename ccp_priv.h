@@ -72,7 +72,7 @@
 #define libccp_warn(fmt, args...)
 #endif
 
-#ifdef __CPLUSPLUS__
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -279,7 +279,7 @@ struct DatapathProgram* datapath_program_lookup(struct ccp_datapath *datapath, u
 #define TMP_REG                 7
 #define VOLATILE_CONTROL_REG    8
 
-#ifdef __CPLUSPLUS__
+#ifdef __cplusplus
 } // extern "C"
 #endif
 

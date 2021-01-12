@@ -11,7 +11,7 @@
 
 #include "types.h"
 
-#ifdef __CPLUSPLUS__
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -226,7 +226,7 @@ int write_ready_msg(
 );
 
 
-#ifdef __CPLUSPLUS__
+#ifdef __cplusplus
 } // extern "C"
 #endif
 

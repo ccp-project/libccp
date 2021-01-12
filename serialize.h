@@ -9,7 +9,7 @@
 #include "types.h"
 #include "ccp.h"
 
-#ifdef __CPLUSPLUS__
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -198,7 +198,7 @@ int read_change_prog_msg(
     char *buf
 );
 
-#ifdef __CPLUSPLUS__
+#ifdef __cplusplus
 } // extern "C"
 #endif
 
