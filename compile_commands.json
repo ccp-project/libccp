@@ -1,0 +1,103 @@
+[
+    {
+        "arguments": [
+            "cc", 
+            "-c", 
+            "-fPIC", 
+            "-Wall", 
+            "-Wextra", 
+            "-O2", 
+            "-g", 
+            "-std=gnu99", 
+            "-Wno-declaration-after-statement", 
+            "-fgnu89-inline", 
+            "-D__LOG_TRACE__",
+            "-o", 
+            "serialize.o", 
+            "serialize.c"
+        ], 
+        "directory": "/home/akshayn/libccp", 
+        "file": "serialize.c"
+    }, 
+    {
+        "arguments": [
+            "cc", 
+            "-c", 
+            "-fPIC", 
+            "-Wall", 
+            "-Wextra", 
+            "-O2", 
+            "-g", 
+            "-std=gnu99", 
+            "-Wno-declaration-after-statement", 
+            "-fgnu89-inline", 
+            "-D__LOG_TRACE__",
+            "-o", 
+            "ccp_priv.o", 
+            "ccp_priv.c"
+        ], 
+        "directory": "/home/akshayn/libccp", 
+        "file": "ccp_priv.c"
+    }, 
+    {
+        "arguments": [
+            "cc", 
+            "-c", 
+            "-fPIC", 
+            "-Wall", 
+            "-Wextra", 
+            "-O2", 
+            "-g", 
+            "-std=gnu99", 
+            "-Wno-declaration-after-statement", 
+            "-fgnu89-inline", 
+            "-D__LOG_TRACE__",
+            "-o", 
+            "ccp.o", 
+            "ccp.c"
+        ], 
+        "directory": "/home/akshayn/libccp", 
+        "file": "ccp.c"
+    }, 
+    {
+        "arguments": [
+            "cc", 
+            "-c", 
+            "-fPIC", 
+            "-Wall", 
+            "-Wextra", 
+            "-O2", 
+            "-g", 
+            "-std=gnu99", 
+            "-Wno-declaration-after-statement", 
+            "-fgnu89-inline", 
+            "-D__LOG_TRACE__",
+            "-o", 
+            "machine.o", 
+            "machine.c"
+        ], 
+        "directory": "/home/akshayn/libccp", 
+        "file": "machine.c"
+    }, 
+    {
+        "arguments": [
+            "cc", 
+            "-c", 
+            "-fPIC", 
+            "-Wall", 
+            "-Wextra", 
+            "-O2", 
+            "-g", 
+            "-std=gnu99", 
+            "-Wno-declaration-after-statement", 
+            "-fgnu89-inline", 
+            "-D__LOG_TRACE__",
+            "libccp.a", 
+            "-o", 
+            "libccp-test", 
+            "test.c"
+        ], 
+        "directory": "/home/akshayn/libccp", 
+        "file": "test.c"
+    }
+]
