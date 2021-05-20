@@ -3,6 +3,7 @@
 **/*.a
 **/*.so
 unittest*
+!unittest.c
 CMakeFiles/
 CMakeCache.txt
 .cmake

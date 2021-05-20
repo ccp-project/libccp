@@ -533,7 +533,7 @@ int send_conn_create(
     struct ccp_connection *conn
 ) {
     int ret;
-    char msg[REPORT_MSG_SIZE];
+    char msg[CREATE_MSG_SIZE];
     int msg_size;
     struct CreateMsg cr = {
         .init_cwnd = conn->flow_info.init_cwnd,
@@ -543,6 +543,7 @@ int send_conn_create(
         .dst_ip = conn->flow_info.dst_ip,
         .dst_port = conn->flow_info.dst_port,
     };
+    memcpy(&cr.congAlg, &conn->flow_info.congAlg, MAX_CONG_ALG_SIZE);
 
     if (
         conn->last_create_msg_sent != 0 &&
@@ -561,7 +562,11 @@ int send_conn_create(
     }
 
     conn->last_create_msg_sent = datapath->now();
-    msg_size = write_create_msg(msg, REPORT_MSG_SIZE, conn->index, cr);
+    msg_size = write_create_msg(msg, CREATE_MSG_SIZE, conn->index, cr);
+    if (msg_size < 0) {
+        return msg_size;
+    }
+
     ret = datapath->send_msg(conn, msg, msg_size);
     if (ret) {
         libccp_debug("error sending create, updating fto_timer")

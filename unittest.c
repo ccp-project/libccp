@@ -90,6 +90,7 @@ static u64 test_ccp_after_usecs(u64 usecs) {
 //===========================================
 
 int test_init(struct ccp_datapath *datapath, struct ccp_connection **conn, struct test_conn *my_conn) {
+    char algname[MAX_CONG_ALG_SIZE] = "my-cool-alg";
     // a fake flow arrives!
     struct ccp_datapath_info info = {
         .init_cwnd = 100,
@@ -97,12 +98,13 @@ int test_init(struct ccp_datapath *datapath, struct ccp_connection **conn, struc
         .src_ip = 1,
         .src_port = 2,
         .dst_ip = 3, 
-        .dst_port = 4
+        .dst_port = 4,
     };
+    strncpy((char*) &info.congAlg, (const char*) &algname, MAX_CONG_ALG_SIZE);
 
-    char create_msg[32] = {
+    char create_msg[96] = {
         0x00,0x00,
-        0x20,0x00,
+        0x60,0x00,
         0x01,0x00,0x00,0x00,
         0x64,0x00,0x00,0x00,
         0x0a,0x00,0x00,0x00,
@@ -111,9 +113,10 @@ int test_init(struct ccp_datapath *datapath, struct ccp_connection **conn, struc
         0x03,0x00,0x00,0x00,
         0x04,0x00,0x00,0x00,
     };
+    strncpy((char*) &create_msg[32], (const char*) &algname, MAX_CONG_ALG_SIZE);
 
-    memcpy(&expected_sent_msg, &create_msg, 32);
-    expecting_send = 32;
+    memcpy(&expected_sent_msg, &create_msg, 96);
+    expecting_send = 96;
     *conn = ccp_connection_start(datapath, (void*) &my_conn, &info);
     if (expecting_send != 0) {
         printf("err: did not send\n");

@@ -47,7 +47,7 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
 #define  BIGGEST_MSG_SIZE  32678
 
 // for create messages, we know they are smaller when we send them up
-#define CREATE_MSG_SIZE     512
+#define CREATE_MSG_SIZE     128
 // size of report msg is approx MAX_REPORT_REG * 8 + 4 + 4
 #define REPORT_MSG_SIZE     900
 
@@ -66,8 +66,7 @@ struct __attribute__((packed, aligned(4))) ReadyMsg {
 };
 
 /* CREATE
- * str: the datapath's requested congestion control algorithm (could be overridden)
- * TODO(eventually): convey relevant sockopts to CCP
+ * congAlg: the datapath's requested congestion control algorithm (could be overridden)
  */
 struct __attribute__((packed, aligned(4))) CreateMsg {
     u32 init_cwnd;
@@ -76,6 +75,7 @@ struct __attribute__((packed, aligned(4))) CreateMsg {
     u32 src_port;
     u32 dst_ip;
     u32 dst_port;
+    char congAlg[MAX_CONG_ALG_SIZE];
 };
 
 /* Write cr: CreateMsg into buf with socketid sid.
