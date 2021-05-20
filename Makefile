@@ -51,7 +51,7 @@ $(SRCS:.c=.d):%.d:%.c
 
 -include $(SRCS:.c=.d)
 
-$(TEST_TARGET): ${TARGET_LIB} ${TEST_OBJS}
+$(TEST_TARGET): ${STATIC_TARGET} ${TEST_OBJS}
 	$(CC) ${CFLAGS} ${TEST_SRCS} ${STATIC_TARGET} -o ${TEST_TARGET}
 
 test: $(TEST_TARGET)
