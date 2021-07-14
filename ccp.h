@@ -160,12 +160,33 @@ struct ccp_datapath {
     void *impl;
 };
 
-/* 
- * Initialize gloal state and allocate a map for ccp connections upon module load.
+/* Initialize CCP.
  *
- * return -1 on allocation failure, should abort loading module
+ * This function should be called before any other libccp functions and ensures (as much as possible) 
+ * that the datapath structure has been initialized correctly. 
+ *
+ * A valid ccp_datapath must contain:
+ *   1. 6 callback functions: set_cwnd, set_rate_abs, send_msg, now, since_users, after_usecs
+ *   2. an optional callback function for logging
+ *   3. a pointer to memory allocated for a list of ccp_connection objects
+ *      (as well as the number of connections it can hold)
+ *   4. a fallback timeout value in microseconds (must be > 0)
+ *
+ * The id argument uniquely identifies this datapath.
+ *
+ * IMPORTANT: caller must allocate..
+ * 1. ccp_datapath
+ * 2. ccp_datapath.ccp_active_connections with enough space for `max_connections` `ccp_connections`
+ * ccp_init has no way of checking if enough space has been allocated, so any memory oob errors are
+ * likely a result not allocating enough space.
+ *
+ * If the userspace CCP process isn't listening, this function will have the same failure behavior and return value as send_msg.  
+ * In this case, initialization is considered to not be complete, and the caller is expected to try again.
+ *
+ * This function returns 0 if the structure has been initialized correctly and a negative value
+ * with an error code otherwise. 
  */
-int ccp_init(struct ccp_datapath *dp);
+int ccp_init(struct ccp_datapath *dp, u32 id);
 
 /* Free the global struct and map for ccp connections upon module unload.
  */
@@ -217,14 +238,6 @@ int ccp_invoke(struct ccp_connection *conn);
 void _update_fto_timer(struct ccp_datapath *datapath);
 bool _check_fto(struct ccp_datapath *datapath);
 void _turn_off_fto_timer(struct ccp_datapath *datapath);
-
-#define READY_MSG_SIZE 12
-int write_ready_msg(
-    char *buf,
-    int bufsize,
-    u32 id
-);
-
 
 #ifdef __cplusplus
 } // extern "C"

@@ -36,7 +36,7 @@ static void test_ccp_set_rate(struct ccp_connection *conn, u32 rate) {
     c->curr_rate = rate;
 }
 
-static int test_ccp_send_msg(struct ccp_connection *UNUSED(conn), char *msg, int msg_size) {
+static int test_ccp_send_msg(struct ccp_datapath *UNUSED(conn), char *msg, int msg_size) {
     if (expecting_send <= 0) {
         printf("FAIL\nNot expecting send");
         goto fail;
@@ -663,7 +663,16 @@ int main(int UNUSED(argc), char **UNUSED(argv)) {
         goto ret;
     }
 
-    ok = ccp_init(datapath);
+    expecting_send = 12;
+    char ready_msg[12] = {
+        0x05,0x00,
+        0x0c,0x00,
+        0x00,0x00,0x00,0x00,
+        0xaa,0x00,0x00,0x00,
+    };
+    memcpy(&expected_sent_msg, ready_msg, 12);
+
+    ok = ccp_init(datapath, 0xaa);
     if (ok < 0 ) {
         printf("ccp_init error: %d\n", ok);
         goto ret;
@@ -675,7 +684,6 @@ int main(int UNUSED(argc), char **UNUSED(argv)) {
         .curr_cwnd = 0,
         .curr_rate = 0,
     };
-
 
     ok = test_init(datapath, &conn, &my_conn);
     if (ok < 0) {

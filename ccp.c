@@ -32,26 +32,10 @@ void __INLINE__ null_log(struct ccp_datapath *dp, enum ccp_log_level level, cons
     (void)(msg_size);
 }
 
-/*
- * IMPORTANT: caller must allocate..
- * 1. ccp_datapath
- * 2. ccp_datapath.ccp_active_connections with enough space for `max_connections` `ccp_connections`
- * ccp_init has no way of checking if enough space has been allocated, so any memory oob errors are
- * likely a result not allocating enough space
- *
- * All calls to libccp require a ccp_datapath structure. This function should be called before any
- * other libccp functions and ensures (as much as possible) that the datapath structure has been
- * initialized correctly. A valid ccp_datapath must contain:
- *   1. 6 callback functions: set_cwnd, set_rate_abs, send_msg, now, since_users, after_usecs
- *   2. an optional callback function for logging
- *   3. a pointer to memory allocated for a list of ccp_connection objects
- *      (as well as the number of connections it can hold)
- *   4. a fallback timeout value in microseconds (must be > 0)
- *
- * This function returns 0 if the structure has been initialized correctly and a negative value
- * with an error code otherwise. 
- */
-int ccp_init(struct ccp_datapath *datapath) {
+int ccp_init(struct ccp_datapath *datapath, u32 id) {
+    int ok;
+    char ready_msg[READY_MSG_SIZE];
+    libccp_trace("ccp_init");
     if (
         datapath                         ==  NULL  ||
         datapath->set_cwnd               ==  NULL  ||
@@ -68,18 +52,27 @@ int ccp_init(struct ccp_datapath *datapath) {
         return LIBCCP_MISSING_ARG;
     }
 
-    datapath->programs = __CALLOC__(datapath->max_programs, sizeof(struct DatapathProgram));
-
     if (datapath->log == NULL) {
         datapath->log = &null_log;
     }
 
-    libccp_trace("ccp_init");
+    // send ready message
+    ok = write_ready_msg(ready_msg, READY_MSG_SIZE, id);
+    if (ok < 0) {
+        return ok;
+    }
 
+    ok = datapath->send_msg(datapath, ready_msg, READY_MSG_SIZE);
+    if (ok < 0) {
+        return ok;
+    }
+
+    libccp_trace("wrote ready msg")
+
+    datapath->programs = __CALLOC__(datapath->max_programs, sizeof(struct DatapathProgram));
     datapath->time_zero = datapath->now();
     datapath->last_msg_sent = 0;
     datapath->_in_fallback = false;
-
     return LIBCCP_OK;
 }
 

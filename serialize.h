@@ -46,10 +46,12 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
 // Some messages contain strings.
 #define  BIGGEST_MSG_SIZE  32678
 
-// for create messages, we know they are smaller when we send them up
-#define CREATE_MSG_SIZE     128
+// create messages are fixed length: header + 4 * 6 + 32
+#define CREATE_MSG_SIZE     96
 // size of report msg is approx MAX_REPORT_REG * 8 + 4 + 4
 #define REPORT_MSG_SIZE     900
+// ready message is just a u32.
+#define READY_MSG_SIZE 12
 
 // Some messages contain serialized fold instructions.
 #define MAX_EXPRESSIONS    256 // arbitrary TODO: make configurable
@@ -64,6 +66,15 @@ int serialize_header(char *buf, int bufsize, struct CcpMsgHeader *hdr);
 struct __attribute__((packed, aligned(4))) ReadyMsg {
     u32 id;
 };
+
+/* READY
+ * id: The unique id of this datapath.
+ */
+int write_ready_msg(
+    char *buf,
+    int bufsize,
+    u32 id
+);
 
 /* CREATE
  * congAlg: the datapath's requested congestion control algorithm (could be overridden)
