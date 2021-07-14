@@ -1,5 +1,3 @@
-#include "ccp.h"
-#include "serialize.h"
 #include "ccp_priv.h"
 #include "ccp_error.h"
 
