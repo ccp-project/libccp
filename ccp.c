@@ -268,7 +268,7 @@ void ccp_connection_free(struct ccp_datapath *datapath, u16 sid) {
     free_ccp_priv_state(conn);
 
     msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, sid, 0, 0, 0);
-    ret = datapath->send_msg(conn, msg, msg_size);
+    ret = datapath->send_msg(datapath, msg, msg_size);
     if (ret < 0) {
         if (!datapath->_in_fallback)  {
             libccp_warn("error sending close message: %d", ret);
@@ -565,7 +565,7 @@ int send_conn_create(
         return msg_size;
     }
 
-    ret = datapath->send_msg(conn, msg, msg_size);
+    ret = datapath->send_msg(datapath, msg, msg_size);
     if (ret) {
         libccp_debug("error sending create, updating fto_timer")
         _update_fto_timer(datapath);
@@ -625,7 +625,7 @@ int send_measurement(
 
     msg_size = write_measure_msg(msg, REPORT_MSG_SIZE, conn->index, program_uid, fields, num_fields);
     libccp_trace("[sid=%d] In %s\n", conn->index, __FUNCTION__);
-    ret = conn->datapath->send_msg(conn, msg, msg_size);
+    ret = conn->datapath->send_msg(datapath, msg, msg_size);
     if(ret) {
         libccp_debug("error sending measurement, updating fto timer");
         _update_fto_timer(datapath);

@@ -133,7 +133,7 @@ struct ccp_datapath {
     void (*set_rate_abs)(struct ccp_connection *conn, u32 rate);
 
     // IPC communication
-    int (*send_msg)(struct ccp_connection *conn, char *msg, int msg_size);
+    int (*send_msg)(struct ccp_datapath *dp, char *msg, int msg_size);
 
     // logging
     void (*log)(struct ccp_datapath *dp, enum ccp_log_level level, const char* msg, int msg_size);
