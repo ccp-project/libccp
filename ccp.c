@@ -59,16 +59,16 @@ int ccp_init(struct ccp_datapath *datapath, u32 id) {
     // send ready message
     ok = write_ready_msg(ready_msg, READY_MSG_SIZE, id);
     if (ok < 0) {
+        libccp_error("could not serialize ready message")
         return ok;
     }
 
     ok = datapath->send_msg(datapath, ready_msg, READY_MSG_SIZE);
     if (ok < 0) {
-        return ok;
+        libccp_warn("could not send ready message: %d", ok)
     }
 
     libccp_trace("wrote ready msg")
-
     datapath->programs = __CALLOC__(datapath->max_programs, sizeof(struct DatapathProgram));
     datapath->time_zero = datapath->now();
     datapath->last_msg_sent = 0;
