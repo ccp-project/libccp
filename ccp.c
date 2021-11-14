@@ -94,7 +94,6 @@ struct ccp_connection *ccp_connection_start(struct ccp_datapath *datapath, void 
     for (sid = 0; sid < datapath->max_connections; sid++) {
         conn = &datapath->ccp_active_connections[sid];
         if (CAS(&(conn->index), 0, sid+1)) {
-            sid = sid + 1;
             break;
         }
     }
